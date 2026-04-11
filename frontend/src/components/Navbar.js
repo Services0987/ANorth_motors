@@ -63,7 +63,7 @@ export default function Navbar() {
           <div className="hidden md:flex items-center gap-4">
             <a href="tel:+18256055050" className="flex items-center gap-2 text-white/50 hover:text-white transition-colors text-xs font-body tracking-wider">
               <Phone size={14} />
-              <span>780-555-0100</span>
+              <span>825-605-5050</span>
             </a>
             {user ? (
               <button

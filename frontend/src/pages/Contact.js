@@ -52,7 +52,7 @@ export default function Contact() {
                 { icon: MapPin, label: 'Address', value: '3304 91 St
 Edmonton, AB
 T6N 1C1' },
-                { icon: Phone, label: 'Phone', value: '780-555-0100', href: 'tel:+18256055050' },
+                { icon: Phone, label: 'Phone', value: '825-605-5050', href: 'tel:+18256055050' },
                 { icon: Mail, label: 'Email', value: 'autonorthab@gmail.com', href: 'mailto:autonorthab@gmail.com' },
               ].map((item) => (
                 <div key={item.label} className="flex items-start gap-4">

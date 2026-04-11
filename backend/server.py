@@ -347,7 +347,7 @@ async def ai_chat(data: ChatRequest):
 
     system = f"""You are AutoNorth Motors' AI Vehicle Specialist — Edmonton's most prestigious dealership assistant.
 
-DEALERSHIP: AutoNorth Motors | 9104 91 St NW, Edmonton, AB | Phone: 780-555-0100 | Hours: Mon-Fri 9am-8pm, Sat-Sun 10am-6pm
+DEALERSHIP: AutoNorth Motors | 9104 91 St NW, Edmonton, AB | Phone: 825-605-5050 | Hours: Mon-Fri 9am-8pm, Sat-Sun 10am-6pm
 
 YOUR PERSONA: Warm, professional, knowledgeable — like a trusted friend who knows cars deeply. Concise responses (2-4 sentences max). Ask one question at a time.
 
@@ -392,7 +392,7 @@ Be genuine, helpful, never pushy. If asked about financing say we offer rates fr
         return {"response": response_text, "lead_captured": lead_captured}
     except Exception as e:
         logger.error(f"Chat error: {e}")
-        return {"response": "I'm having a brief connection issue. Please call us at 780-555-0100 or use the contact form below — we're here to help!", "lead_captured": False}
+        return {"response": "I'm having a brief connection issue. Please call us at 825-605-5050 or use the contact form below — we're here to help!", "lead_captured": False}
 
 
 # ─── Startup ──────────────────────────────────────────────────────

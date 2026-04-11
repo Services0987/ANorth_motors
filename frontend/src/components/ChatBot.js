@@ -81,7 +81,7 @@ export default function ChatBot() {
       setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
       if (data.lead_captured) setBookingConfirmed(true);
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Connection issue — please call us at 780-555-0100 or use the contact form.' }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Connection issue — please call us at 825-605-5050 or use the contact form.' }]);
     } finally {
       setLoading(false);
     }
