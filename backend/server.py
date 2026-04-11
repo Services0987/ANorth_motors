@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from bson import ObjectId
 from pydantic import BaseModel, Field, BeforeValidator, ConfigDict
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+# from emergentintegrations.llm.chat import LlmChat, UserMessage
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -339,60 +339,86 @@ async def get_stats(cu=Depends(get_current_user)):
 
 
 # ─── AI Chat ──────────────────────────────────────────────────────
+# @api_router.post("/chat")
+# async def ai_chat(data: ChatRequest):
+#     # Build inventory context
+#     docs = await db.vehicles.find({"status": "available"}).sort([("featured", -1), ("created_at", -1)]).limit(20).to_list(20)
+#     inventory = "\n".join([f"• {v['title']} — ${v['price']:,.0f} | {v['condition'].upper()} | {v['body_type']} | {v.get('fuel_type','')}" for v in docs])
+
+#     system = f"""You are AutoNorth Motors' AI Vehicle Specialist — Edmonton's most prestigious dealership assistant.
+
+# DEALERSHIP: AutoNorth Motors | 9104 91 St NW, Edmonton, AB | Phone: 825-605-5050 | Hours: Mon-Fri 9am-8pm, Sat-Sun 10am-6pm
+
+# YOUR PERSONA: Warm, professional, knowledgeable — like a trusted friend who knows cars deeply. Concise responses (2-4 sentences max). Ask one question at a time.
+
+# CURRENT INVENTORY:
+# {inventory}
+
+# CONVERSATION GOALS:
+# 1. Understand what the visitor needs (type, budget, new/used, lifestyle)
+# 2. Recommend matching vehicles from our inventory
+# 3. Answer pricing/feature/financing questions
+# 4. Book test drives — collect: name, email, phone, preferred vehicle, preferred date
+
+# WHEN YOU HAVE name + email + vehicle of interest (phone optional):
+# Write your confirmation message naturally, then on a NEW LINE output:
+# [[LEAD::{{"name":"NAME","email":"EMAIL","phone":"PHONE","vehicle_title":"VEHICLE","preferred_date":"DATE","message":"AI chat booking"}}]]
+
+# Be genuine, helpful, never pushy. If asked about financing say we offer rates from 3.99% APR with quick approvals."""
+
+#     if data.session_id not in chat_sessions:
+#         chat_sessions[data.session_id] = LlmChat(
+#             api_key=os.environ.get("EMERGENT_LLM_KEY", ""),
+#             session_id=data.session_id,
+#             system_message=system
+#         ).with_model("anthropic", "claude-haiku-4-5-20251001")
+
+#     chat = chat_sessions[data.session_id]
+#     try:
+#         raw = await chat.send_message(UserMessage(text=data.message))
+#         lead_captured = False
+#         response_text = raw
+#         if "[[LEAD::" in raw:
+#             match = re.search(r'\[\[LEAD::(.+?)\]\]', raw, re.DOTALL)
+#             if match:
+#                 try:
+#                     import json
+#                     lead_data = json.loads(match.group(1))
+#                     lead_doc = {**lead_data, "lead_type": "test_drive", "status": "new", "created_at": datetime.now(timezone.utc)}
+#                     await db.leads.insert_one(lead_doc)
+#                     lead_captured = True
+#                 except Exception: pass
+#                 response_text = raw[:raw.index("[[LEAD::")].strip()
+#         return {"response": response_text, "lead_captured": lead_captured}
+#     except Exception as e:
+#         logger.error(f"Chat error: {e}")
+#         return {"response": "I'm having a brief connection issue. Please call us at 825-605-5050 or use the contact form below — we're here to help!", "lead_captured": False}
+
+# ─── AI Chat (Temporarily Simplified to fix deployment) ───────────
 @api_router.post("/chat")
 async def ai_chat(data: ChatRequest):
-    # Build inventory context
-    docs = await db.vehicles.find({"status": "available"}).sort([("featured", -1), ("created_at", -1)]).limit(20).to_list(20)
-    inventory = "\n".join([f"• {v['title']} — ${v['price']:,.0f} | {v['condition'].upper()} | {v['body_type']} | {v.get('fuel_type','')}" for v in docs])
-
-    system = f"""You are AutoNorth Motors' AI Vehicle Specialist — Edmonton's most prestigious dealership assistant.
-
-DEALERSHIP: AutoNorth Motors | 9104 91 St NW, Edmonton, AB | Phone: 825-605-5050 | Hours: Mon-Fri 9am-8pm, Sat-Sun 10am-6pm
-
-YOUR PERSONA: Warm, professional, knowledgeable — like a trusted friend who knows cars deeply. Concise responses (2-4 sentences max). Ask one question at a time.
-
-CURRENT INVENTORY:
-{inventory}
-
-CONVERSATION GOALS:
-1. Understand what the visitor needs (type, budget, new/used, lifestyle)
-2. Recommend matching vehicles from our inventory
-3. Answer pricing/feature/financing questions
-4. Book test drives — collect: name, email, phone, preferred vehicle, preferred date
-
-WHEN YOU HAVE name + email + vehicle of interest (phone optional):
-Write your confirmation message naturally, then on a NEW LINE output:
-[[LEAD::{{"name":"NAME","email":"EMAIL","phone":"PHONE","vehicle_title":"VEHICLE","preferred_date":"DATE","message":"AI chat booking"}}]]
-
-Be genuine, helpful, never pushy. If asked about financing say we offer rates from 3.99% APR with quick approvals."""
-
-    if data.session_id not in chat_sessions:
-        chat_sessions[data.session_id] = LlmChat(
-            api_key=os.environ.get("EMERGENT_LLM_KEY", ""),
-            session_id=data.session_id,
-            system_message=system
-        ).with_model("anthropic", "claude-haiku-4-5-20251001")
-
-    chat = chat_sessions[data.session_id]
     try:
-        raw = await chat.send_message(UserMessage(text=data.message))
-        lead_captured = False
-        response_text = raw
-        if "[[LEAD::" in raw:
-            match = re.search(r'\[\[LEAD::(.+?)\]\]', raw, re.DOTALL)
-            if match:
-                try:
-                    import json
-                    lead_data = json.loads(match.group(1))
-                    lead_doc = {**lead_data, "lead_type": "test_drive", "status": "new", "created_at": datetime.now(timezone.utc)}
-                    await db.leads.insert_one(lead_doc)
-                    lead_captured = True
-                except Exception: pass
-                response_text = raw[:raw.index("[[LEAD::")].strip()
-        return {"response": response_text, "lead_captured": lead_captured}
+        # We still fetch inventory so you can see if the DB is working
+        docs = await db.vehicles.find({"status": "available"}).limit(3).to_list(3)
+        
+        # This is a temporary placeholder response since LlmChat is missing
+        placeholder_response = (
+            "Hello! I'm the AutoNorth Motors assistant. I'm currently undergoing a quick "
+            "system update. Please call us at 825-605-5050 or visit us at 9104 91 St NW, "
+            "Edmonton, to discuss our current inventory!"
+        )
+
+        return {
+            "response": placeholder_response, 
+            "lead_captured": False,
+            "debug_inventory_count": len(docs) # Helps you verify DB connection
+        }
     except Exception as e:
         logger.error(f"Chat error: {e}")
-        return {"response": "I'm having a brief connection issue. Please call us at 825-605-5050 or use the contact form below — we're here to help!", "lead_captured": False}
+        return {
+            "response": "I'm having a brief connection issue. Please call us at 825-605-5050.", 
+            "lead_captured": False
+        }
 
 
 # ─── Startup ──────────────────────────────────────────────────────
