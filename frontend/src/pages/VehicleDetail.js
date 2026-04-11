@@ -246,7 +246,7 @@ export default function VehicleDetail() {
                       </div>
                     ))}
                   </div>
-                  <a href="tel:+17805550100" className="btn-outline w-full py-3 text-xs flex items-center justify-center gap-2 mt-4" data-testid="vehicle-call-btn">
+                  <a href="tel:+18256055050" className="btn-outline w-full py-3 text-xs flex items-center justify-center gap-2 mt-4" data-testid="vehicle-call-btn">
                     <Phone size={14} /> Call 780-555-0100
                   </a>
                 </div>

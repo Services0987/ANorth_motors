@@ -75,7 +75,7 @@ export default function Home() {
           "@type": "AutoDealer",
           "name": "AutoNorth Motors",
           "url": "https://www.autonorth.ca",
-          "telephone": "+17805550100",
+          "telephone": "+18256055050",
           "address": { "@type": "PostalAddress", "streetAddress": "9104 91 St NW", "addressLocality": "Edmonton", "addressRegion": "AB", "postalCode": "T6C 3P6", "addressCountry": "CA" },
           "openingHours": ["Mo-Fr 09:00-20:00", "Sa-Su 10:00-18:00"],
           "priceRange": "$$",

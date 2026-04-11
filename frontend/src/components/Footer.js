@@ -70,11 +70,11 @@ export default function Footer() {
               </li>
               <li className="flex items-center gap-3">
                 <Phone size={15} className="text-[#D4AF37] flex-shrink-0" />
-                <a href="tel:+17805550100" className="text-white/40 hover:text-white text-sm font-body transition-colors">780-555-0100</a>
+                <a href="tel:+18256055050" className="text-white/40 hover:text-white text-sm font-body transition-colors">780-555-0100</a>
               </li>
               <li className="flex items-center gap-3">
                 <Mail size={15} className="text-[#D4AF37] flex-shrink-0" />
-                <a href="mailto:info@autonorth.ca" className="text-white/40 hover:text-white text-sm font-body transition-colors">info@autonorth.ca</a>
+                <a href="mailto:autonorthab@gmail.com" className="text-white/40 hover:text-white text-sm font-body transition-colors">autonorthab@gmail.com</a>
               </li>
             </ul>
             <div className="mt-6">

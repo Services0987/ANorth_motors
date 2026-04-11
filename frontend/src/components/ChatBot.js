@@ -121,7 +121,7 @@ export default function ChatBot() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <a href="tel:+17805550100" className="text-white/30 hover:text-white transition-colors" title="Call Us">
+                <a href="tel:+18256055050" className="text-white/30 hover:text-white transition-colors" title="Call Us">
                   <Phone size={16} />
                 </a>
                 <button onClick={() => setOpen(false)} className="text-white/30 hover:text-white transition-colors">
