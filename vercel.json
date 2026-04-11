@@ -6,7 +6,7 @@
       "framework": "create-react-app"
     },
     "backend": {
-      "entrypoint": "backend/main.py",
+      "entrypoint": "backend/server.py",
       "routePrefix": "/api",
       "framework": "fastapi"
     }
