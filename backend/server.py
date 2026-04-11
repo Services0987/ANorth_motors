@@ -23,13 +23,16 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 mongo_url = os.environ['MONGO_URL']
+db_name = os.environ.get('DB_NAME', 'AutoNorth')
+if not mongo_url:
+    logger.error("MONGO_URL not found in environment variables")
 client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+db = client['db_name']
 
 app = FastAPI(title="AutoNorth Motors API")
-api_router = APIRouter(prefix="/api")
+api_router = APIRouter(prefix="")
 
-FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "*")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[FRONTEND_URL, "http://localhost:3000"],
@@ -71,7 +74,7 @@ class BaseDocument(BaseModel):
 # ─── Auth ─────────────────────────────────────────────────────────
 def hash_password(p): return bcrypt.hashpw(p.encode(), bcrypt.gensalt()).decode()
 def verify_password(plain, hashed): return bcrypt.checkpw(plain.encode(), hashed.encode())
-def jwt_secret(): return os.environ["JWT_SECRET"]
+def jwt_secret(): return os.environ["JWT_SECRET", "super-secret-key"]
 
 
 def create_token(user_id, email, kind="access", exp_hours=24):
@@ -180,7 +183,10 @@ async def logout(response: Response):
     return {"message": "Logged out"}
 
 @api_router.get("/auth/me")
-async def me(cu=Depends(get_current_user)): return cu
+async def me(cu=Depends(get_current_user)):    
+    cu["_id"] = str(cu["_id"])
+    cu.pop("password_hash", None)
+    return cu
 
 
 # ─── Vehicles ─────────────────────────────────────────────────────
@@ -210,12 +216,23 @@ async def list_vehicles(
     docs = await db.vehicles.find(q).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
     return {"vehicles": [Vehicle.from_mongo(d).model_dump(mode='json') for d in docs], "total": total, "skip": skip, "limit": limit}
 
-@api_router.get("/vehicles/{vehicle_id}")
-async def get_vehicle(vehicle_id: str):
-    if not ObjectId.is_valid(vehicle_id): raise HTTPException(400, "Invalid ID")
-    doc = await db.vehicles.find_one({"_id": ObjectId(vehicle_id)})
-    if not doc: raise HTTPException(404, "Vehicle not found")
-    return Vehicle.from_mongo(doc).model_dump(mode='json')
+# @api_router.get("/vehicles/{vehicle_id}")
+# async def get_vehicle(vehicle_id: str):
+#     if not ObjectId.is_valid(vehicle_id): raise HTTPException(400, "Invalid ID")
+#     doc = await db.vehicles.find_one({"_id": ObjectId(vehicle_id)})
+#     if not doc: raise HTTPException(404, "Vehicle not found")
+#     return Vehicle.from_mongo(doc).model_dump(mode='json')
+
+# ─── Vehicles ─────────────────────────────────────────────────────
+@api_router.get("/vehicles")
+async def list_vehicles(limit: int = 20, featured: Optional[bool] = None):
+    query = {"status": "available"}
+    if featured is not None: query["featured"] = featured
+    
+    cursor = db.vehicles.find(query).limit(limit)
+    vehicles = await cursor.to_list(length=limit)
+    for v in vehicles: v["_id"] = str(v["_id"])
+    return vehicles
 
 @api_router.post("/vehicles")
 async def create_vehicle(data: VehicleCreate, cu=Depends(get_current_user)):
@@ -398,28 +415,21 @@ async def get_stats(cu=Depends(get_current_user)):
 @api_router.post("/chat")
 async def ai_chat(data: ChatRequest):
     try:
-        # We still fetch inventory so you can see if the DB is working
+        # Fetch inventory to provide a "smart" fallback response
         docs = await db.vehicles.find({"status": "available"}).limit(3).to_list(3)
+        inventory_list = ", ".join([v.get('title', 'Vehicle') for v in docs])
         
-        # This is a temporary placeholder response since LlmChat is missing
-        placeholder_response = (
-            "Hello! I'm the AutoNorth Motors assistant. I'm currently undergoing a quick "
-            "system update. Please call us at 825-605-5050 or visit us at 9104 91 St NW, "
-            "Edmonton, to discuss our current inventory!"
+        # This acts as your chatbot until you add the Claude API key
+        response_text = (
+            f"Hello! I am the AutoNorth Motors assistant. I see we have some great options "
+            f"available like the {inventory_list}. How can I help you today? "
+            "You can also reach us at 825-605-5050."
         )
-
-        return {
-            "response": placeholder_response, 
-            "lead_captured": False,
-            "debug_inventory_count": len(docs) # Helps you verify DB connection
-        }
+        
+        return {"response": response_text, "lead_captured": False}
     except Exception as e:
         logger.error(f"Chat error: {e}")
-        return {
-            "response": "I'm having a brief connection issue. Please call us at 825-605-5050.", 
-            "lead_captured": False
-        }
-
+        return {"response": "I'm currently connecting to our inventory system. Please try again in a moment!", "lead_captured": False}
 
 # ─── Startup ──────────────────────────────────────────────────────
 @app.on_event("startup")
@@ -460,7 +470,7 @@ async def seed_vehicles():
     logger.info(f"Seeded {len(vehicles)} vehicles")
 
 
-app.include_router(api_router)
+app.include_router(api_router, prefix="/api")
 
 @app.on_event("shutdown")
 async def shutdown_db(): client.close()
