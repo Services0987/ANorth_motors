@@ -49,9 +49,7 @@ export default function Contact() {
 
             <div className="space-y-6">
               {[
-                { icon: MapPin, label: 'Address', value: '3304 91 St
-Edmonton, AB
-T6N 1C1' },
+                { icon: MapPin, label: 'Address', value: '3304 91 St Edmonton, AB T6N 1C1' },
                 { icon: Phone, label: 'Phone', value: '825-605-5050', href: 'tel:+18256055050' },
                 { icon: Mail, label: 'Email', value: 'autonorthab@gmail.com', href: 'mailto:autonorthab@gmail.com' },
               ].map((item) => (
