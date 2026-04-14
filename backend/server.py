@@ -23,12 +23,13 @@ from pydantic import BaseModel, Field, BeforeValidator, ConfigDict
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-mongo_url = os.environ['MONGO_URL']
+mongo_url = os.environ.get('MONGO_URL')
 db_name = os.environ.get('DB_NAME', 'AutoNorth')
 if not mongo_url:
-    logger.error("MONGO_URL not found in environment variables")
+    logger.error("MONGO_URL not found in environment variables. Connection will fail when routes are hit.")
+    mongo_url = "mongodb://localhost:27017"
 client = AsyncIOMotorClient(mongo_url)
-db = client['db_name']
+db = client[db_name]
 
 app = FastAPI(title="AutoNorth Motors API")
 api_router = APIRouter(prefix="")
@@ -460,7 +461,7 @@ async def seed_vehicles():
     logger.info(f"Seeded {len(vehicles)} vehicles")
 
 
-app.include_router(api_router, prefix="/api")
+app.include_router(api_router)
 
 @app.on_event("shutdown")
 async def shutdown_db(): client.close()
