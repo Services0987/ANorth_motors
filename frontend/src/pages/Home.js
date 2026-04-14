@@ -44,6 +44,33 @@ const TESTIMONIALS = [
 const fadeUp = { hidden: { opacity: 0, y: 40 }, show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.16, 1, 0.3, 1] } } };
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.1 } } };
 
+function SelfDrawingLines() {
+  return (
+    <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden opacity-25">
+      <motion.svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+        <motion.path
+          d="M 0 300 Q 400 -100 800 300 T 2000 300"
+          fill="transparent"
+          stroke="#D4AF37"
+          strokeWidth="1.5"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 4, ease: "easeInOut", repeat: Infinity, repeatType: "reverse" }}
+        />
+        <motion.path
+          d="M 2000 500 Q 1500 200 1000 500 T 0 500"
+          fill="transparent"
+          stroke="white"
+          strokeWidth="0.5"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 5, ease: "easeInOut", repeat: Infinity, repeatType: "reverse", delay: 1 }}
+        />
+      </motion.svg>
+    </div>
+  );
+}
+
 export default function Home() {
   const [featured, setFeatured] = useState([]);
   const [leadForm, setLeadForm] = useState({ name: '', email: '', phone: '' });
@@ -111,6 +138,8 @@ export default function Home() {
               }}
             />
           </div>
+
+          <SelfDrawingLines />
 
           {/* Floating ambient particles */}
           <div className="absolute inset-0 pointer-events-none">

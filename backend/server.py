@@ -357,6 +357,74 @@ async def get_stats(cu=Depends(get_current_user)):
             "recent_leads": [Lead.from_mongo(d).model_dump(mode='json') for d in recent]}
 
 
+# ─── Scraper Engine ────────────────────────────────────────────────
+@api_router.post("/scrape")
+async def execute_scrape(request: Request):
+    try:
+        data = await request.json()
+        target_url = data.get("targetUrl")
+        secret = data.get("secret")
+        
+        # Security to prevent external abuse
+        if secret != os.environ.get("MASTER_SECRET"):
+            raise HTTPException(401, "Unauthorized Pipeline Request")
+        
+        if not target_url or "inventory" not in target_url:
+            raise HTTPException(400, "Invalid Target URL")
+
+        import requests
+        from bs4 import BeautifulSoup
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36'
+        }
+        res = requests.get(target_url, headers=headers)
+        res.raise_for_status()
+        
+        soup = BeautifulSoup(res.text, 'html.parser')
+        new_vehicles = []
+        inserted = 0
+        
+        # Simulated parsing. In production, exact CSS selectors must be mapped to teamford.ca
+        for card in soup.select('.inventory-item, .v-card, .vehicle-card'):
+            try:
+                title_elem = card.select_one('.title, h2, h3')
+                if not title_elem: continue
+                title = title_elem.text.strip()
+                
+                price_text = card.select_one('.price, .pricing, .value')
+                price = int(re.sub(r'[^0-9]', '', price_text.text)) if price_text else 0
+                
+                img_elem = card.select_one('img')
+                img = img_elem.get('data-src') or img_elem.get('src') if img_elem else "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800"
+                
+                parts = title.split(' ')
+                year = int(parts[0]) if parts[0].isdigit() else datetime.now().year
+                make = parts[1] if len(parts) > 1 else 'Unknown'
+                model = ' '.join(parts[2:]) if len(parts) > 2 else 'Model'
+                
+                v = {
+                    "title": title, "make": make, "model": model, "year": year, 
+                    "price": price, "condition": "used" if "used" in title.lower() else "new",
+                    "status": "available", "featured": False, "images": [img],
+                    "created_at": datetime.now(timezone.utc), "updated_at": datetime.now(timezone.utc)
+                }
+                
+                if price > 0:
+                    existing = await db.vehicles.find_one({"title": title})
+                    if not existing:
+                        await db.vehicles.insert_one(v)
+                        inserted += 1
+            except Exception as e:
+                logger.error(f"Error parsing card: {e}")
+                
+        return {"success": True, "message": f"Scrape complete. Ingested {inserted} new vehicles into database."}
+
+    except Exception as e:
+        logger.error(f"Scraper Error: {e}")
+        raise HTTPException(500, f"Scrape failed: {str(e)}")
+
+
 # ─── AI Chat ──────────────────────────────────────────────────────
 @api_router.post("/chat")
 async def ai_chat(data: ChatRequest):

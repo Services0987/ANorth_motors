@@ -13,6 +13,7 @@ import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminInventory from './pages/AdminInventory';
 import AdminLeads from './pages/AdminLeads';
+import Showroom from './components/Showroom';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -35,6 +36,7 @@ function AppContent() {
         <Route path="/vehicle/:id" element={<VehicleDetail />} />
         <Route path="/financing" element={<Financing />} />
         <Route path="/contact" element={<Contact />} />
+        <Route path="/showroom" element={<Showroom />} />
         <Route path="/admin" element={<AdminLogin />} />
         <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
         <Route path="/admin/inventory" element={<ProtectedRoute><AdminInventory /></ProtectedRoute>} />
