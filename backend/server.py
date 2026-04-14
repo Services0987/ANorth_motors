@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
 load_dotenv()
+import google.generativeai as genai
 
 import os
 import re
@@ -356,80 +357,69 @@ async def get_stats(cu=Depends(get_current_user)):
 
 
 # ─── AI Chat ──────────────────────────────────────────────────────
-# @api_router.post("/chat")
-# async def ai_chat(data: ChatRequest):
-#     # Build inventory context
-#     docs = await db.vehicles.find({"status": "available"}).sort([("featured", -1), ("created_at", -1)]).limit(20).to_list(20)
-#     inventory = "\n".join([f"• {v['title']} — ${v['price']:,.0f} | {v['condition'].upper()} | {v['body_type']} | {v.get('fuel_type','')}" for v in docs])
-
-#     system = f"""You are AutoNorth Motors' AI Vehicle Specialist — Edmonton's most prestigious dealership assistant.
-
-# DEALERSHIP: AutoNorth Motors | 9104 91 St NW, Edmonton, AB | Phone: 825-605-5050 | Hours: Mon-Fri 9am-8pm, Sat-Sun 10am-6pm
-
-# YOUR PERSONA: Warm, professional, knowledgeable — like a trusted friend who knows cars deeply. Concise responses (2-4 sentences max). Ask one question at a time.
-
-# CURRENT INVENTORY:
-# {inventory}
-
-# CONVERSATION GOALS:
-# 1. Understand what the visitor needs (type, budget, new/used, lifestyle)
-# 2. Recommend matching vehicles from our inventory
-# 3. Answer pricing/feature/financing questions
-# 4. Book test drives — collect: name, email, phone, preferred vehicle, preferred date
-
-# WHEN YOU HAVE name + email + vehicle of interest (phone optional):
-# Write your confirmation message naturally, then on a NEW LINE output:
-# [[LEAD::{{"name":"NAME","email":"EMAIL","phone":"PHONE","vehicle_title":"VEHICLE","preferred_date":"DATE","message":"AI chat booking"}}]]
-
-# Be genuine, helpful, never pushy. If asked about financing say we offer rates from 3.99% APR with quick approvals."""
-
-#     if data.session_id not in chat_sessions:
-#         chat_sessions[data.session_id] = LlmChat(
-#             api_key=os.environ.get("EMERGENT_LLM_KEY", ""),
-#             session_id=data.session_id,
-#             system_message=system
-#         ).with_model("anthropic", "claude-haiku-4-5-20251001")
-
-#     chat = chat_sessions[data.session_id]
-#     try:
-#         raw = await chat.send_message(UserMessage(text=data.message))
-#         lead_captured = False
-#         response_text = raw
-#         if "[[LEAD::" in raw:
-#             match = re.search(r'\[\[LEAD::(.+?)\]\]', raw, re.DOTALL)
-#             if match:
-#                 try:
-#                     import json
-#                     lead_data = json.loads(match.group(1))
-#                     lead_doc = {**lead_data, "lead_type": "test_drive", "status": "new", "created_at": datetime.now(timezone.utc)}
-#                     await db.leads.insert_one(lead_doc)
-#                     lead_captured = True
-#                 except Exception: pass
-#                 response_text = raw[:raw.index("[[LEAD::")].strip()
-#         return {"response": response_text, "lead_captured": lead_captured}
-#     except Exception as e:
-#         logger.error(f"Chat error: {e}")
-#         return {"response": "I'm having a brief connection issue. Please call us at 825-605-5050 or use the contact form below — we're here to help!", "lead_captured": False}
-
-# ─── AI Chat (Temporarily Simplified to fix deployment) ───────────
 @api_router.post("/chat")
 async def ai_chat(data: ChatRequest):
     try:
-        # Fetch inventory to provide a "smart" fallback response
-        docs = await db.vehicles.find({"status": "available"}).limit(3).to_list(3)
-        inventory_list = ", ".join([v.get('title', 'Vehicle') for v in docs])
-        
-        # This acts as your chatbot until you add the Claude API key
-        response_text = (
-            f"Hello! I am the AutoNorth Motors assistant. I see we have some great options "
-            f"available like the {inventory_list}. How can I help you today? "
-            "You can also reach us at 825-605-5050."
-        )
-        
-        return {"response": response_text, "lead_captured": False}
+        docs = await db.vehicles.find({"status": "available"}).sort([("featured", -1), ("created_at", -1)]).limit(20).to_list(20)
+        inventory = "\n".join([f"• {v['title']} — ${v['price']:,.0f} | {v['condition'].upper()} | {v['body_type']} | {v.get('fuel_type','')}" for v in docs])
+
+        system_instruction = f"""You are AutoNorth Motors' AI Vehicle Specialist — Edmonton's most prestigious dealership assistant.
+
+DEALERSHIP: AutoNorth Motors | 9104 91 St NW, Edmonton, AB | Phone: 825-605-5050 | Hours: Mon-Fri 9am-8pm, Sat-Sun 10am-6pm
+
+YOUR PERSONA: Warm, professional, knowledgeable — like a trusted friend who knows cars deeply. Concise responses (2-4 sentences max). Ask one question at a time.
+
+CURRENT INVENTORY:
+{inventory}
+
+CONVERSATION GOALS:
+1. Understand what the visitor needs (type, budget, new/used, lifestyle)
+2. Recommend matching vehicles from our inventory
+3. Answer pricing/feature/financing questions
+4. Book test drives — collect: name, email, phone, preferred vehicle, preferred date
+
+WHEN YOU HAVE name + email + vehicle of interest (phone optional):
+Write your confirmation message naturally, then on a NEW LINE output:
+[[LEAD::{{"name":"NAME","email":"EMAIL","phone":"PHONE","vehicle_title":"VEHICLE","preferred_date":"DATE","message":"AI chat booking"}}]]
+
+Be genuine, helpful, never pushy. If asked about financing say we offer rates from 3.99% APR with quick approvals."""
+
+        gemini_api_key = os.environ.get("GEMINI_API_KEY")
+        if not gemini_api_key:
+            return {"response": f"Hello! I am the AutoNorth Motors assistant. I see we have some great options like {inventory.splitlines()[0] if inventory else 'our latest models'}. How can I help you today? You can also reach us at 825-605-5050.", "lead_captured": False}
+
+        genai.configure(api_key=gemini_api_key)
+        model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=system_instruction)
+
+        if data.session_id not in chat_sessions:
+            chat_sessions[data.session_id] = model.start_chat(history=[])
+
+        chat = chat_sessions[data.session_id]
+        response = chat.send_message(data.message)
+        raw = response.text
+
+        lead_captured = False
+        response_text = raw
+        if "[[LEAD::" in raw:
+            match = re.search(r'\[\[LEAD::(.+?)\]\]', raw, re.DOTALL)
+            if match:
+                try:
+                    import json
+                    lead_data = json.loads(match.group(1))
+                    lead_doc = {**lead_data, "lead_type": "test_drive", "status": "new", "created_at": datetime.now(timezone.utc)}
+                    await db.leads.insert_one(lead_doc)
+                    lead_captured = True
+                except Exception as e:
+                    logger.error(f"Failed to parse lead: {e}")
+            try:
+                response_text = raw[:raw.index("[[LEAD::")].strip()
+            except ValueError:
+                pass
+
+        return {"response": response_text, "lead_captured": lead_captured}
     except Exception as e:
         logger.error(f"Chat error: {e}")
-        return {"response": "I'm currently connecting to our inventory system. Please try again in a moment!", "lead_captured": False}
+        return {"response": "I'm having a brief connection issue. Please call us at 825-605-5050 or use the contact form below — we're here to help!", "lead_captured": False}
 
 # ─── Startup ──────────────────────────────────────────────────────
 @app.on_event("startup")
