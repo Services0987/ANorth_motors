@@ -7,7 +7,7 @@ import axios from 'axios';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const API = (process.env.REACT_APP_BACKEND_URL || '') + '/api';
 const PLACEHOLDER = 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=800&q=60';
 const TABS = ['contact', 'test_drive', 'financing'];
 const TAB_LABELS = { contact: 'Enquire', test_drive: 'Test Drive', financing: 'Financing' };

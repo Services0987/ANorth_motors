@@ -4,7 +4,7 @@ import { X, Trash2, Phone, Mail, Car, Calendar, ChevronDown, Search } from 'luci
 import axios from 'axios';
 import AdminLayout from '../components/AdminLayout';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const API = (process.env.REACT_APP_BACKEND_URL || '') + '/api';
 
 const STATUS_STYLES = {
   new: 'bg-blue-500/20 text-blue-400 border border-blue-500/30',

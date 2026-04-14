@@ -5,7 +5,7 @@ import { Car, Users, TrendingUp, DollarSign, Plus, ArrowRight, CheckCircle, Cloc
 import axios from 'axios';
 import AdminLayout from '../components/AdminLayout';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const API = (process.env.REACT_APP_BACKEND_URL || '') + '/api';
 
 const STATUS_STYLES = {
   new: 'bg-blue-500/20 text-blue-400 border border-blue-500/30',

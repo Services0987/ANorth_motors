@@ -4,7 +4,7 @@ import { Plus, Pencil, Trash2, X, Check, Star, StarOff, Search, ChevronDown, Upl
 import axios from 'axios';
 import AdminLayout from '../components/AdminLayout';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const API = (process.env.REACT_APP_BACKEND_URL || '') + '/api';
 const PLACEHOLDER = 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=200&q=40';
 
 const EMPTY_FORM = {
