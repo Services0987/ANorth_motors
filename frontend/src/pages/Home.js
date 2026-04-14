@@ -73,6 +73,7 @@ function SelfDrawingLines() {
 
 export default function Home() {
   const [featured, setFeatured] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [leadForm, setLeadForm] = useState({ name: '', email: '', phone: '' });
   const [leadSent, setLeadSent] = useState(false);
   const navigate = useNavigate();
@@ -81,7 +82,11 @@ export default function Home() {
   const heroOpacity = useTransform(scrollY, [0, 400], [1, 0.3]);
 
   useEffect(() => {
-    axios.get(`${API}/vehicles?featured=true&limit=4`).then(({ data }) => setFeatured(data.vehicles || []));
+    setLoading(true);
+    axios.get(`${API}/vehicles?featured=true&limit=4`)
+      .then(({ data }) => setFeatured(data.vehicles || []))
+      .catch(err => console.error(err))
+      .finally(() => setLoading(false));
   }, []);
 
   const handleLeadSubmit = async (e) => {
@@ -228,8 +233,18 @@ export default function Home() {
                 </motion.div>
               </div>
             </motion.div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              {featured.map((v, i) => <VehicleCard key={v.id} vehicle={v} index={i} />)}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 min-h-[400px]">
+              {loading ? (
+                [...Array(4)].map((_, i) => (
+                  <div key={i} className="glass-card aspect-[4/5] animate-pulse rounded-none border-white/5 bg-white/5" />
+                ))
+              ) : featured.length === 0 ? (
+                <div className="col-span-full py-20 text-center border border-dashed border-white/10 rounded-none">
+                  <p className="text-white/30 font-body">No featured vehicles found.</p>
+                </div>
+              ) : (
+                featured.map((v, i) => <VehicleCard key={v.id} vehicle={v} index={i} />)
+              )}
             </div>
           </div>
         </section>

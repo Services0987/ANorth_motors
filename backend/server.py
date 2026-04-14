@@ -76,7 +76,7 @@ class BaseDocument(BaseModel):
 # ─── Auth ─────────────────────────────────────────────────────────
 def hash_password(p): return bcrypt.hashpw(p.encode(), bcrypt.gensalt()).decode()
 def verify_password(plain, hashed): return bcrypt.checkpw(plain.encode(), hashed.encode())
-def jwt_secret(): return os.environ["JWT_SECRET", "super-secret-key"]
+def jwt_secret(): return os.environ.get("JWT_SECRET", "super-secret-key")
 
 
 def create_token(user_id, email, kind="access", exp_hours=24):
@@ -225,16 +225,7 @@ async def list_vehicles(
 #     if not doc: raise HTTPException(404, "Vehicle not found")
 #     return Vehicle.from_mongo(doc).model_dump(mode='json')
 
-# ─── Vehicles ─────────────────────────────────────────────────────
-@api_router.get("/vehicles")
-async def list_vehicles(limit: int = 20, featured: Optional[bool] = None):
-    query = {"status": "available"}
-    if featured is not None: query["featured"] = featured
-    
-    cursor = db.vehicles.find(query).limit(limit)
-    vehicles = await cursor.to_list(length=limit)
-    for v in vehicles: v["_id"] = str(v["_id"])
-    return vehicles
+
 
 @api_router.post("/vehicles")
 async def create_vehicle(data: VehicleCreate, cu=Depends(get_current_user)):
