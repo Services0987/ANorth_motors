@@ -49,6 +49,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Global error handler to prevent HTML 500s
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Global error: {str(exc)}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"error": "Internal Server Error", "message": str(exc) if not isinstance(exc, HTTPException) else exc.detail}
+    )
+
 JWT_ALGORITHM = "HS256"
 chat_sessions: dict = {}
 
@@ -191,10 +200,14 @@ async def logout(response: Response):
     return {"message": "Logged out"}
 
 @api_router.get("/auth/me")
-async def me(cu=Depends(get_current_user)):    
-    cu["_id"] = str(cu["_id"])
-    cu.pop("password_hash", None)
-    return cu
+async def me(cu=Depends(get_current_user)):
+    try:
+        cu["_id"] = str(cu["_id"])
+        cu.pop("password_hash", None)
+        return cu
+    except Exception as e:
+        logger.warning(f"Me check error: {str(e)}")
+        return JSONResponse({"user": None}, status_code=401)
 
 @api_router.get("/health")
 async def health():
@@ -220,22 +233,27 @@ async def list_vehicles(
     status: Optional[str] = "available", featured: Optional[bool] = None,
     search: Optional[str] = None, limit: int = 50, skip: int = 0
 ):
-    q = {}
-    if condition: q["condition"] = condition
-    if make: q["make"] = {"$regex": make, "$options": "i"}
-    if body_type: q["body_type"] = body_type
-    if fuel_type: q["fuel_type"] = fuel_type
-    if status and status != "all": q["status"] = status
-    if featured is not None: q["featured"] = featured
-    if min_price is not None or max_price is not None:
-        q["price"] = {k: v for k, v in [("$gte", min_price), ("$lte", max_price)] if v is not None}
-    if min_year is not None or max_year is not None:
-        q["year"] = {k: v for k, v in [("$gte", min_year), ("$lte", max_year)] if v is not None}
-    if search:
-        q["$or"] = [{"title": {"$regex": search, "$options": "i"}}, {"make": {"$regex": search, "$options": "i"}}, {"model": {"$regex": search, "$options": "i"}}]
-    total = await db.vehicles.count_documents(q)
-    docs = await db.vehicles.find(q).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
-    return {"vehicles": [Vehicle.from_mongo(d).model_dump(mode='json') for d in docs], "total": total, "skip": skip, "limit": limit}
+    try:
+        q = {}
+        if condition: q["condition"] = condition
+        if make: q["make"] = {"$regex": make, "$options": "i"}
+        if body_type: q["body_type"] = body_type
+        if fuel_type: q["fuel_type"] = fuel_type
+        if status and status != "all": q["status"] = status
+        if featured is not None: q["featured"] = featured
+        if min_price is not None or max_price is not None:
+            q["price"] = {k: v for k, v in [("$gte", min_price), ("$lte", max_price)] if v is not None}
+        if min_year is not None or max_year is not None:
+            q["year"] = {k: v for k, v in [("$gte", min_year), ("$lte", max_year)] if v is not None}
+        if search:
+            q["$or"] = [{"title": {"$regex": search, "$options": "i"}}, {"make": {"$regex": search, "$options": "i"}}, {"model": {"$regex": search, "$options": "i"}}]
+        total = await db.vehicles.count_documents(q)
+        docs = await db.vehicles.find(q).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+        return {"vehicles": [Vehicle.from_mongo(d).model_dump(mode='json') for d in docs], "total": total, "skip": skip, "limit": limit}
+    except Exception as e:
+        logger.error(f"Database error in list_vehicles: {str(e)}")
+        # Fallback to empty results to prevent 500 crashes
+        return {"vehicles": [], "total": 0, "skip": skip, "limit": limit, "error": "Service temporarily unavailable"}
 
 # @api_router.get("/vehicles/{vehicle_id}")
 # async def get_vehicle(vehicle_id: str):
