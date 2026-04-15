@@ -32,7 +32,7 @@ client: Optional[AsyncIOMotorClient] = None
 db: Any = None
 
 app = FastAPI(title="AutoNorth Motors API")
-api_router = APIRouter(prefix="")
+api_router = APIRouter(prefix="/api")
 
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "*")
 app.add_middleware(
