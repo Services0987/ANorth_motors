@@ -18,7 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from bson import ObjectId
 from pydantic import BaseModel, Field, BeforeValidator, ConfigDict
-# from emergentintegrations.llm.chat import LlmChat, UserMessage
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,7 +28,13 @@ db_name = os.environ.get('DB_NAME', 'AutoNorth')
 if not mongo_url:
     logger.error("MONGO_URL not found in environment variables. Connection will fail when routes are hit.")
     mongo_url = "mongodb://localhost:27017"
-client = AsyncIOMotorClient(mongo_url)
+
+# Improved connection with timeouts for Vercel
+client = AsyncIOMotorClient(
+    mongo_url,
+    serverSelectionTimeoutMS=5000,
+    connectTimeoutMS=10000
+)
 db = client[db_name]
 
 app = FastAPI(title="AutoNorth Motors API")
@@ -189,6 +195,19 @@ async def me(cu=Depends(get_current_user)):
     cu["_id"] = str(cu["_id"])
     cu.pop("password_hash", None)
     return cu
+
+@api_router.get("/health")
+async def health():
+    try:
+        await client.admin.command('ping')
+        db_status = "connected"
+    except Exception as e:
+        db_status = f"disconnected: {str(e)}"
+    return {
+        "status": "online",
+        "database": db_status,
+        "timestamp": datetime.now(timezone.utc)
+    }
 
 
 # ─── Vehicles ─────────────────────────────────────────────────────
@@ -484,23 +503,29 @@ Be genuine, helpful, never pushy. If asked about financing say we offer rates fr
 # ─── Startup ──────────────────────────────────────────────────────
 @app.on_event("startup")
 async def startup():
-    await db.users.create_index("email", unique=True)
-    await db.vehicles.create_index([("status", 1), ("featured", -1)])
-    await db.leads.create_index([("created_at", -1)])
+    logger.info(f"Starting up AutoNorth API (DB: {mongo_url.split('@')[-1] if '@' in mongo_url else 'localhost'})")
+    try:
+        await db.users.create_index("email", unique=True)
+        await db.vehicles.create_index([("status", 1), ("featured", -1)])
+        await db.leads.create_index([("created_at", -1)])
 
-    admin_email = os.environ.get("ADMIN_EMAIL", "admin@autonorth.ca")
-    admin_password = os.environ.get("ADMIN_PASSWORD", "AdminPass2024")
-    existing = await db.users.find_one({"email": admin_email})
-    if not existing:
-        await db.users.insert_one({"email": admin_email, "password_hash": hash_password(admin_password), "name": "AutoNorth Admin", "role": "admin", "created_at": datetime.now(timezone.utc)})
-    elif not verify_password(admin_password, existing["password_hash"]):
-        await db.users.update_one({"email": admin_email}, {"$set": {"password_hash": hash_password(admin_password)}})
+        admin_email = os.environ.get("ADMIN_EMAIL", "admin@autonorth.ca")
+        admin_password = os.environ.get("ADMIN_PASSWORD", "AdminPass2024")
+        existing = await db.users.find_one({"email": admin_email})
+        if not existing:
+            await db.users.insert_one({"email": admin_email, "password_hash": hash_password(admin_password), "name": "AutoNorth Admin", "role": "admin", "created_at": datetime.now(timezone.utc)})
+        elif not verify_password(admin_password, existing["password_hash"]):
+            await db.users.update_one({"email": admin_email}, {"$set": {"password_hash": hash_password(admin_password)}})
 
-    if await db.vehicles.count_documents({}) == 0:
-        await seed_vehicles()
+        if await db.vehicles.count_documents({}) == 0:
+            await seed_vehicles()
+            
+        pathlib.Path("/tmp/memory").mkdir(exist_ok=True, parents=True) # Use /tmp for Vercel
+    except Exception as e:
+        logger.error(f"Startup task failed (possibly missing MongoDB?): {e}")
+        # We don't raise here so the Vercel Lambda stays online and returns 500/error messages later instead of crashing entirely.
 
-    pathlib.Path("/app/memory").mkdir(exist_ok=True)
-    with open("/app/memory/test_credentials.md", "w") as f:
+    with open("/tmp/memory/test_credentials.md", "w") as f:
         f.write(f"# AutoNorth Motors Test Credentials\n\n## Admin\n- Email: {admin_email}\n- Password: {admin_password}\n")
 
 

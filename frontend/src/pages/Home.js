@@ -7,7 +7,7 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import VehicleCard from '../components/VehicleCard';
 import ExitIntentPopup from '../components/ExitIntentPopup';
-import { HelmetProvider, Helmet } from 'react-helmet-async';
+import { Helmet } from 'react-helmet-async';
 
 const API = (process.env.REACT_APP_BACKEND_URL || '') + '/api';
 const HERO_IMAGE = 'https://images.pexels.com/photos/3729464/pexels-photo-3729464.jpeg?auto=compress&cs=tinysrgb&w=1920&q=80';
@@ -96,7 +96,7 @@ export default function Home() {
   };
 
   return (
-    <HelmetProvider>
+    <>
       <Helmet>
         <title>AutoNorth Motors | Premium New & Used Vehicles Edmonton, Alberta</title>
         <meta name="description" content="AutoNorth Motors — Edmonton's most trusted dealership for new and used Ford vehicles. Best prices, expert financing, instant AI assistance. Visit us at 9104 91 St NW." />
@@ -115,7 +115,7 @@ export default function Home() {
         })}</script>
       </Helmet>
 
-      <div className="bg-[#050505] min-h-screen overflow-x-hidden" data-testid="home-page">
+      <div className="bg-[#050505] min-h-screen font-body selection:bg-[#D4AF37]/30" data-testid="home-page">
         <Navbar />
         <ExitIntentPopup />
 
@@ -482,6 +482,5 @@ export default function Home() {
 
         <Footer />
       </div>
-    </HelmetProvider>
   );
 }

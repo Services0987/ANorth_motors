@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Helmet, HelmetProvider } from 'react-helmet-async';
+import { Helmet } from 'react-helmet-async';
 import { ArrowLeft, ChevronLeft, ChevronRight, Check, Phone, MessageSquare, Calendar, Zap } from 'lucide-react';
 import axios from 'axios';
 import Navbar from '../components/Navbar';
@@ -88,7 +88,7 @@ export default function VehicleDetail() {
   };
 
   return (
-    <HelmetProvider>
+    <>
       <Helmet>
         <title>{`${vehicle.title} — AutoNorth Motors Edmonton`}</title>
         <meta name="description" content={`${vehicle.title} for sale at AutoNorth Motors Edmonton. $${vehicle.price?.toLocaleString()} CAD. ${vehicle.mileage === 0 ? 'Brand new.' : `${vehicle.mileage?.toLocaleString()} km.`} ${vehicle.fuel_type} · ${vehicle.transmission}. Book a test drive today.`} />
@@ -307,6 +307,6 @@ export default function VehicleDetail() {
         </div>
         <Footer />
       </div>
-    </HelmetProvider>
+    </>
   );
 }
