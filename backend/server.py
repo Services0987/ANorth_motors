@@ -544,14 +544,9 @@ async def startup():
 
         if await db.vehicles.count_documents({}) == 0:
             await seed_vehicles()
-            
-        pathlib.Path("/tmp/memory").mkdir(exist_ok=True, parents=True) # Use /tmp for Vercel
     except Exception as e:
         logger.error(f"Startup task failed (possibly missing MongoDB?): {e}")
         # We don't raise here so the Vercel Lambda stays online and returns 500/error messages later instead of crashing entirely.
-
-    with open("/tmp/memory/test_credentials.md", "w") as f:
-        f.write(f"# AutoNorth Motors Test Credentials\n\n## Admin\n- Email: {admin_email}\n- Password: {admin_password}\n")
 
 
 async def seed_vehicles():

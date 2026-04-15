@@ -83,10 +83,18 @@ export default function Home() {
 
   useEffect(() => {
     setLoading(true);
-    axios.get(`${API}/vehicles?featured=true&limit=4`)
-      .then(({ data }) => setFeatured(data.vehicles || []))
-      .catch(err => console.error(err))
-      .finally(() => setLoading(false));
+    const fetchVehicles = async () => {
+      try {
+        const res = await axios.get(`${API}/vehicles?featured=true&limit=4`);
+        setFeatured(res.data?.vehicles || []);
+      } catch (err) {
+        console.error("Home: Failed to fetch vehicles", err);
+        setFeatured([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchVehicles();
   }, []);
 
   const handleLeadSubmit = async (e) => {
@@ -233,17 +241,17 @@ export default function Home() {
                 </motion.div>
               </div>
             </motion.div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 min-h-[400px]">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" data-testid="featured-grid">
               {loading ? (
                 [...Array(4)].map((_, i) => (
                   <div key={i} className="glass-card aspect-[4/5] animate-pulse rounded-none border-white/5 bg-white/5" />
                 ))
-              ) : featured.length === 0 ? (
+              ) : featured?.length === 0 ? (
                 <div className="col-span-full py-20 text-center border border-dashed border-white/10 rounded-none">
                   <p className="text-white/30 font-body">No featured vehicles found.</p>
                 </div>
               ) : (
-                featured.map((v, i) => <VehicleCard key={v.id} vehicle={v} index={i} />)
+                featured?.map((v, i) => <VehicleCard key={v._id || v.id || i} vehicle={v} index={i} />)
               )}
             </div>
           </div>
