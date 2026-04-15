@@ -13,7 +13,8 @@ import pathlib
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Annotated, Any
 
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, UploadFile, File, JSONResponse
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, UploadFile, File
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from bson import ObjectId
@@ -23,19 +24,12 @@ from pydantic import BaseModel, Field, BeforeValidator, ConfigDict
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-mongo_url = os.environ.get('MONGO_URL')
+# Database configuration
+mongo_url = os.environ.get('MONGO_URL', "mongodb://localhost:27017")
 db_name = os.environ.get('DB_NAME', 'AutoNorth')
-if not mongo_url:
-    logger.error("MONGO_URL not found in environment variables. Connection will fail when routes are hit.")
-    mongo_url = "mongodb://localhost:27017"
 
-# Improved connection with timeouts for Vercel
-client = AsyncIOMotorClient(
-    mongo_url,
-    serverSelectionTimeoutMS=5000,
-    connectTimeoutMS=10000
-)
-db = client[db_name]
+client: Optional[AsyncIOMotorClient] = None
+db: Any = None
 
 app = FastAPI(title="AutoNorth Motors API")
 api_router = APIRouter(prefix="")
@@ -521,7 +515,20 @@ Be genuine, helpful, never pushy. If asked about financing say we offer rates fr
 # ─── Startup ──────────────────────────────────────────────────────
 @app.on_event("startup")
 async def startup():
-    logger.info(f"Starting up AutoNorth API (DB: {mongo_url.split('@')[-1] if '@' in mongo_url else 'localhost'})")
+    global client, db
+    logger.info(f"Starting up AutoNorth API...")
+    try:
+        # Lazy initialization to prevent cold-start timeouts
+        client = AsyncIOMotorClient(
+            mongo_url,
+            serverSelectionTimeoutMS=5000,
+            connectTimeoutMS=10000
+        )
+        db = client[db_name]
+        await client.admin.command('ping')
+        logger.info("Successfully connected to MongoDB Atlas")
+    except Exception as e:
+        logger.error(f"Failed to connect to MongoDB: {str(e)}")
     try:
         await db.users.create_index("email", unique=True)
         await db.vehicles.create_index([("status", 1), ("featured", -1)])
