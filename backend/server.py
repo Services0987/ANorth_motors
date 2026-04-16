@@ -409,19 +409,35 @@ async def import_vehicle_from_url(data: Dict[str, str], cu=Depends(get_current_u
     url = data.get("url")
     if not url: raise HTTPException(400, "URL required")
     from .scraper import scrape_teamford_listing
-    v_data = await scrape_teamford_listing(url)
-    if not v_data: raise HTTPException(400, "Could not extract data from the provided URL")
-    
-    # Check if duplicate by VIN or Stock Number
-    existing = await db.vehicles.find_one({
-        "$or": [{"vin": v_data["vin"]}, {"stock_number": v_data["stock_number"]}]
-    })
-    if existing:
-        await db.vehicles.update_one({"_id": existing["_id"]}, {"$set": v_data})
-        return {"message": "Vehicle updated", "id": str(existing["_id"])}
-    
-    res = await db.vehicles.insert_one(v_data)
-    return {"message": "Vehicle imported", "id": str(res.inserted_id)}
+    try:
+        v_data = await scrape_teamford_listing(url)
+        if not v_data: raise HTTPException(400, "Could not extract data from the provided URL")
+        
+        # Defensive check for identifiers
+        vin = v_data.get("vin")
+        stock = v_data.get("stock_number")
+        
+        if not vin and not stock:
+            raise HTTPException(400, "Incomplete vehicle data: missing both VIN and Stock Number")
+
+        # Check if duplicate by VIN or Stock Number
+        query = []
+        if vin: query.append({"vin": vin})
+        if stock: query.append({"stock_number": stock})
+        
+        existing = await db.vehicles.find_one({"$or": query})
+        
+        if existing:
+            await db.vehicles.update_one({"_id": existing["_id"]}, {"$set": v_data})
+            return {"message": "Vehicle updated", "id": str(existing["_id"])}
+        
+        res = await db.vehicles.insert_one(v_data)
+        return {"message": "Vehicle imported", "id": str(res.inserted_id)}
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Error importing from URL {url}: {e}")
+        raise HTTPException(500, f"Error processing listing: {str(e)}")
 
 @api_router.post("/scraper/sync/teamford")
 async def sync_teamford(cu=Depends(get_current_user)):
@@ -535,7 +551,44 @@ Be genuine, helpful, never pushy. If asked about financing say we offer rates fr
 
         gemini_api_key = os.environ.get("GEMINI_API_KEY")
         if not gemini_api_key:
-            return {"response": f"Hello! I am the AutoNorth Motors assistant. I see we have some great options like {inventory.splitlines()[0] if inventory else 'our latest models'}. How can I help you today? You can also reach us at 825-605-5050.", "lead_captured": False}
+            msg = data.message.lower()
+            response_text = ""
+            
+            # Smart Inventory Lookup
+            matches = []
+            if any(x in msg for x in ["f-150", "f150", "ford", "truck"]):
+                matches = [v for v in docs if "ford" in v['make'].lower() or "f-150" in v['model'].lower()]
+            elif any(x in msg for x in ["ram", "dodge", "1500"]):
+                matches = [v for v in docs if "ram" in v['make'].lower() or "dodge" in v['make'].lower()]
+            elif any(x in msg for x in ["suv", "jeep", "explorer"]):
+                matches = [v for v in docs if v['body_type'].lower() == "suv"]
+            
+            # 1. Intent: Location & Contact
+            if any(x in msg for x in ["location", "address", "where", "visit", "showroom"]):
+                response_text = "We are located at 3304 91 St NW, Edmonton, AB T6N 1C1. Our showroom is open Mon-Fri 9am-8pm and Sat-Sun 10am-6pm. Would you like to schedule a visit?"
+            
+            # 2. Intent: Financing
+            elif any(x in msg for x in ["finance", "loan", "rate", "credit", "payment"]):
+                response_text = "We offer flexible financing starting from 3.99% APR. Our team works with all credit situations. You can apply directly on our site or call us at 825-605-5050 for a quick quote!"
+            
+            # 3. Intent: Phone/Contact
+            elif any(x in msg for x in ["phone", "call", "number", "email", "contact"]):
+                response_text = "You can call us directly at 825-605-5050 or email autonorthab@gmail.com. We are located in Edmonton and serve all of Alberta."
+
+            # 4. Intent: Inventory Search
+            elif matches or any(x in msg for x in ["inventory", "cars", "trucks", "stock", "have", "looking for", "price"]):
+                if matches:
+                    titles = ", ".join([f"{v['year']} {v['title']} (${v['price']:,.0f})" for v in matches[:3]])
+                    response_text = f"I found some great matches in our Edmonton inventory: {titles}. Would you like to see more details or book a test drive?"
+                else:
+                    top_3 = ", ".join([v['title'] for v in docs[:3]])
+                    response_text = f"We have a great selection of luxury vehicles and trucks in stock, including: {top_3}. What specific brand or model are you looking for?"
+            
+            # 5. Fallback / Greeting
+            else:
+                response_text = "Welcome to AutoNorth Motors! I'm your virtual assistant. I can help you find a vehicle, check our location, or assist with financing. What can I do for you today?"
+
+            return {"response": response_text, "lead_captured": False}
 
         genai.configure(api_key=gemini_api_key)
         model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=system_instruction)

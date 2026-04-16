@@ -317,13 +317,13 @@ export default function AdminInventory() {
                   </td>
                   <td className="px-4 py-3">
                      <button onClick={() => {}} className={`transition-all duration-300 ${v.featured ? 'text-[#D4AF37]' : 'text-white/10'}`}>
-                        <Star size={16} fill={v.featured ? 'currentColor' : 'none'} />
+                        {Star ? <Star size={16} fill={v.featured ? 'currentColor' : 'none'} /> : null}
                      </button>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-4">
-                      <button onClick={() => openEdit(v)} title="Edit Listing" className="text-white/20 hover:text-white transition-colors"><Pencil size={15} /></button>
-                      <button onClick={() => setDeleteConfirm(v.id)} title="Delete" className="text-white/20 hover:text-red-500 transition-colors"><Trash2 size={15} /></button>
+                      <button onClick={() => openEdit(v)} title="Edit Listing" className="text-white/20 hover:text-white transition-colors">{Pencil ? <Pencil size={15} /> : 'Edit'}</button>
+                      <button onClick={() => setDeleteConfirm(v.id)} title="Delete" className="text-white/20 hover:text-red-500 transition-colors">{Trash2 ? <Trash2 size={15} /> : 'Delete'}</button>
                     </div>
                   </td>
                 </tr>

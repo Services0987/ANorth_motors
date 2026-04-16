@@ -187,26 +187,6 @@ export default function VehicleCard({ vehicle, index = 0 }) {
             >
               {vehicle.title}
             </h3>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <span className="flex items-center gap-1.5 text-white/45 text-[11px] font-body">
-                  <Gauge size={12} strokeWidth={1.5} />
-                  {vehicle.mileage === 0 ? '0 km' : `${vehicle.mileage?.toLocaleString()} km`}
-                </span>
-                <span className="flex items-center gap-1.5 text-white/45 text-[11px] font-body">
-                  <Fuel size={12} strokeWidth={1.5} />
-                  {vehicle.fuel_type}
-                </span>
-              </div>
-              <span
-                className="flex items-center gap-1.5 text-[11px] font-heading tracking-widest uppercase transition-colors duration-400"
-                style={{ color: hovered ? '#D4AF37' : 'rgba(255,255,255,0.25)' }}
-              >
-                Explore
-                <ArrowRight
-                  size={12}
-                  style={{ transform: hovered ? 'translateX(5px)' : 'none', transition: 'transform 0.4s cubic-bezier(0.16,1,0.3,1)' }}
-                />
               </span>
             </div>
           </div>
