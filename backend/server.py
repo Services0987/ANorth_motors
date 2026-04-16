@@ -427,6 +427,9 @@ async def import_vehicle_from_url(data: Dict[str, str], cu=Depends(get_current_u
 async def sync_teamford(cu=Depends(get_current_user)):
     from .scraper import scrape_teamford_inventory
     v_list = await scrape_teamford_inventory(limit=15)
+    if not v_list:
+        v_list = []
+        
     added, updated = 0, 0
     for v in v_list:
         try:
@@ -452,6 +455,38 @@ async def sync_teamford(cu=Depends(get_current_user)):
         upsert=True
     )
     return {"added": added, "updated": updated}
+
+@api_router.get("/debug/health")
+async def debug_health():
+    """Diagnostic endpoint to safely verify system health on production"""
+    status = {
+        "database": "unknown",
+        "ai_service": "unknown",
+        "environment": {
+            "mongo_set": bool(os.getenv("MONGO_URL")),
+            "gemini_set": bool(os.getenv("GEMINI_API_KEY")),
+            "frontend_url": os.getenv("FRONTEND_URL", "not set")
+        }
+    }
+    
+    try:
+        if db is not None:
+            await db.command("ping")
+            status["database"] = "healthy"
+        else:
+            status["database"] = "uninitialized"
+    except Exception as e:
+        status["database"] = f"unhealthy: {str(e)}"
+        
+    try:
+        if os.getenv("GEMINI_API_KEY"):
+            status["ai_service"] = "ready"
+        else:
+            status["ai_service"] = "missing api key"
+    except:
+        status["ai_service"] = "error"
+        
+    return status
 
 @api_router.get("/ai/inventory-snapshot")
 async def get_inventory_snapshot(cu=Depends(get_current_user)):
