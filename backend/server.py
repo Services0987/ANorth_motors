@@ -408,7 +408,7 @@ async def update_scraper_settings(data: Dict[str, Any], cu=Depends(get_current_u
 async def import_vehicle_from_url(data: Dict[str, str], cu=Depends(get_current_user)):
     url = data.get("url")
     if not url: raise HTTPException(400, "URL required")
-    from .scraper import scrape_teamford_listing
+    from scraper import scrape_teamford_listing
     try:
         v_data = await scrape_teamford_listing(url)
         if not v_data: raise HTTPException(400, "Could not extract data from the provided URL")
@@ -441,7 +441,7 @@ async def import_vehicle_from_url(data: Dict[str, str], cu=Depends(get_current_u
 
 @api_router.post("/scraper/sync/teamford")
 async def sync_teamford(cu=Depends(get_current_user)):
-    from .scraper import scrape_teamford_inventory
+    from scraper import scrape_teamford_inventory
     v_list = await scrape_teamford_inventory(limit=15)
     if not v_list:
         v_list = []
@@ -551,42 +551,43 @@ Be genuine, helpful, never pushy. If asked about financing say we offer rates fr
 
         gemini_api_key = os.environ.get("GEMINI_API_KEY")
         if not gemini_api_key:
-            msg = data.message.lower()
+            msg = data.message.lower().strip()
             response_text = ""
             
-            # Smart Inventory Lookup
-            matches = []
-            if any(x in msg for x in ["f-150", "f150", "ford", "truck"]):
-                matches = [v for v in docs if "ford" in v['make'].lower() or "f-150" in v['model'].lower()]
-            elif any(x in msg for x in ["ram", "dodge", "1500"]):
-                matches = [v for v in docs if "ram" in v['make'].lower() or "dodge" in v['make'].lower()]
-            elif any(x in msg for x in ["suv", "jeep", "explorer"]):
-                matches = [v for v in docs if v['body_type'].lower() == "suv"]
+            # 1. Intent: Location & Contact (Highest Priority)
+            if any(x in msg for x in ["location", "address", "where", "visit", "showroom", "st", "91"]):
+                response_text = "We are located at 3304 91 St NW, Edmonton, AB T6N 1C1. Our showroom is open Mon-Fri 9am-8pm and Sat-Sun 10am-6pm. We serve the entire Edmonton and Alberta region. Would you like to schedule a visit?"
             
-            # 1. Intent: Location & Contact
-            if any(x in msg for x in ["location", "address", "where", "visit", "showroom"]):
-                response_text = "We are located at 3304 91 St NW, Edmonton, AB T6N 1C1. Our showroom is open Mon-Fri 9am-8pm and Sat-Sun 10am-6pm. Would you like to schedule a visit?"
+            # 2. Intent: Financing & Rates
+            elif any(x in msg for x in ["finance", "loan", "rate", "credit", "approve", "payment"]):
+                response_text = "We offer flexible financing starting from 3.99% APR. Our team specializes in all credit situations (Edmonton and AB focused). You can apply directly on our financing page or call us at 825-605-5050 for a quick quote!"
             
-            # 2. Intent: Financing
-            elif any(x in msg for x in ["finance", "loan", "rate", "credit", "payment"]):
-                response_text = "We offer flexible financing starting from 3.99% APR. Our team works with all credit situations. You can apply directly on our site or call us at 825-605-5050 for a quick quote!"
-            
-            # 3. Intent: Phone/Contact
-            elif any(x in msg for x in ["phone", "call", "number", "email", "contact"]):
-                response_text = "You can call us directly at 825-605-5050 or email autonorthab@gmail.com. We are located in Edmonton and serve all of Alberta."
-
-            # 4. Intent: Inventory Search
-            elif matches or any(x in msg for x in ["inventory", "cars", "trucks", "stock", "have", "looking for", "price"]):
+            # 3. Intent: Specific Vehicle Matches
+            elif any(x in msg for x in ["f-150", "f150", "ram", "dodge", "truck", "suv", "ford", "chevy"]):
+                matches = []
+                if "f-150" in msg or "f150" in msg or "ford" in msg:
+                    matches = [v for v in docs if "ford" in v['make'].lower() or "f-150" in v['model'].lower()]
+                elif "ram" in msg or "dodge" in msg:
+                    matches = [v for v in docs if "ram" in v['make'].lower() or "dodge" in v['make'].lower()]
+                
                 if matches:
-                    titles = ", ".join([f"{v['year']} {v['title']} (${v['price']:,.0f})" for v in matches[:3]])
-                    response_text = f"I found some great matches in our Edmonton inventory: {titles}. Would you like to see more details or book a test drive?"
+                    titles = ", ".join([f"{v['year']} {v['title']} (${v['price']:,.0f})" for v in matches[:2]])
+                    response_text = f"I found some excellent matches in our Edmonton inventory: {titles}. You can see all our {matches[0]['body_type']}s on the inventory page. Shall I book a test drive for you?"
                 else:
-                    top_3 = ", ".join([v['title'] for v in docs[:3]])
-                    response_text = f"We have a great selection of luxury vehicles and trucks in stock, including: {top_3}. What specific brand or model are you looking for?"
+                    response_text = "We have a massive selection of Ford, RAM, SUV and luxury trucks in stock right now at AutoNorth Edmonton. What specific make or budget do you have in mind?"
+
+            # 4. Intent: General Inventory / Catalog
+            elif any(x in msg for x in ["inventory", "cars", "stock", "have", "buy", "looking for", "price"]):
+                top_3 = ", ".join([v['title'] for v in docs[:3]])
+                response_text = f"Explore our premium selection! Current highlights include: {top_3}. We're located in Edmonton and offer Canada-wide shipping (check for availability). What model can I help you with?"
+
+            # 5. Intent: Phone/Email (Direct Contact)
+            elif any(x in msg for x in ["phone", "call", "number", "email", "contact"]):
+                response_text = "Reach our Edmonton team directly at 825-605-5050 or email autonorthab@gmail.com. We're open 7 days a week!"
             
-            # 5. Fallback / Greeting
+            # 6. Fallback / Greeting
             else:
-                response_text = "Welcome to AutoNorth Motors! I'm your virtual assistant. I can help you find a vehicle, check our location, or assist with financing. What can I do for you today?"
+                response_text = "Greetings from AutoNorth Motors, Edmonton! I'm your virtual assistant. I can help you find your next vehicle, check our showroom location, or assist with financing. What can I do for you today?"
 
             return {"response": response_text, "lead_captured": False}
 
@@ -646,7 +647,7 @@ async def startup():
         await db.leads.create_index([("created_at", -1)])
 
         admin_email = os.environ.get("ADMIN_EMAIL", "admin@autonorth.ca")
-        admin_password = os.environ.get("ADMIN_PASSWORD", "AdminPass2024")
+        admin_password = os.environ.get("ADMIN_PASSWORD", "AdminPass26")
         existing = await db.users.find_one({"email": admin_email})
         if not existing:
             await db.users.insert_one({"email": admin_email, "password_hash": hash_password(admin_password), "name": "AutoNorth Admin", "role": "admin", "created_at": datetime.now(timezone.utc)})

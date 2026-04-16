@@ -187,7 +187,10 @@ export default function VehicleCard({ vehicle, index = 0 }) {
             >
               {vehicle.title}
             </h3>
-              </span>
+
+            <div className="flex items-center gap-4 text-white/40 text-[10px] uppercase font-heading tracking-widest">
+              <div className="flex items-center gap-1.5">{Gauge ? <Gauge size={12} className="text-[#D4AF37]" /> : null} {vehicle.mileage?.toLocaleString()} KM</div>
+              <div className="flex items-center gap-1.5">{Fuel ? <Fuel size={12} className="text-[#D4AF37]" /> : null} {vehicle.fuel_type}</div>
             </div>
           </div>
         </Link>
