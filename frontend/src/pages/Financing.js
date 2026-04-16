@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Calculator, Check, ChevronRight } from 'lucide-react';
 import axios from 'axios';
+import { Helmet } from 'react-helmet-async';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
@@ -37,7 +38,14 @@ export default function Financing() {
   };
 
   return (
-    <div className="bg-[#050505] min-h-screen" data-testid="financing-page">
+    <>
+      <Helmet>
+        <title>Vehicle Financing & Auto Loans Edmonton | AutoNorth Motors</title>
+        <meta name="description" content="Get pre-approved for a car loan in Edmonton today. AutoNorth Motors offers competitive financing rates for all credit profiles in Alberta. Low APR, flexible terms, and instant decisions." />
+        <meta name="keywords" content="car loans Edmonton, auto financing Alberta, bad credit car loans Edmonton, vehicle finance rates Canada, AutoNorth Motors financing" />
+      </Helmet>
+
+      <div className="bg-[#050505] min-h-screen" data-testid="financing-page">
       <Navbar />
       <div className="pt-32 pb-24 max-w-7xl mx-auto px-6 md:px-12">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-16">

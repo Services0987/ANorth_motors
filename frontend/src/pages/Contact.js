@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Phone, Mail, MapPin, Clock, Check } from 'lucide-react';
 import axios from 'axios';
+import { Helmet } from 'react-helmet-async';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
@@ -25,7 +26,14 @@ export default function Contact() {
   };
 
   return (
-    <div className="bg-[#050505] min-h-screen" data-testid="contact-page">
+    <>
+      <Helmet>
+        <title>Contact Us | AutoNorth Motors Edmonton — Your Trusted AB Dealer</title>
+        <meta name="description" content="Contact AutoNorth Motors in Edmonton, Alberta. Visit our showroom at 3304 91 St or call 825-605-5050. Serving Edmonton, Red Deer, Calgary, and all of Canada." />
+        <meta name="keywords" content="contact AutoNorth Motors, car dealer Edmonton phone, Ford dealership Edmonton address, Alberta auto dealer contact" />
+      </Helmet>
+
+      <div className="bg-[#050505] min-h-screen" data-testid="contact-page">
       <Navbar />
       <div className="pt-32 pb-24 max-w-7xl mx-auto px-6 md:px-12">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-16">

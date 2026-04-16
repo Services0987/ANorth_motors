@@ -140,6 +140,7 @@ export default function VehicleDetail() {
                   <AnimatePresence mode="wait">
                     <motion.img
                       key={imgIdx}
+                      layoutId={imgIdx === 0 ? `vehicle-image-${id}` : undefined}
                       src={images[imgIdx]}
                       alt={vehicle.title}
                       className="absolute inset-0 w-full h-full object-cover"
@@ -152,7 +153,10 @@ export default function VehicleDetail() {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
-                      transition={{ duration: 0.35 }}
+                      transition={{ 
+                        opacity: { duration: 0.35 },
+                        layout: { duration: 0.6, ease: [0.16, 1, 0.3, 1] }
+                      }}
                     />
                   </AnimatePresence>
                   {images.length > 1 && (
@@ -234,9 +238,16 @@ export default function VehicleDetail() {
                     {vehicle.drivetrain && <span className="text-[10px] border border-white/10 text-white/35 px-2 py-0.5 font-body tracking-wide">{vehicle.drivetrain}</span>}
                   </div>
                   <h1 className="font-heading text-2xl md:text-3xl font-semibold text-white leading-tight mb-4" data-testid="vehicle-title">{vehicle.title}</h1>
-                  <div className="mb-5">
-                    <p className="text-[#D4AF37] font-heading text-4xl font-bold" data-testid="vehicle-price">${vehicle.price?.toLocaleString()}</p>
-                    <p className="text-white/30 text-sm font-body mt-1">+ applicable taxes & registration</p>
+                  <div className="mb-6">
+                    <p className="text-[#D4AF37] font-heading text-4xl font-bold tracking-tight" data-testid="vehicle-price">${vehicle.price?.toLocaleString()}</p>
+                    <div className="flex flex-col gap-1 mt-2">
+                       <p className="text-white font-heading text-xs tracking-[0.1em] uppercase bg-white/5 py-1 px-2 border-l border-[#D4AF37] w-fit">
+                         Available at AutoNorth, Edmonton
+                       </p>
+                       <p className="text-white/30 text-[10px] font-body uppercase tracking-wider ml-2">
+                         + exclusive 2024 Alberta rate apply
+                       </p>
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3 pb-5 border-b border-white/[0.05]">
                     {[[vehicle.year, 'Year'], [vehicle.mileage === 0 ? '0 km' : `${vehicle.mileage?.toLocaleString()} km`, 'Mileage'], [vehicle.transmission, 'Transmission'], [vehicle.drivetrain || '—', 'Drivetrain']].map(([v, l]) => (

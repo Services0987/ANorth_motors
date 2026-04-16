@@ -12,12 +12,16 @@ export default function ExitIntentPopup() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (sessionStorage.getItem('exitShown')) return;
+    const lastShown = localStorage.getItem('exitShownTimestamp');
+    const now = Date.now();
+    const twentyFourHours = 24 * 60 * 60 * 1000;
+
+    if (lastShown && (now - parseInt(lastShown)) < twentyFourHours) return;
 
     const handleMouseLeave = (e) => {
       if (e.clientY < 0) {
         setShow(true);
-        sessionStorage.setItem('exitShown', 'true');
+        localStorage.setItem('exitShownTimestamp', Date.now().toString());
       }
     };
 

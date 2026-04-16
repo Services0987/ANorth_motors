@@ -10,8 +10,10 @@ import jwt
 import bcrypt
 import logging
 import pathlib
+import httpx
+import json
 from datetime import datetime, timezone, timedelta
-from typing import List, Optional, Annotated, Any
+from typing import List, Optional, Annotated, Any, Dict
 
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, UploadFile, File
 from fastapi.responses import JSONResponse
@@ -249,12 +251,12 @@ async def list_vehicles(
         # Fallback to empty results to prevent 500 crashes
         return {"vehicles": [], "total": 0, "skip": skip, "limit": limit, "error": "Service temporarily unavailable"}
 
-# @api_router.get("/vehicles/{vehicle_id}")
-# async def get_vehicle(vehicle_id: str):
-#     if not ObjectId.is_valid(vehicle_id): raise HTTPException(400, "Invalid ID")
-#     doc = await db.vehicles.find_one({"_id": ObjectId(vehicle_id)})
-#     if not doc: raise HTTPException(404, "Vehicle not found")
-#     return Vehicle.from_mongo(doc).model_dump(mode='json')
+@api_router.get("/vehicles/{vehicle_id}")
+async def get_vehicle(vehicle_id: str):
+    if not ObjectId.is_valid(vehicle_id): raise HTTPException(400, "Invalid ID")
+    doc = await db.vehicles.find_one({"_id": ObjectId(vehicle_id)})
+    if not doc: raise HTTPException(404, "Vehicle not found")
+    return Vehicle.from_mongo(doc).model_dump(mode='json')
 
 
 
@@ -280,6 +282,13 @@ async def delete_vehicle(vehicle_id: str, cu=Depends(get_current_user)):
     r = await db.vehicles.delete_one({"_id": ObjectId(vehicle_id)})
     if r.deleted_count == 0: raise HTTPException(404, "Not found")
     return {"message": "Deleted"}
+
+@api_router.delete("/vehicles/bulk/delete")
+async def bulk_delete_vehicles(vehicle_ids: List[str], cu=Depends(get_current_user)):
+    oids = [ObjectId(vid) for vid in vehicle_ids if ObjectId.is_valid(vid)]
+    if not oids: raise HTTPException(400, "No valid IDs provided")
+    result = await db.vehicles.delete_many({"_id": {"$in": oids}})
+    return {"message": f"Deleted {result.deleted_count} vehicles"}
 
 # ─── CSV Import ───────────────────────────────────────────────────
 @api_router.post("/vehicles/import")
@@ -379,73 +388,80 @@ async def get_stats(cu=Depends(get_current_user)):
             "recent_leads": [Lead.from_mongo(d).model_dump(mode='json') for d in recent]}
 
 
-# ─── Scraper Engine ────────────────────────────────────────────────
-@api_router.post("/scrape")
-async def execute_scrape(request: Request):
-    try:
-        data = await request.json()
-        target_url = data.get("targetUrl")
-        secret = data.get("secret")
-        
-        # Security to prevent external abuse
-        if secret != os.environ.get("MASTER_SECRET"):
-            raise HTTPException(401, "Unauthorized Pipeline Request")
-        
-        if not target_url or "inventory" not in target_url:
-            raise HTTPException(400, "Invalid Target URL")
+# ─── Scraper & Settings ──────────────────────────────────────────
+@api_router.get("/scraper/settings")
+async def get_scraper_settings(cu=Depends(get_current_user)):
+    s = await db.settings.find_one({"key": "scraper"})
+    if not s: return {"auto_sync": False, "last_sync": None}
+    return {"auto_sync": s.get("auto_sync", False), "last_sync": s.get("last_sync")}
 
-        import requests
-        from bs4 import BeautifulSoup
-        
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36'
-        }
-        res = requests.get(target_url, headers=headers)
-        res.raise_for_status()
-        
-        soup = BeautifulSoup(res.text, 'html.parser')
-        new_vehicles = []
-        inserted = 0
-        
-        # Simulated parsing. In production, exact CSS selectors must be mapped to teamford.ca
-        for card in soup.select('.inventory-item, .v-card, .vehicle-card'):
-            try:
-                title_elem = card.select_one('.title, h2, h3')
-                if not title_elem: continue
-                title = title_elem.text.strip()
-                
-                price_text = card.select_one('.price, .pricing, .value')
-                price = int(re.sub(r'[^0-9]', '', price_text.text)) if price_text else 0
-                
-                img_elem = card.select_one('img')
-                img = img_elem.get('data-src') or img_elem.get('src') if img_elem else "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800"
-                
-                parts = title.split(' ')
-                year = int(parts[0]) if parts[0].isdigit() else datetime.now().year
-                make = parts[1] if len(parts) > 1 else 'Unknown'
-                model = ' '.join(parts[2:]) if len(parts) > 2 else 'Model'
-                
-                v = {
-                    "title": title, "make": make, "model": model, "year": year, 
-                    "price": price, "condition": "used" if "used" in title.lower() else "new",
-                    "status": "available", "featured": False, "images": [img],
-                    "created_at": datetime.now(timezone.utc), "updated_at": datetime.now(timezone.utc)
-                }
-                
-                if price > 0:
-                    existing = await db.vehicles.find_one({"title": title})
-                    if not existing:
-                        await db.vehicles.insert_one(v)
-                        inserted += 1
-            except Exception as e:
-                logger.error(f"Error parsing card: {e}")
-                
-        return {"success": True, "message": f"Scrape complete. Ingested {inserted} new vehicles into database."}
+@api_router.post("/scraper/settings")
+async def update_scraper_settings(data: Dict[str, Any], cu=Depends(get_current_user)):
+    await db.settings.update_one(
+        {"key": "scraper"},
+        {"$set": {"auto_sync": data.get("auto_sync", False)}},
+        upsert=True
+    )
+    return {"message": "Settings updated"}
 
-    except Exception as e:
-        logger.error(f"Scraper Error: {e}")
-        raise HTTPException(500, f"Scrape failed: {str(e)}")
+@api_router.post("/scraper/import-url")
+async def import_vehicle_from_url(data: Dict[str, str], cu=Depends(get_current_user)):
+    url = data.get("url")
+    if not url: raise HTTPException(400, "URL required")
+    from .scraper import scrape_teamford_listing
+    v_data = await scrape_teamford_listing(url)
+    if not v_data: raise HTTPException(400, "Could not extract data from the provided URL")
+    
+    # Check if duplicate by VIN or Stock Number
+    existing = await db.vehicles.find_one({
+        "$or": [{"vin": v_data["vin"]}, {"stock_number": v_data["stock_number"]}]
+    })
+    if existing:
+        await db.vehicles.update_one({"_id": existing["_id"]}, {"$set": v_data})
+        return {"message": "Vehicle updated", "id": str(existing["_id"])}
+    
+    res = await db.vehicles.insert_one(v_data)
+    return {"message": "Vehicle imported", "id": str(res.inserted_id)}
 
+@api_router.post("/scraper/sync/teamford")
+async def sync_teamford(cu=Depends(get_current_user)):
+    from .scraper import scrape_teamford_inventory
+    v_list = await scrape_teamford_inventory(limit=15)
+    added, updated = 0, 0
+    for v in v_list:
+        existing = await db.vehicles.find_one({
+            "$or": [{"vin": v["vin"]}, {"stock_number": v["stock_number"]}]
+        })
+        if existing:
+            await db.vehicles.update_one({"_id": existing["_id"]}, {"$set": v})
+            updated += 1
+        else:
+            await db.vehicles.insert_one(v)
+            added += 1
+    
+    await db.settings.update_one(
+        {"key": "scraper"},
+        {"$set": {"last_sync": datetime.now(timezone.utc)}},
+        upsert=True
+    )
+    return {"added": added, "updated": updated}
+
+@api_router.get("/ai/inventory-snapshot")
+async def get_inventory_snapshot(cu=Depends(get_current_user)):
+    """Generates a text-based snapshot of the current inventory for AI context."""
+    total = await db.vehicles.count_documents({"status": "available"})
+    makes = await db.vehicles.distinct("make", {"status": "available"})
+    types = await db.vehicles.distinct("body_type", {"status": "available"})
+    featured = await db.vehicles.find({"featured": True, "status": "available"}).limit(5).to_list(5)
+    
+    snapshot = f"Total Available: {total}\n"
+    snapshot += f"Makes: {', '.join(makes)}\n"
+    snapshot += f"Body Types: {', '.join(types)}\n"
+    snapshot += "Featured Models:\n"
+    for v in featured:
+        snapshot += f"- {v['title']} (${v['price']:,.0f})\n"
+    
+    return {"snapshot": snapshot}
 
 # ─── AI Chat ──────────────────────────────────────────────────────
 @api_router.post("/chat")

@@ -27,36 +27,37 @@ export default function AdminDashboard() {
   }, []);
 
   const statCards = stats ? [
-    { label: 'Total Vehicles', value: stats.total_vehicles, icon: Car, color: 'text-[#D4AF37]', bg: 'bg-[#D4AF37]/10' },
-    { label: 'Available', value: stats.available, icon: CheckCircle, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-    { label: 'Sold', value: stats.sold, icon: TrendingUp, color: 'text-purple-400', bg: 'bg-purple-500/10' },
-    { label: 'Total Leads', value: stats.total_leads, icon: Users, color: 'text-blue-400', bg: 'bg-blue-500/10' },
-    { label: 'New Leads', value: stats.new_leads, icon: Clock, color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
-    { label: 'Featured', value: stats.featured, icon: DollarSign, color: 'text-pink-400', bg: 'bg-pink-500/10' },
+    { label: 'Total Vehicles', value: stats.total_vehicles, icon: Car, color: 'text-[#D4AF37]', bg: 'bg-[#D4AF37]/10', link: '/admin/inventory' },
+    { label: 'Available', value: stats.available, icon: CheckCircle, color: 'text-emerald-400', bg: 'bg-emerald-500/10', link: '/admin/inventory' },
+    { label: 'Sold', value: stats.sold, icon: TrendingUp, color: 'text-purple-400', bg: 'bg-purple-500/10', link: '/admin/inventory' },
+    { label: 'Total Leads', value: stats.total_leads, icon: Users, color: 'text-blue-400', bg: 'bg-blue-500/10', link: '/admin/leads' },
+    { label: 'New Leads', value: stats.new_leads, icon: Clock, color: 'text-yellow-400', bg: 'bg-yellow-500/10', link: '/admin/leads' },
+    { label: 'Featured', value: stats.featured, icon: DollarSign, color: 'text-pink-400', bg: 'bg-pink-500/10', link: '/admin/inventory' },
   ] : [];
 
   return (
-    <AdminLayout title="Dashboard">
+    <AdminLayout title="Operations Hub">
       <div className="space-y-8" data-testid="admin-dashboard">
         {/* Stat Cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           {loading ? (
-            [...Array(6)].map((_, i) => <div key={i} className="h-24 bg-[#0A0A0A] border border-white/[0.05] animate-pulse" />)
+            [...Array(6)].map((_, i) => <div key={i} className="h-28 bg-[#0A0A0A] border border-white/[0.05] animate-pulse" />)
           ) : (
             statCards.map((card, i) => (
               <motion.div
                 key={card.label}
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05 }}
-                className="bg-[#0A0A0A] border border-white/[0.05] p-4"
-                data-testid={`stat-card-${card.label.toLowerCase().replace(' ', '-')}`}
+                transition={{ delay: i * 0.05, duration: 0.5 }}
+                className="relative group cursor-pointer"
               >
-                <div className={`w-8 h-8 ${card.bg} flex items-center justify-center mb-3`}>
-                  <card.icon size={16} className={card.color} />
-                </div>
-                <p className={`font-heading text-2xl font-semibold ${card.color} mb-1`}>{card.value}</p>
-                <p className="text-white/30 text-xs font-body">{card.label}</p>
+                <Link to={card.link} className="block bg-[#0A0A0A] border border-white/[0.05] hover:border-[#D4AF37]/30 p-5 transition-all duration-300">
+                  <div className={`w-9 h-9 ${card.bg} flex items-center justify-center mb-4 transition-transform group-hover:scale-110`}>
+                    <card.icon size={18} className={card.color} />
+                  </div>
+                  <p className={`font-heading text-3xl font-bold ${card.color} mb-1 tracking-tight`}>{card.value}</p>
+                  <p className="text-white/35 text-[10px] font-heading uppercase tracking-widest">{card.label}</p>
+                </Link>
               </motion.div>
             ))
           )}

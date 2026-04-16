@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Search, SlidersHorizontal, X, ChevronDown } from 'lucide-react';
 import axios from 'axios';
+import { Helmet } from 'react-helmet-async';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import VehicleCard from '../components/VehicleCard';
@@ -88,7 +89,14 @@ export default function Inventory() {
   const activeFilters = Object.values(filters).filter(Boolean).length;
 
   return (
-    <div className="bg-[#050505] min-h-screen" data-testid="inventory-page">
+    <>
+      <Helmet>
+        <title>Inventory | AutoNorth Motors Edmonton — Browse New & Used Vehicles</title>
+        <meta name="description" content="Browse our premium inventory of new and used trucks, SUVs and cars at AutoNorth Motors Edmonton. Serving all of Alberta with the best selection and financing rates. Canada-wide shipping available." />
+        <meta name="keywords" content="used trucks Edmonton, SUVs for sale Alberta, Ford inventory Edmonton, AutoNorth Motors vehicles, buy used car Edmonton, Alberta auto sales" />
+      </Helmet>
+
+      <div className="bg-[#050505] min-h-screen" data-testid="inventory-page">
       <Navbar />
 
       <div className="pt-32 pb-6 px-6 md:px-12 max-w-7xl mx-auto">

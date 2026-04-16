@@ -107,8 +107,9 @@ export default function Home() {
     <>
       <Helmet>
         <title>AutoNorth Motors | Premium New & Used Vehicles Edmonton, Alberta</title>
-        <meta name="description" content="AutoNorth Motors — Edmonton's most trusted dealership for new and used Ford vehicles. Best prices, expert financing, instant AI assistance. Visit us at 9104 91 St NW." />
-        <meta name="keywords" content="Ford dealer Edmonton, used cars Edmonton, new cars Edmonton, AutoNorth Motors, car dealership Alberta, buy car Edmonton, F-150 Edmonton, SUV dealer Edmonton" />
+        <title>AutoNorth Motors | Premium New & Used Vehicles in Edmonton, Alberta</title>
+        <meta name="description" content="Discover premium new and used vehicles at AutoNorth Motors, Edmonton's leading dealership. Serving Alberta with the best deals on Ford trucks, SUVs, and luxury cars. National shipping available across Canada." />
+        <meta name="keywords" content="Ford dealer Edmonton, used cars Edmonton, new cars Edmonton, trucks for sale Alberta, car dealership Edmonton, best used cars Alberta, buy car Canada, AutoNorth Motors Edmonton, Ford F-150 Edmonton" />
         <link rel="canonical" href="https://www.autonorth.ca" />
         <script type="application/ld+json">{JSON.stringify({
           "@context": "https://schema.org",
