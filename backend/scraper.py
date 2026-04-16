@@ -35,15 +35,24 @@ async def scrape_teamford_listing(url: str) -> Optional[Dict[str, Any]]:
                 logger.error(f"No vehicle object found in pageProps for {url}")
                 return None
                 
+            # Safe numeric conversions
+            def to_int(val, default=0):
+                try: return int(val)
+                except (ValueError, TypeError): return default
+
+            def to_float(val, default=0.0):
+                try: return float(val)
+                except (ValueError, TypeError): return default
+                
             # Extract deep info
             extracted = {
                 "id": v.get("id") or v.get("stock_number"),
                 "title": f"{v.get('year')} {v.get('make')} {v.get('model')} {v.get('trim', '')}".strip(),
                 "make": v.get("make"),
                 "model": v.get("model"),
-                "year": int(v.get("year", 2024)),
-                "price": float(v.get("pricing", {}).get("sell_price", 0)),
-                "mileage": int(v.get("odometer", 0)),
+                "year": to_int(v.get("year"), 2024),
+                "price": to_float(v.get("pricing", {}).get("sell_price"), 0.0),
+                "mileage": to_int(v.get("odometer"), 0),
                 "condition": v.get("stock_type", "used").lower(),
                 "body_type": v.get("body_style"),
                 "fuel_type": v.get("fuel_type", "Gas"),
@@ -62,6 +71,11 @@ async def scrape_teamford_listing(url: str) -> Optional[Dict[str, Any]]:
                 "source_url": url
             }
             
+            # Validation: Ensure we at least have a VIN or Stock Number to avoid 500s during DB operations
+            if not extracted.get("vin") and not extracted.get("stock_number"):
+                logger.error(f"Scraped data for {url} missing both VIN and Stock Number")
+                return None
+
             return extracted
             
     except Exception as e:

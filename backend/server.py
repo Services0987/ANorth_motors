@@ -429,15 +429,22 @@ async def sync_teamford(cu=Depends(get_current_user)):
     v_list = await scrape_teamford_inventory(limit=15)
     added, updated = 0, 0
     for v in v_list:
-        existing = await db.vehicles.find_one({
-            "$or": [{"vin": v["vin"]}, {"stock_number": v["stock_number"]}]
-        })
-        if existing:
-            await db.vehicles.update_one({"_id": existing["_id"]}, {"$set": v})
-            updated += 1
-        else:
-            await db.vehicles.insert_one(v)
-            added += 1
+        try:
+            if not v or (not v.get("vin") and not v.get("stock_number")):
+                continue
+                
+            existing = await db.vehicles.find_one({
+                "$or": [{"vin": v["vin"]}, {"stock_number": v["stock_number"]}]
+            })
+            if existing:
+                await db.vehicles.update_one({"_id": existing["_id"]}, {"$set": v})
+                updated += 1
+            else:
+                await db.vehicles.insert_one(v)
+                added += 1
+        except Exception as e:
+            logger.error(f"Error processing synced vehicle {v.get('title', 'Unknown')}: {str(e)}")
+            continue
     
     await db.settings.update_one(
         {"key": "scraper"},

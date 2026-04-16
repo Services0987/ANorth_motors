@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Car, Users, TrendingUp, DollarSign, Plus, ArrowRight, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { Car, Users, TrendingUp, DollarSign, Plus, ArrowRight, CircleCheck, Clock, CircleX } from 'lucide-react';
 import axios from 'axios';
 import AdminLayout from '../components/AdminLayout';
 
@@ -28,7 +28,7 @@ export default function AdminDashboard() {
 
   const statCards = stats ? [
     { label: 'Total Vehicles', value: stats.total_vehicles, icon: Car, color: 'text-[#D4AF37]', bg: 'bg-[#D4AF37]/10', link: '/admin/inventory' },
-    { label: 'Available', value: stats.available, icon: CheckCircle, color: 'text-emerald-400', bg: 'bg-emerald-500/10', link: '/admin/inventory' },
+    { label: 'Available', value: stats.available, icon: CircleCheck, color: 'text-emerald-400', bg: 'bg-emerald-500/10', link: '/admin/inventory' },
     { label: 'Sold', value: stats.sold, icon: TrendingUp, color: 'text-purple-400', bg: 'bg-purple-500/10', link: '/admin/inventory' },
     { label: 'Total Leads', value: stats.total_leads, icon: Users, color: 'text-blue-400', bg: 'bg-blue-500/10', link: '/admin/leads' },
     { label: 'New Leads', value: stats.new_leads, icon: Clock, color: 'text-yellow-400', bg: 'bg-yellow-500/10', link: '/admin/leads' },
