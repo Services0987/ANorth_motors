@@ -188,5 +188,6 @@ export default function Inventory() {
 
       <Footer />
     </div>
+    </>
   );
 }
