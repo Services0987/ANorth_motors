@@ -19,7 +19,8 @@ export default function ExitIntentPopup() {
     if (lastShown && (now - parseInt(lastShown)) < twentyFourHours) return;
 
     const handleMouseLeave = (e) => {
-      if (e.clientY < 0) {
+      // Sensitivity to fast mouse leaves + check suppressed flag
+      if (e.clientY < 5 && !localStorage.getItem('exitShownTimestamp')) {
         setShow(true);
         localStorage.setItem('exitShownTimestamp', Date.now().toString());
       }

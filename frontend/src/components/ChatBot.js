@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, Minimize2, Sparkles, Phone, CheckCircle } from 'lucide-react';
+import { X, Send, Minimize2, Sparkles, Phone, CircleCheck } from 'lucide-react';
 import axios from 'axios';
 
 const API = (process.env.REACT_APP_BACKEND_URL || '') + '/api';
@@ -48,7 +48,7 @@ function BookingConfirmed() {
     <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
       className="mx-2 mb-3 p-4 bg-emerald-500/10 border border-emerald-500/30">
       <div className="flex items-center gap-2 mb-1">
-        <CheckCircle size={16} className="text-emerald-400" />
+        <CircleCheck size={16} className="text-emerald-400" />
         <span className="text-emerald-400 font-heading text-xs tracking-wider uppercase font-medium">Test Drive Booked</span>
       </div>
       <p className="text-white/50 text-xs font-body">Our team will confirm your appointment within 1 hour.</p>

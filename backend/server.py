@@ -185,8 +185,8 @@ async def login(data: LoginRequest, response: Response):
     if not user or not verify_password(data.password, user["password_hash"]):
         raise HTTPException(401, "Invalid email or password")
     uid = str(user["_id"])
-    response.set_cookie("access_token", create_token(uid, email), httponly=True, secure=False, samesite="lax", max_age=86400, path="/")
-    response.set_cookie("refresh_token", create_token(uid, email, "refresh", 168), httponly=True, secure=False, samesite="lax", max_age=604800, path="/")
+    response.set_cookie("access_token", create_token(uid, email), httponly=True, secure=True, samesite="lax", max_age=86400, path="/")
+    response.set_cookie("refresh_token", create_token(uid, email, "refresh", 168), httponly=True, secure=True, samesite="lax", max_age=604800, path="/")
     return {"id": uid, "email": email, "name": user.get("name", "Admin"), "role": "admin"}
 
 @api_router.post("/auth/logout")
@@ -554,40 +554,37 @@ Be genuine, helpful, never pushy. If asked about financing say we offer rates fr
             msg = data.message.lower().strip()
             response_text = ""
             
-            # 1. Intent: Location & Contact (Highest Priority)
-            if any(x in msg for x in ["location", "address", "where", "visit", "showroom", "st", "91"]):
-                response_text = "We are located at 3304 91 St NW, Edmonton, AB T6N 1C1. Our showroom is open Mon-Fri 9am-8pm and Sat-Sun 10am-6pm. We serve the entire Edmonton and Alberta region. Would you like to schedule a visit?"
+            # 1. Intent: Location & Showroom (Professional)
+            if any(x in msg for x in ["location", "address", "where", "visit", "showroom", "st", "91", "direction"]):
+                response_text = "AutoNorth Motors is located at 3304 91 St NW, Edmonton, AB T6N 1C1. Our premium showroom is open Mon-Fri 9am-8pm and Sat-Sun 10am-6pm. Would you like me to send pinpoint directions to your phone?"
             
-            # 2. Intent: Financing & Rates
-            elif any(x in msg for x in ["finance", "loan", "rate", "credit", "approve", "payment"]):
-                response_text = "We offer flexible financing starting from 3.99% APR. Our team specializes in all credit situations (Edmonton and AB focused). You can apply directly on our financing page or call us at 825-605-5050 for a quick quote!"
+            # 2. Intent: Financing & Rates (Premium)
+            elif any(x in msg for x in ["finance", "loan", "rate", "credit", "approve", "payment", "apr"]):
+                response_text = "We offer industry-leading financing starting from 3.99% APR. Our finance specialists work with all credit backgrounds to secure the best rates in Alberta. You can start your 60-second approval on our Financing page. Shall I guide you there?"
             
-            # 3. Intent: Specific Vehicle Matches
-            elif any(x in msg for x in ["f-150", "f150", "ram", "dodge", "truck", "suv", "ford", "chevy"]):
-                matches = []
-                if "f-150" in msg or "f150" in msg or "ford" in msg:
-                    matches = [v for v in docs if "ford" in v['make'].lower() or "f-150" in v['model'].lower()]
-                elif "ram" in msg or "dodge" in msg:
-                    matches = [v for v in docs if "ram" in v['make'].lower() or "dodge" in v['make'].lower()]
+            # 3. Intent: Specific Vehicle Matches (Dynamic)
+            elif any(x in msg for x in ["f-150", "f150", "ram", "dodge", "truck", "suv", "ford", "chevy", "bronco", "explorer"]):
+                kw = next((w for w in ["f-150", "ram", "truck", "suv", "ford", "bronco", "explorer"] if w in msg), "vehicle")
+                matches = [v for v in docs if kw in v['make'].lower() or kw in v['model'].lower() or kw in v['title'].lower()]
                 
                 if matches:
                     titles = ", ".join([f"{v['year']} {v['title']} (${v['price']:,.0f})" for v in matches[:2]])
-                    response_text = f"I found some excellent matches in our Edmonton inventory: {titles}. You can see all our {matches[0]['body_type']}s on the inventory page. Shall I book a test drive for you?"
+                    response_text = f"We have some stunning {kw}s in stock right now: {titles}. These are Edmonton-ready and fully certified. Would you like to see the full spec sheet for one of these?"
                 else:
-                    response_text = "We have a massive selection of Ford, RAM, SUV and luxury trucks in stock right now at AutoNorth Edmonton. What specific make or budget do you have in mind?"
+                    response_text = f"We specialize in premium {kw}s and high-performance trucks. While we refresh our live inventory, I can set an alert for the next arrival. What's your target budget?"
 
-            # 4. Intent: General Inventory / Catalog
+            # 4. Intent: Trade-In / Value
+            elif any(x in msg for x in ["trade", "sell", "value", "worth", "my car"]):
+                response_text = "We offer top-market value for trades in the Edmonton area. Our specialists can provide a preliminary valuation in minutes. What is the year, make, and model of your current vehicle?"
+
+            # 5. Intent: General Inventory
             elif any(x in msg for x in ["inventory", "cars", "stock", "have", "buy", "looking for", "price"]):
                 top_3 = ", ".join([v['title'] for v in docs[:3]])
-                response_text = f"Explore our premium selection! Current highlights include: {top_3}. We're located in Edmonton and offer Canada-wide shipping (check for availability). What model can I help you with?"
+                response_text = f"Our current showcase includes the {top_3} and more. Each vehicle undergoes a 150-point inspection. Are you looking for a specific make, or just exploring our latest arrivals?"
 
-            # 5. Intent: Phone/Email (Direct Contact)
-            elif any(x in msg for x in ["phone", "call", "number", "email", "contact"]):
-                response_text = "Reach our Edmonton team directly at 825-605-5050 or email autonorthab@gmail.com. We're open 7 days a week!"
-            
-            # 6. Fallback / Greeting
+            # 6. Fallback / Greeting (Premium)
             else:
-                response_text = "Greetings from AutoNorth Motors, Edmonton! I'm your virtual assistant. I can help you find your next vehicle, check our showroom location, or assist with financing. What can I do for you today?"
+                response_text = "Welcome to AutoNorth Motors, Edmonton's premier automotive destination. I'm your virtual specialist. I can help you browse our live inventory, discuss flexible financing, or value your trade-in. How can I assist your search today?"
 
             return {"response": response_text, "lead_captured": False}
 

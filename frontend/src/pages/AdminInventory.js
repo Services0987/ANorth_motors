@@ -2,9 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Plus, Pencil, Trash2, X, Check, Star, StarOff, Search, 
-  ChevronDown, Upload, Download, FileText, AlertCircle, 
+  ChevronDown, Upload, Download, FileText, CircleAlert, 
   RefreshCw, Globe, Link as LinkIcon, Settings, Layers, 
-  ChevronLeft, ChevronRight, LayoutGrid, LayoutList
+  ChevronLeft, ChevronRight, LayoutGrid, LayoutList, CircleCheck
 } from 'lucide-react';
 import axios from 'axios';
 import AdminLayout from '../components/AdminLayout';
@@ -186,7 +186,7 @@ export default function AdminInventory() {
            <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 bg-[#D4AF37]/10 flex items-center justify-center border border-[#D4AF37]/30">
-                  <RefreshCw size={14} className={`text-[#D4AF37] ${scraperLoading ? 'animate-spin' : ''}`} />
+                  <CircleAlert size={14} className={`text-[#D4AF37] ${scraperLoading ? 'animate-spin' : ''}`} />
                 </div>
                 <div>
                   <h3 className="text-white text-sm font-heading font-medium tracking-wide">Automated Inventory Sync</h3>

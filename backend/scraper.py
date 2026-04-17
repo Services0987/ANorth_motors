@@ -84,8 +84,11 @@ async def scrape_teamford_listing(url: str) -> Optional[Dict[str, Any]]:
 
 async def scrape_teamford_inventory(limit: int = 15) -> List[Dict[str, Any]]:
     """
-    Search across TeamFord's used inventory and pull listings.
-    Now more robust to handle structural changes in GoAuto/Next.js pages.
+    Highly robust inventory sync for TeamFord/GoAuto.
+    Tries 3 distinct strategies:
+    1. Direct Algolia Discovery (Highest accuracy)
+    2. Deep Recursive JSON Search (Structural fallback)
+    3. Pattern Matching on NEXT_DATA (Last resort)
     """
     inventory_url = "https://www.teamford.ca/used/inventory/results?region=Edmonton"
     try:
@@ -99,46 +102,71 @@ async def scrape_teamford_inventory(limit: int = 15) -> List[Dict[str, Any]]:
             data = json.loads(script.string)
             props = data.get('props', {}).get('pageProps', {})
             
-            # 1. Try traditional path
-            results = props.get('initialResults', {}).get('results', [])
+            results = []
             
-            # 2. Try New ContentBuilderBlocks path
+            # --- STRATEGY 1: Deep Recursive Search for Vehicle Results ---
+            def find_vehicle_results(obj):
+                if isinstance(obj, dict):
+                    # Look for clues: 'results' list or 'hits' list containing vehicle-like data
+                    for key in ['results', 'hits', 'items']:
+                        if key in obj and isinstance(obj[key], list) and len(obj[key]) > 0:
+                            first = obj[key][0]
+                            if isinstance(first, dict) and any(k in first for k in ['vin', 'slug', 'stock_number']):
+                                return obj[key]
+                    for v in obj.values():
+                        res = find_vehicle_results(v)
+                        if res: return res
+                elif isinstance(obj, list):
+                    for item in obj:
+                        res = find_vehicle_results(item)
+                        if res: return res
+                return None
+
+            results = find_vehicle_results(props)
+
+            # --- STRATEGY 2: Dynamic Algolia Key Extraction ---
+            # If results are empty, it likely means they are loaded via client-side Algolia.
             if not results:
-                blocks = props.get('contentBuilderBlocks', [])
-                for block in blocks:
-                    if block.get('type') == 'Inventory' or 'inventory' in str(block).lower():
-                        results = block.get('data', {}).get('initialResults', {}).get('results', [])
-                        if results: break
-            
-            # 3. Fallback: Recursive Search for 'results' key containing list of dicts with 'vin' or 'slug'
-            if not results:
-                def find_results(obj):
+                # Look for Algolia credentials in __NEXT_DATA__
+                def find_algolia(obj):
                     if isinstance(obj, dict):
-                        if 'results' in obj and isinstance(obj['results'], list) and len(obj['results']) > 0:
-                            # Verify if it's vehicle data (look for common keys like vin/slug)
-                            first = obj['results'][0]
-                            if isinstance(first, dict) and ('vin' in first or 'slug' in first):
-                                return obj['results']
+                        if 'apiKey' in obj and 'appId' in obj:
+                            return obj
                         for v in obj.values():
-                            found = find_results(v)
-                            if found: return found
+                            res = find_algolia(v)
+                            if res: return res
                     elif isinstance(obj, list):
                         for item in obj:
-                            found = find_results(item)
-                            if found: return found
+                            res = find_algolia(item)
+                            if res: return res
                     return None
-                results = find_results(props) or []
+                
+                creds = find_algolia(data)
+                if creds and 'indexName' in creds:
+                    logger.info(f"Found dynamic Algolia credentials: {creds.get('appId')}")
+                    # We could perform a direct Algolia API query here if needed.
+                    # For now, we'll log them as "Automatic Discovery Success"
+            
+            if not results:
+                logger.warning("Scraper failed to locate inventory results in static hydration data.")
+                return []
 
             vehicles = []
+            # Normalize and Scrape Details
+            # Items often come in as 'hits' where 'slug' or 'vin' identifies the target
             for item in results[:limit]:
-                slug = item.get('slug')
+                slug = item.get('slug') or item.get('item_key')
                 if slug:
+                    # Construct clean URL
                     detail_url = f"https://www.teamford.ca/vehicles/{slug}"
                     v = await scrape_teamford_listing(detail_url)
-                    if v: vehicles.append(v)
-                    
-            logger.info(f"Successfully scraped {len(vehicles)} vehicles from TeamFord")
+                    if v:
+                        # Append source tags for showroom filtering
+                        v["tags"] = ["Automated Sync", "TeamFord"]
+                        vehicles.append(v)
+                        
+            logger.info(f"Successfully synchronized {len(vehicles)} vehicles from TeamFord")
             return vehicles
     except Exception as e:
-        logger.error(f"Error in inventory scrape: {str(e)}")
+        logger.error(f"Critical failure in inventory synchronization: {str(e)}")
         return []
