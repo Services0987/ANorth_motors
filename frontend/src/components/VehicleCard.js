@@ -1,18 +1,17 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
-import { Gauge, Fuel, ArrowRight, Star } from 'lucide-react';
+import { Gauge, Fuel, Star } from 'lucide-react';
 
 const PLACEHOLDER = 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600&q=60';
 
 export default function VehicleCard({ vehicle, index = 0 }) {
   const [hovered, setHovered] = useState(false);
   const [glare, setGlare] = useState({ x: 50, y: 50 });
-
   const [activeImg, setActiveImg] = useState(0);
+
   const images = vehicle.images?.length > 0 ? vehicle.images : [PLACEHOLDER];
   const img = images[activeImg];
-  
   const isNew = vehicle.condition === 'new';
   const isSold = vehicle.status === 'sold';
 
@@ -22,148 +21,8 @@ export default function VehicleCard({ vehicle, index = 0 }) {
   const springX = useSpring(mx, { stiffness: 200, damping: 25 });
   const springY = useSpring(my, { stiffness: 200, damping: 25 });
 
-  // Card rotates on mouse move
   const rotateY = useTransform(springX, [-0.5, 0.5], [-18, 18]);
   const rotateX = useTransform(springY, [-0.5, 0.5], [10, -10]);
-
-  // Image moves opposite direction = depth parallax
-  const imgX = useTransform(springX, [-0.5, 0.5], ['22px', '-22px']);
-  const imgY = useTransform(springY, [-0.5, 0.5], ['18px', '-18px']);
-
-  const handleMouseMove = (e) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const nx = (e.clientX - rect.left) / rect.width;
-    const ny = (e.clientY - rect.top) / rect.height;
-    mx.set(nx - 0.5);
-    my.set(ny - 0.5);
-    setGlare({ x: nx * 100, y: ny * 100 });
-  };
-
-  const handleMouseLeave = () => {
-    mx.set(0);
-    my.set(0);
-    setHovered(false);
-  };
-
-  const nextImg = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setActiveImg((prev) => (prev + 1) % Math.min(images.length, 5));
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 40 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.8, delay: index * 0.08, ease: [0.16, 1, 0.3, 1] }}
-      style={{ perspective: '1500px' }}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      onMouseEnter={() => setHovered(true)}
-      data-testid={`vehicle-card-${vehicle.id}`}
-    >
-      <motion.div
-        style={{
-          rotateX,
-          rotateY,
-          transformStyle: 'preserve-3d',
-          boxShadow: hovered
-            ? '0 45px 100px rgba(0,0,0,0.9), 0 0 60px rgba(212,175,55,0.18), inset 0 1px 0 rgba(255,255,255,0.08)'
-            : '0 15px 45px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)',
-          border: `1px solid ${hovered ? 'rgba(212,175,55,0.45)' : 'rgba(255,255,255,0.08)'}`,
-          background: '#080808',
-          overflow: 'hidden',
-          transition: 'border-color 0.4s cubic-bezier(0.16,1,0.3,1), box-shadow 0.4s cubic-bezier(0.16,1,0.3,1)',
-        }}
-      >
-        <Link to={`/vehicle/${vehicle.id}`} className="block relative">
-          {/* Image with depth parallax */}
-          <div className="relative overflow-hidden" style={{ paddingTop: '64%' }}>
-            <AnimatePresence mode="wait">
-              <motion.img
-                key={activeImg}
-                layoutId={`vehicle-image-${vehicle.id}`}
-                src={img}
-                alt={vehicle.title}
-                className="absolute inset-0 w-full h-full object-cover"
-                style={{
-                  x: imgX,
-                  y: imgY,
-                  scale: hovered ? 1.15 : 1.0,
-                }}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ 
-                  scale: { duration: 0.6, ease: [0.16, 1, 0.3, 1] },
-                  opacity: { duration: 0.3 }
-                }}
-                onError={(e) => { e.target.src = PLACEHOLDER; }}
-              />
-            </AnimatePresence>
-
-            {/* Mini-Gallery Navigation Dots */}
-            {images.length > 1 && hovered && (
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-30">
-                {images.slice(0, 5).map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setActiveImg(i);
-                    }}
-                    className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${i === activeImg ? 'bg-[#D4AF37] w-4' : 'bg-white/40'}`}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Quick Next Overlay */}
-            {images.length > 1 && hovered && (
-              <div 
-                className="absolute inset-y-0 right-0 w-1/3 z-20 cursor-e-resize"
-                onClick={nextImg}
-              />
-            )}
-
-            {/* Dynamic specular glare */}
-            <div
-              className="absolute inset-0 pointer-events-none z-10"
-              style={{
-                background: `radial-gradient(circle at ${glare.x}% ${glare.y}%, rgba(255,255,255,0.2) 0%, rgba(212,175,55,0.08) 30%, transparent 65%)`,
-                opacity: hovered ? 1 : 0,
-                transition: 'opacity 0.4s',
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
-import { Gauge, Fuel, ArrowRight, Star } from 'lucide-react';
-
-const PLACEHOLDER = 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600&q=60';
-
-export default function VehicleCard({ vehicle, index = 0 }) {
-  const [hovered, setHovered] = useState(false);
-  const [glare, setGlare] = useState({ x: 50, y: 50 });
-
-  const [activeImg, setActiveImg] = useState(0);
-  const images = vehicle.images?.length > 0 ? vehicle.images : [PLACEHOLDER];
-  const img = images[activeImg];
-  
-  const isNew = vehicle.condition === 'new';
-  const isSold = vehicle.status === 'sold';
-
-  // Framer Motion values for 3D tracking
-  const mx = useMotionValue(0);
-  const my = useMotionValue(0);
-  const springX = useSpring(mx, { stiffness: 200, damping: 25 });
-  const springY = useSpring(my, { stiffness: 200, damping: 25 });
-
-  // Card rotates on mouse move
-  const rotateY = useTransform(springX, [-0.5, 0.5], [-18, 18]);
-  const rotateX = useTransform(springY, [-0.5, 0.5], [10, -10]);
-
-  // Image moves opposite direction = depth parallax
   const imgX = useTransform(springX, [-0.5, 0.5], ['22px', '-22px']);
   const imgY = useTransform(springY, [-0.5, 0.5], ['18px', '-18px']);
 
@@ -220,19 +79,14 @@ export default function VehicleCard({ vehicle, index = 0 }) {
             <AnimatePresence mode="wait">
               <motion.img
                 key={activeImg}
-                layoutId={`vehicle-image-${vehicle.id}`}
                 src={img}
                 alt={vehicle.title}
                 className="absolute inset-0 w-full h-full object-cover"
-                style={{
-                  x: imgX,
-                  y: imgY,
-                  scale: hovered ? 1.15 : 1.0,
-                }}
+                style={{ x: imgX, y: imgY, scale: hovered ? 1.15 : 1.0 }}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ 
+                transition={{
                   scale: { duration: 0.6, ease: [0.16, 1, 0.3, 1] },
                   opacity: { duration: 0.3 }
                 }}
@@ -246,11 +100,7 @@ export default function VehicleCard({ vehicle, index = 0 }) {
                 {images.slice(0, 5).map((_, i) => (
                   <button
                     key={i}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setActiveImg(i);
-                    }}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setActiveImg(i); }}
                     className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${i === activeImg ? 'bg-[#D4AF37] w-4' : 'bg-white/40'}`}
                   />
                 ))}
@@ -259,10 +109,7 @@ export default function VehicleCard({ vehicle, index = 0 }) {
 
             {/* Quick Next Overlay */}
             {images.length > 1 && hovered && (
-              <div 
-                className="absolute inset-y-0 right-0 w-1/3 z-20 cursor-e-resize"
-                onClick={nextImg}
-              />
+              <div className="absolute inset-y-0 right-0 w-1/3 z-20 cursor-e-resize" onClick={nextImg} />
             )}
 
             {/* Dynamic specular glare */}
@@ -280,7 +127,7 @@ export default function VehicleCard({ vehicle, index = 0 }) {
 
             {/* Badges */}
             <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-30" style={{ transform: 'translateZ(50px)' }}>
-              <motion.span 
+              <motion.span
                 initial={false}
                 animate={{ scale: hovered ? 1.05 : 1 }}
                 className={`px-3 py-1 text-[9px] font-heading font-bold tracking-[0.18em] uppercase backdrop-blur-md shadow-lg ${isNew ? 'bg-emerald-500/90 text-white' : 'bg-[#D4AF37]/90 text-black'}`}
@@ -303,7 +150,7 @@ export default function VehicleCard({ vehicle, index = 0 }) {
               </div>
             )}
 
-            {/* Price — floats in 3D space with high depth */}
+            {/* Price — floats in 3D space */}
             <div className="absolute bottom-5 left-5 z-30" style={{ transform: 'translateZ(60px)' }}>
               <motion.div
                 animate={{ y: hovered ? -6 : 0 }}
@@ -323,19 +170,19 @@ export default function VehicleCard({ vehicle, index = 0 }) {
             </div>
           </div>
 
-          {/* Info Footer — Glassmorphism & Depth */}
+          {/* Info Footer */}
           <div
             className="px-5 py-5 relative"
-            style={{ 
+            style={{
               background: 'linear-gradient(180deg, rgba(13,13,13,1) 0%, rgba(5,5,5,1) 100%)',
               borderTop: '1px solid rgba(255,255,255,0.03)'
             }}
           >
             <div className="absolute inset-0 bg-gradient-to-r from-[#D4AF37]/0 via-[#D4AF37]/5 to-[#D4AF37]/0 opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
-            
+
             <h3
               className="font-heading font-medium text-[16px] leading-snug mb-4 line-clamp-2 transition-all duration-500"
-              style={{ 
+              style={{
                 color: hovered ? '#D4AF37' : '#fff',
                 transform: hovered ? 'translateZ(25px)' : 'translateZ(0px)'
               }}
