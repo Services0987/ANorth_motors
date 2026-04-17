@@ -82,30 +82,62 @@ async def scrape_teamford_listing(url: str) -> Optional[Dict[str, Any]]:
         logger.error(f"Error scraping {url}: {str(e)}")
         return None
 
-async def scrape_teamford_inventory(limit: int = 10) -> List[Dict[str, Any]]:
+async def scrape_teamford_inventory(limit: int = 15) -> List[Dict[str, Any]]:
     """
-    Search across TeamFord's used inventory and pull the first N vehicle listings.
+    Search across TeamFord's used inventory and pull listings.
+    Now more robust to handle structural changes in GoAuto/Next.js pages.
     """
     inventory_url = "https://www.teamford.ca/used/inventory/results?region=Edmonton"
     try:
         async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
-            headers = {"User-Agent": "Mozilla/5.0"}
+            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
             resp = await client.get(inventory_url, headers=headers)
             soup = BeautifulSoup(resp.text, 'html.parser')
-            next_data = json.loads(soup.find('script', id='__NEXT_DATA__').string)
+            script = soup.find('script', id='__NEXT_DATA__')
+            if not script: return []
             
-            # GoAuto typically stores search results in searchProps or similar
-            results = next_data.get('props', {}).get('pageProps', {}).get('initialResults', {}).get('results', [])
+            data = json.loads(script.string)
+            props = data.get('props', {}).get('pageProps', {})
             
+            # 1. Try traditional path
+            results = props.get('initialResults', {}).get('results', [])
+            
+            # 2. Try New ContentBuilderBlocks path
+            if not results:
+                blocks = props.get('contentBuilderBlocks', [])
+                for block in blocks:
+                    if block.get('type') == 'Inventory' or 'inventory' in str(block).lower():
+                        results = block.get('data', {}).get('initialResults', {}).get('results', [])
+                        if results: break
+            
+            # 3. Fallback: Recursive Search for 'results' key containing list of dicts with 'vin' or 'slug'
+            if not results:
+                def find_results(obj):
+                    if isinstance(obj, dict):
+                        if 'results' in obj and isinstance(obj['results'], list) and len(obj['results']) > 0:
+                            # Verify if it's vehicle data (look for common keys like vin/slug)
+                            first = obj['results'][0]
+                            if isinstance(first, dict) and ('vin' in first or 'slug' in first):
+                                return obj['results']
+                        for v in obj.values():
+                            found = find_results(v)
+                            if found: return found
+                    elif isinstance(obj, list):
+                        for item in obj:
+                            found = find_results(item)
+                            if found: return found
+                    return None
+                results = find_results(props) or []
+
             vehicles = []
             for item in results[:limit]:
-                # Construct detail URL – standard pattern /vehicles/[slug] or [id]
                 slug = item.get('slug')
                 if slug:
                     detail_url = f"https://www.teamford.ca/vehicles/{slug}"
                     v = await scrape_teamford_listing(detail_url)
                     if v: vehicles.append(v)
                     
+            logger.info(f"Successfully scraped {len(vehicles)} vehicles from TeamFord")
             return vehicles
     except Exception as e:
         logger.error(f"Error in inventory scrape: {str(e)}")

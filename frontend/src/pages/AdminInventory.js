@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Plus, Pencil, Trash2, X, Check, Star, StarOff, Search, 
-  ChevronDown, Upload, Download, FileText, CircleAlert, 
+  ChevronDown, Upload, Download, FileText, AlertCircle, 
   RefreshCw, Globe, Link as LinkIcon, Settings, Layers, 
   ChevronLeft, ChevronRight, LayoutGrid, LayoutList
 } from 'lucide-react';
