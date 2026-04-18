@@ -32,7 +32,7 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[db_name]
 
 app = FastAPI(title="AutoNorth Motors API")
-api_router = APIRouter(prefix="")
+api_router = APIRouter(prefix="/api")
 
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "*")
 app.add_middleware(
@@ -484,7 +484,7 @@ Be genuine, helpful, never pushy. If asked about financing say we offer rates fr
         return {"response": response_text, "lead_captured": False}
     except Exception as e:
         logger.error(f"Chat error: {e}")
-        return {"response": "I'm having a brief connection issue. Please call us at 825-605-5050 or use the contact form below — we're here to help!", "lead_captured": False}
+        return {"response": "I'm having a brief connection issue. Please call us at 825-605-5050 or use the pointer form below — we're here to help!", "lead_captured": False}
 
 # ─── Startup ──────────────────────────────────────────────────────
 @app.on_event("startup")

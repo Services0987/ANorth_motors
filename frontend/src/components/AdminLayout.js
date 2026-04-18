@@ -37,7 +37,7 @@ export default function AdminLayout({ children, title }) {
         </div>
 
         <nav className="flex-1 p-4">
-          <p className="text-white/20 text-[10px] tracking-[0.15em] uppercase font-heading mb-3 px-2">Navigation</p>
+          <p className="text-white/20 text-[10px] tracking-[0.2em] uppercase font-heading mb-3 px-2">Navigation</p>
           <ul className="space-y-1">
             {navItems.map((item) => {
               const isActive = location.pathname === item.to;
@@ -73,7 +73,7 @@ export default function AdminLayout({ children, title }) {
             className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-body text-white/40 hover:text-red-400 hover:bg-red-500/[0.05] transition-all duration-200"
             data-testid="admin-logout-btn"
           >
-            <LogOut size={16} strokeWidth={1.5} />
+            {SAFE_ICON(LogOut, { size: 16, strokeWidth: 1.5 })}
             <span>Sign Out</span>
           </button>
         </div>
@@ -89,7 +89,7 @@ export default function AdminLayout({ children, title }) {
         <header className="sticky top-0 z-30 bg-[#0A0A0A] border-b border-white/[0.05] px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button className="lg:hidden text-white/50 hover:text-white" onClick={() => setSidebarOpen(true)}>
-              {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+              {sidebarOpen ? SAFE_ICON(X, { size: 20 }) : SAFE_ICON(Menu, { size: 20 })}
             </button>
             <h1 className="font-heading text-white font-medium text-lg tracking-tight">{title}</h1>
           </div>
