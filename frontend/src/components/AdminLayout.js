@@ -3,6 +3,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Car, Users, LogOut, Menu, X, ChevronRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
+const SAFE_ICON = (Icon, props = {}) => Icon ? <Icon {...props} /> : null;
+
 const navItems = [
   { to: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/admin/inventory', icon: Car, label: 'Inventory' },
@@ -35,7 +37,7 @@ export default function AdminLayout({ children, title }) {
         </div>
 
         <nav className="flex-1 p-4">
-          <p className="text-white/20 text-[10px] tracking-[0.2em] uppercase font-heading mb-3 px-2">Navigation</p>
+          <p className="text-white/20 text-[10px] tracking-[0.15em] uppercase font-heading mb-3 px-2">Navigation</p>
           <ul className="space-y-1">
             {navItems.map((item) => {
               const isActive = location.pathname === item.to;
@@ -51,9 +53,9 @@ export default function AdminLayout({ children, title }) {
                     }`}
                     data-testid={`admin-nav-${item.label.toLowerCase()}`}
                   >
-                    <item.icon size={16} strokeWidth={1.5} />
+                    {SAFE_ICON(item.icon, { size: 16, strokeWidth: 1.5 })}
                     <span>{item.label}</span>
-                    {isActive && <ChevronRight size={14} className="ml-auto" />}
+                    {isActive && SAFE_ICON(ChevronRight, { size: 14, className: "ml-auto" })}
                   </Link>
                 </li>
               );
