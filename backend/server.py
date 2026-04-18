@@ -10,26 +10,28 @@ import jwt
 import bcrypt
 import logging
 import pathlib
+import httpx
+import json
 from datetime import datetime, timezone, timedelta
-from typing import List, Optional, Annotated, Any
+from typing import List, Optional, Annotated, Any, Dict
 
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, UploadFile, File
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from bson import ObjectId
 from pydantic import BaseModel, Field, BeforeValidator, ConfigDict
-# from emergentintegrations.llm.chat import LlmChat, UserMessage
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-mongo_url = os.environ.get('MONGO_URL')
+# Database configuration
+mongo_url = os.environ.get('MONGO_URL', "mongodb://localhost:27017")
 db_name = os.environ.get('DB_NAME', 'AutoNorth')
-if not mongo_url:
-    logger.error("MONGO_URL not found in environment variables. Connection will fail when routes are hit.")
-    mongo_url = "mongodb://localhost:27017"
-client = AsyncIOMotorClient(mongo_url)
-db = client[db_name]
+
+client: Optional[AsyncIOMotorClient] = None
+db: Any = None
 
 app = FastAPI(title="AutoNorth Motors API")
 api_router = APIRouter(prefix="/api")
@@ -42,6 +44,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Global error handler to prevent HTML 500s
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Global error: {str(exc)}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"error": "Internal Server Error", "message": str(exc) if not isinstance(exc, HTTPException) else exc.detail}
+    )
 
 JWT_ALGORITHM = "HS256"
 chat_sessions: dict = {}
@@ -174,8 +185,8 @@ async def login(data: LoginRequest, response: Response):
     if not user or not verify_password(data.password, user["password_hash"]):
         raise HTTPException(401, "Invalid email or password")
     uid = str(user["_id"])
-    response.set_cookie("access_token", create_token(uid, email), httponly=True, secure=False, samesite="lax", max_age=86400, path="/")
-    response.set_cookie("refresh_token", create_token(uid, email, "refresh", 168), httponly=True, secure=False, samesite="lax", max_age=604800, path="/")
+    response.set_cookie("access_token", create_token(uid, email), httponly=True, secure=True, samesite="lax", max_age=86400, path="/")
+    response.set_cookie("refresh_token", create_token(uid, email, "refresh", 168), httponly=True, secure=True, samesite="lax", max_age=604800, path="/")
     return {"id": uid, "email": email, "name": user.get("name", "Admin"), "role": "admin"}
 
 @api_router.post("/auth/logout")
@@ -185,10 +196,27 @@ async def logout(response: Response):
     return {"message": "Logged out"}
 
 @api_router.get("/auth/me")
-async def me(cu=Depends(get_current_user)):    
-    cu["_id"] = str(cu["_id"])
-    cu.pop("password_hash", None)
-    return cu
+async def me(cu=Depends(get_current_user)):
+    try:
+        cu["_id"] = str(cu["_id"])
+        cu.pop("password_hash", None)
+        return cu
+    except Exception as e:
+        logger.warning(f"Me check error: {str(e)}")
+        return JSONResponse({"user": None}, status_code=401)
+
+@api_router.get("/health")
+async def health():
+    try:
+        await client.admin.command('ping')
+        db_status = "connected"
+    except Exception as e:
+        db_status = f"disconnected: {str(e)}"
+    return {
+        "status": "online",
+        "database": db_status,
+        "timestamp": datetime.now(timezone.utc)
+    }
 
 
 # ─── Vehicles ─────────────────────────────────────────────────────
@@ -201,29 +229,34 @@ async def list_vehicles(
     status: Optional[str] = "available", featured: Optional[bool] = None,
     search: Optional[str] = None, limit: int = 50, skip: int = 0
 ):
-    q = {}
-    if condition: q["condition"] = condition
-    if make: q["make"] = {"$regex": make, "$options": "i"}
-    if body_type: q["body_type"] = body_type
-    if fuel_type: q["fuel_type"] = fuel_type
-    if status and status != "all": q["status"] = status
-    if featured is not None: q["featured"] = featured
-    if min_price is not None or max_price is not None:
-        q["price"] = {k: v for k, v in [("$gte", min_price), ("$lte", max_price)] if v is not None}
-    if min_year is not None or max_year is not None:
-        q["year"] = {k: v for k, v in [("$gte", min_year), ("$lte", max_year)] if v is not None}
-    if search:
-        q["$or"] = [{"title": {"$regex": search, "$options": "i"}}, {"make": {"$regex": search, "$options": "i"}}, {"model": {"$regex": search, "$options": "i"}}]
-    total = await db.vehicles.count_documents(q)
-    docs = await db.vehicles.find(q).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
-    return {"vehicles": [Vehicle.from_mongo(d).model_dump(mode='json') for d in docs], "total": total, "skip": skip, "limit": limit}
+    try:
+        q = {}
+        if condition: q["condition"] = condition
+        if make: q["make"] = {"$regex": make, "$options": "i"}
+        if body_type: q["body_type"] = body_type
+        if fuel_type: q["fuel_type"] = fuel_type
+        if status and status != "all": q["status"] = status
+        if featured is not None: q["featured"] = featured
+        if min_price is not None or max_price is not None:
+            q["price"] = {k: v for k, v in [("$gte", min_price), ("$lte", max_price)] if v is not None}
+        if min_year is not None or max_year is not None:
+            q["year"] = {k: v for k, v in [("$gte", min_year), ("$lte", max_year)] if v is not None}
+        if search:
+            q["$or"] = [{"title": {"$regex": search, "$options": "i"}}, {"make": {"$regex": search, "$options": "i"}}, {"model": {"$regex": search, "$options": "i"}}]
+        total = await db.vehicles.count_documents(q)
+        docs = await db.vehicles.find(q).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+        return {"vehicles": [Vehicle.from_mongo(d).model_dump(mode='json') for d in docs], "total": total, "skip": skip, "limit": limit}
+    except Exception as e:
+        logger.error(f"Database error in list_vehicles: {str(e)}")
+        return {"vehicles": [], "total": 0, "skip": skip, "limit": limit, "error": "Service temporarily unavailable"}
 
-# @api_router.get("/vehicles/{vehicle_id}")
-# async def get_vehicle(vehicle_id: str):
-#     if not ObjectId.is_valid(vehicle_id): raise HTTPException(400, "Invalid ID")
-#     doc = await db.vehicles.find_one({"_id": ObjectId(vehicle_id)})
-#     if not doc: raise HTTPException(404, "Vehicle not found")
-#     return Vehicle.from_mongo(doc).model_dump(mode='json')
+@api_router.get("/vehicles/{vehicle_id}")
+async def get_vehicle(vehicle_id: str):
+    if not ObjectId.is_valid(vehicle_id): raise HTTPException(400, "Invalid ID")
+    doc = await db.vehicles.find_one({"_id": ObjectId(vehicle_id)})
+    if not doc: raise HTTPException(404, "Vehicle not found")
+    return Vehicle.from_mongo(doc).model_dump(mode='json')
+
 
 
 @api_router.post("/vehicles")
@@ -248,6 +281,13 @@ async def delete_vehicle(vehicle_id: str, cu=Depends(get_current_user)):
     r = await db.vehicles.delete_one({"_id": ObjectId(vehicle_id)})
     if r.deleted_count == 0: raise HTTPException(404, "Not found")
     return {"message": "Deleted"}
+
+@api_router.delete("/vehicles/bulk/delete")
+async def bulk_delete_vehicles(vehicle_ids: List[str], cu=Depends(get_current_user)):
+    oids = [ObjectId(vid) for vid in vehicle_ids if ObjectId.is_valid(vid)]
+    if not oids: raise HTTPException(400, "No valid IDs provided")
+    result = await db.vehicles.delete_many({"_id": {"$in": oids}})
+    return {"message": f"Deleted {result.deleted_count} vehicles"}
 
 # ─── CSV Import ───────────────────────────────────────────────────
 @api_router.post("/vehicles/import")
@@ -347,73 +387,94 @@ async def get_stats(cu=Depends(get_current_user)):
             "recent_leads": [Lead.from_mongo(d).model_dump(mode='json') for d in recent]}
 
 
-# ─── Scraper Engine ────────────────────────────────────────────────
-@api_router.post("/scrape")
-async def execute_scrape(request: Request):
+# ─── Scraper & Settings ──────────────────────────────────────────
+@api_router.get("/scraper/settings")
+async def get_scraper_settings(cu=Depends(get_current_user)):
+    s = await db.settings.find_one({"key": "scraper"})
+    if not s: return {"auto_sync": False, "last_sync": None}
+    return {"auto_sync": s.get("auto_sync", False), "last_sync": s.get("last_sync")}
+
+@api_router.post("/scraper/settings")
+async def update_scraper_settings(data: Dict[str, Any], cu=Depends(get_current_user)):
+    await db.settings.update_one(
+        {"key": "scraper"},
+        {"$set": {"auto_sync": data.get("auto_sync", False)}},
+        upsert=True
+    )
+    return {"message": "Settings updated"}
+
+@api_router.post("/scraper/import-url")
+async def import_vehicle_from_url(data: Dict[str, str], cu=Depends(get_current_user)):
+    url = data.get("url")
+    if not url: raise HTTPException(400, "URL required")
+    from scraper import scrape_teamford_listing
     try:
-        data = await request.json()
-        target_url = data.get("targetUrl")
-        secret = data.get("secret")
+        v_data = await scrape_teamford_listing(url)
+        if not v_data: raise HTTPException(400, "Could not extract data from the provided URL")
         
-        # Security to prevent external abuse
-        if secret != os.environ.get("MASTER_SECRET"):
-            raise HTTPException(401, "Unauthorized Pipeline Request")
-        
-        if not target_url or "inventory" not in target_url:
-            raise HTTPException(400, "Invalid Target URL")
+        vin = v_data.get("vin")
+        stock = v_data.get("stock_number")
+        if not vin and not stock: raise HTTPException(400, "Incomplete vehicle data")
 
-        import requests
-        from bs4 import BeautifulSoup
+        query = []
+        if vin: query.append({"vin": vin})
+        if stock: query.append({"stock_number": stock})
         
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36'
-        }
-        res = requests.get(target_url, headers=headers)
-        res.raise_for_status()
+        existing = await db.vehicles.find_one({"$or": query})
+        if existing:
+            await db.vehicles.update_one({"_id": existing["_id"]}, {"$set": v_data})
+            return {"message": "Vehicle updated", "id": str(existing["_id"])}
         
-        soup = BeautifulSoup(res.text, 'html.parser')
-        new_vehicles = []
-        inserted = 0
-        
-        # Simulated parsing. In production, exact CSS selectors must be mapped to teamford.ca
-        for card in soup.select('.inventory-item, .v-card, .vehicle-card'):
-            try:
-                title_elem = card.select_one('.title, h2, h3')
-                if not title_elem: continue
-                title = title_elem.text.strip()
-                
-                price_text = card.select_one('.price, .pricing, .value')
-                price = int(re.sub(r'[^0-9]', '', price_text.text)) if price_text else 0
-                
-                img_elem = card.select_one('img')
-                img = img_elem.get('data-src') or img_elem.get('src') if img_elem else "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800"
-                
-                parts = title.split(' ')
-                year = int(parts[0]) if parts[0].isdigit() else datetime.now().year
-                make = parts[1] if len(parts) > 1 else 'Unknown'
-                model = ' '.join(parts[2:]) if len(parts) > 2 else 'Model'
-                
-                v = {
-                    "title": title, "make": make, "model": model, "year": year, 
-                    "price": price, "condition": "used" if "used" in title.lower() else "new",
-                    "status": "available", "featured": False, "images": [img],
-                    "created_at": datetime.now(timezone.utc), "updated_at": datetime.now(timezone.utc)
-                }
-                
-                if price > 0:
-                    existing = await db.vehicles.find_one({"title": title})
-                    if not existing:
-                        await db.vehicles.insert_one(v)
-                        inserted += 1
-            except Exception as e:
-                logger.error(f"Error parsing card: {e}")
-                
-        return {"success": True, "message": f"Scrape complete. Ingested {inserted} new vehicles into database."}
-
+        res = await db.vehicles.insert_one(v_data)
+        return {"message": "Vehicle imported", "id": str(res.inserted_id)}
+    except HTTPException as he: raise he
     except Exception as e:
-        logger.error(f"Scraper Error: {e}")
-        raise HTTPException(500, f"Scrape failed: {str(e)}")
+        logger.error(f"Error importing from URL: {e}")
+        raise HTTPException(500, f"Error processing listing: {str(e)}")
 
+@api_router.post("/scraper/sync/teamford")
+async def sync_teamford(cu=Depends(get_current_user)):
+    from scraper import scrape_teamford_inventory
+    v_list = await scrape_teamford_inventory(limit=15)
+    added, updated = 0, 0
+    for v in (v_list or []):
+        try:
+            if not v or (not v.get("vin") and not v.get("stock_number")): continue
+            existing = await db.vehicles.find_one({ "$or": [{"vin": v["vin"]}, {"stock_number": v["stock_number"]}] })
+            if existing:
+                await db.vehicles.update_one({"_id": existing["_id"]}, {"$set": v})
+                updated += 1
+            else:
+                await db.vehicles.insert_one(v)
+                added += 1
+        except Exception as e:
+            logger.error(f"Error processing synced vehicle: {str(e)}")
+            continue
+    
+    await db.settings.update_one({"key": "scraper"}, {"$set": {"last_sync": datetime.now(timezone.utc)}}, upsert=True)
+    return {"added": added, "updated": updated}
+
+@api_router.get("/debug/health")
+async def debug_health():
+    status = { "database": "unknown", "ai_service": "unknown", "environment": { "mongo_set": bool(os.getenv("MONGO_URL")), "gemini_set": bool(os.getenv("GEMINI_API_KEY")), "frontend_url": os.getenv("FRONTEND_URL", "not set") } }
+    try:
+        if db is not None:
+            await db.command("ping"); status["database"] = "healthy"
+        else: status["database"] = "uninitialized"
+    except Exception as e: status["database"] = f"unhealthy: {str(e)}"
+    try: status["ai_service"] = "ready" if os.getenv("GEMINI_API_KEY") else "missing api key"
+    except: status["ai_service"] = "error"
+    return status
+
+@api_router.get("/ai/inventory-snapshot")
+async def get_inventory_snapshot(cu=Depends(get_current_user)):
+    total = await db.vehicles.count_documents({"status": "available"})
+    makes = await db.vehicles.distinct("make", {"status": "available"})
+    types = await db.vehicles.distinct("body_type", {"status": "available"})
+    featured = await db.vehicles.find({"featured": True, "status": "available"}).limit(5).to_list(5)
+    snapshot = f"Total Available: {total}\nMakes: {', '.join(makes)}\nBody Types: {', '.join(types)}\nFeatured Models:\n"
+    for v in featured: snapshot += f"- {v['title']} (${v['price']:,.0f})\n"
+    return {"snapshot": snapshot}
 
 # ─── AI Chat ──────────────────────────────────────────────────────
 @api_router.post("/chat")
@@ -423,107 +484,57 @@ async def ai_chat(data: ChatRequest):
         inventory = "\n".join([f"• {v['title']} — ${v['price']:,.0f} | {v['condition'].upper()} | {v['body_type']} | {v.get('fuel_type','')}" for v in docs])
 
         system_instruction = f"""You are AutoNorth Motors' AI Vehicle Specialist — Edmonton's most prestigious dealership assistant.
-
-DEALERSHIP: AutoNorth Motors | 9104 91 St NW, Edmonton, AB | Phone: 825-605-5050 | Hours: Mon-Fri 9am-8pm, Sat-Sun 10am-6pm
-
-YOUR PERSONA: Warm, professional, knowledgeable — like a trusted friend who knows cars deeply. Concise responses (2-4 sentences max). Ask one question at a time.
-
-CURRENT INVENTORY:
+DEALERSHIP: AutoNorth Motors | 9104 91 St NW, Edmonton, AB | Phone: 825-605-5050
+PERSONA: Warm, professional, concise (2-4 sentences). 
+INVENTORY:
 {inventory}
+GOALS: Recommend vehicles, book test drives (name, email, phone, vehicle, date).
+LEAD CAPTURE: [[LEAD::{{"name":"NAME","email":"EMAIL","phone":"PHONE","vehicle_title":"VEHICLE","preferred_date":"DATE","message":"AI chat booking"}}]]"""
 
-CONVERSATION GOALS:
-1. Understand what the visitor needs (type, budget, new/used, lifestyle)
-2. Recommend matching vehicles from our inventory
-3. Answer pricing/feature/financing questions
-4. Book test drives — collect: name, email, phone, preferred vehicle, preferred date
+        gemini_api_key = os.environ.get("GEMINI_API_KEY")
+        if not gemini_api_key:
+            msg = data.message.lower().strip()
+            # Rule-based fallback
+            if "truck" in msg: return {"response": "We have some stunning trucks in stock, like the Ford F-150. Would you like to see our full inventory?", "lead_captured": False}
+            return {"response": "Welcome to AutoNorth Motors! How can I help you find your next vehicle in Edmonton today?", "lead_captured": False}
 
-WHEN YOU HAVE name + email + vehicle of interest (phone optional):
-Write your confirmation message naturally, then on a NEW LINE output:
-[[LEAD::{{"name":"NAME","email":"EMAIL","phone":"PHONE","vehicle_title":"VEHICLE","preferred_date":"DATE","message":"AI chat booking"}}]]
-
-Be genuine, helpful, never pushy. If asked about financing say we offer rates from 3.99% APR with quick approvals."""
-
-        msg = data.message.lower().strip()
-        response_text = ""
-
-        # 1. Intent: Specific Vehicle Matches (Dynamic) - PRIORITY
-        vehicle_keywords = ["f-150", "f150", "ram", "dodge", "truck", "suv", "ford", "chevy", "bronco", "explorer", "st", "raptor", "tremor"]
-        if any(x in msg for x in vehicle_keywords):
-            # Specific trim detection
-            kw = next((w for w in ["explorer", "mustang", "f-150", "f150", "ram", "bronco", "escape", "ranger", "expedition"] if w in msg), "vehicle")
-            if "st" in msg and "explorer" in msg: kw = "Explorer ST"
-            
-            matches = [v for v in docs if kw.lower() in v['title'].lower() or kw.lower() in v['model'].lower()]
-            if matches:
-                titles = ", ".join([f"{v['year']} {v['title']} (${v['price']:,.0f})" for v in matches[:2]])
-                response_text = f"We have some stunning {kw}s in stock! {titles}. These are certified and ready for a test drive in Edmonton. Interested in one?"
-            else:
-                response_text = f"We are Edmonton's high-performance {kw} specialists. While that specific model is in high demand, we can source it for you through our network. What features are you looking for?"
-
-        # 2. Intent: Location & Showroom (Strict Boundaries)
-        elif re.search(r'\b(9104 91 st nw|showroom address|directions to showroom|where is the showroom)\b', msg, re.IGNORECASE) or any(x in msg for x in ["9104 91 st", "91 st nw"]):
-            response_text = "AutoNorth Motors is located at 9104 91 St NW, Edmonton, AB T6C 3P6. Our showroom is open Mon-Fri 9am-8pm and Sat-Sun 10am-6pm. Would you like me to send directions to your phone?"
-
-        # 3. Intent: Financing & Rates
-        elif re.search(r'\b(finance|loan|rate|credit|approve|payment|apr)\b', msg, re.IGNORECASE):
-            response_text = "We offer premium financing from 3.99% APR. Our specialists work with all credit backgrounds in Alberta. You can start your approval on our Financing page. Shall I guide you?"
-
-        # 4. Intent: Trade-In
-        elif re.search(r'\b(trade|sell|value|worth|my car)\b', msg, re.IGNORECASE):
-            response_text = "We offer top-market value for trades in Edmonton. Can you tell me the year, make, and model of your vehicle for a quick estimate?"
-
-        # 5. Intent: General Inventory
-        elif any(x in msg for x in ["inventory", "cars", "stock", "have", "buy", "looking for"]):
-            top_3 = ", ".join([v['title'] for v in docs[:2]])
-            response_text = f"Our current showcase includes the {top_3} and more. Each vehicle undergoes a 150-point inspection. Are you looking for something specific?"
-
-        # 6. Fallback
-        else:
-            response_text = "Welcome to AutoNorth Motors. I'm your virtual specialist. I can help you browse our live inventory, discuss financing, or value your trade. How can I assist you today?"
-
-        return {"response": response_text, "lead_captured": False}
+        genai.configure(api_key=gemini_api_key)
+        model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=system_instruction)
+        if data.session_id not in chat_sessions: chat_sessions[data.session_id] = model.start_chat(history=[])
+        chat = chat_sessions[data.session_id]
+        response = chat.send_message(data.message)
+        raw = response.text
+        lead_captured = False; response_text = raw
+        if "[[LEAD::" in raw:
+            match = re.search(r'\[\[LEAD::(.+?)\]\]', raw, re.DOTALL)
+            if match:
+                try:
+                    lead_data = json.loads(match.group(1))
+                    await db.leads.insert_one({**lead_data, "lead_type": "test_drive", "status": "new", "created_at": datetime.now(timezone.utc)})
+                    lead_captured = True
+                except: pass
+            try: response_text = raw[:raw.index("[[LEAD::")].strip()
+            except: pass
+        return {"response": response_text, "lead_captured": lead_captured}
     except Exception as e:
         logger.error(f"Chat error: {e}")
-        return {"response": "I'm having a brief connection issue. Please call us at 825-605-5050 or use the contact form below — we're here to help!", "lead_captured": False}
+        return {"response": "I'm having a brief connection issue. Please call us at 825-605-5050 — we're here to help!", "lead_captured": False}
 
 # ─── Startup ──────────────────────────────────────────────────────
 @app.on_event("startup")
 async def startup():
-    await db.users.create_index("email", unique=True)
-    await db.vehicles.create_index([("status", 1), ("featured", -1)])
-    await db.leads.create_index([("created_at", -1)])
-
-    admin_email = os.environ.get("ADMIN_EMAIL", "admin@autonorth.ca")
-    admin_password = os.environ.get("ADMIN_PASSWORD", "AdminPass2024")
-    existing = await db.users.find_one({"email": admin_email})
-    if not existing:
-        await db.users.insert_one({"email": admin_email, "password_hash": hash_password(admin_password), "name": "AutoNorth Admin", "role": "admin", "created_at": datetime.now(timezone.utc)})
-    elif not verify_password(admin_password, existing["password_hash"]):
-        await db.users.update_one({"email": admin_email}, {"$set": {"password_hash": hash_password(admin_password)}})
-
-    if await db.vehicles.count_documents({}) == 0:
-        await seed_vehicles()
-
-    # Local memory logging removed for Vercel compatibility
-
-
-async def seed_vehicles():
-    now = datetime.now(timezone.utc)
-    vehicles = [
-        {"title": "2024 Ford F-150 XLT SuperCrew 4x4", "make": "Ford", "model": "F-150", "year": 2024, "price": 52900, "mileage": 12000, "condition": "used", "body_type": "Truck", "fuel_type": "Gas", "transmission": "Automatic", "exterior_color": "Oxford White", "interior_color": "Black", "engine": "3.5L EcoBoost V6", "drivetrain": "4WD", "doors": 4, "seats": 5, "vin": "1FTFW1ET4EKF34678", "stock_number": "A001", "description": "Powerful and versatile, this 2024 F-150 XLT is ready for any challenge. Features the mighty 3.5L EcoBoost V6 with 4WD, heated front seats, and SYNC 4 infotainment.", "features": ["Adaptive Cruise Control", "Lane Keeping Assist", "Backup Camera", "Apple CarPlay", "Android Auto", "Heated Front Seats", "Remote Start", "Trailer Tow Package", "Pro Power Onboard"], "images": ["https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80", "https://images.unsplash.com/photo-1544636331-e26879cd4d9b?w=800&q=80"], "status": "available", "featured": True, "created_at": now, "updated_at": now},
-        {"title": "2023 Ford Explorer ST Performance AWD", "make": "Ford", "model": "Explorer", "year": 2023, "price": 62500, "mileage": 18500, "condition": "used", "body_type": "SUV", "fuel_type": "Gas", "transmission": "Automatic", "exterior_color": "Carbonized Gray", "interior_color": "Ebony", "engine": "3.0L EcoBoost V6 400hp", "drivetrain": "AWD", "doors": 4, "seats": 7, "vin": "1FM5K8GCXPGA12345", "stock_number": "A002", "description": "400 horsepower of sport-tuned performance with 7-seat luxury. The Explorer ST is the pinnacle of family performance SUVs — fast, composed, and supremely comfortable.", "features": ["360-Degree Camera", "Panoramic Sunroof", "Wireless Charging", "SYNC 4", "20-inch Sport Wheels", "Sport-Tuned Suspension", "Heated/Cooled Seats", "Third Row Seating", "B&O Sound"], "images": ["https://images.unsplash.com/photo-1519641471654-76ce0107ad1b?w=800&q=80", "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=800&q=80"], "status": "available", "featured": True, "created_at": now, "updated_at": now},
-        {"title": "2024 Ford Mustang GT Fastback 480hp", "make": "Ford", "model": "Mustang", "year": 2024, "price": 45900, "mileage": 5200, "condition": "used", "body_type": "Coupe", "fuel_type": "Gas", "transmission": "Manual", "exterior_color": "Race Red", "interior_color": "Ebony", "engine": "5.0L Coyote V8 480hp", "drivetrain": "RWD", "doors": 2, "seats": 4, "vin": "1FA6P8CF4L5150023", "stock_number": "A003", "description": "Pure American muscle. The 5.0L Coyote V8 delivers 480hp with an exhaust note that stops traffic. Brembo brakes, MagneRide suspension, and Launch Control make this a true performance legend.", "features": ["5.0L V8 480hp", "SYNC 4 12in Display", "Active Valve Exhaust", "Brembo Brakes", "MagneRide Suspension", "Launch Control", "Line Lock", "Track Apps", "Recaro Seats"], "images": ["https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=800&q=80", "https://images.unsplash.com/photo-1611651338412-8403fa6e3599?w=800&q=80"], "status": "available", "featured": True, "created_at": now, "updated_at": now},
-        {"title": "2025 Ford Escape Plug-In Hybrid", "make": "Ford", "model": "Escape", "year": 2025, "price": 41200, "mileage": 0, "condition": "new", "body_type": "SUV", "fuel_type": "Hybrid", "transmission": "Automatic", "exterior_color": "Agate Black", "interior_color": "Sandstone", "engine": "2.5L PHEV 61km EV Range", "drivetrain": "FWD", "doors": 4, "seats": 5, "vin": "", "stock_number": "N001", "description": "61km of pure electric range in a sleek, intelligent SUV. The 2025 Escape PHEV redefines urban efficiency — charge at home, go electric daily, switch to hybrid for longer trips.", "features": ["61km Electric Range", "Wireless Charging Pad", "SYNC 4 OTA Updates", "Co-Pilot360", "B&O Audio", "Panoramic Roof", "Hands-Free Tailgate"], "images": ["https://images.unsplash.com/photo-1567843-afedf47a4f3e?w=800&q=80"], "status": "available", "featured": False, "created_at": now, "updated_at": now},
-        {"title": "2023 Ford Maverick XLT Hybrid Truck", "make": "Ford", "model": "Maverick", "year": 2023, "price": 34500, "mileage": 24000, "condition": "used", "body_type": "Truck", "fuel_type": "Hybrid", "transmission": "Automatic", "exterior_color": "Velocity Blue", "interior_color": "Ebony", "engine": "2.5L i-VCT Hybrid", "drivetrain": "FWD", "doors": 4, "seats": 5, "vin": "3FTTW8E9XPD01234", "stock_number": "A004", "description": "42 MPG city. FlexBed utility. City-friendly dimensions. The Maverick Hybrid proved that you don't have to choose between economy and capability — you can have both.", "features": ["42MPG City Hybrid", "8-inch SYNC 4", "FlexBed System", "USB-C Ports", "Zone Lighting", "FordPass", "Co-Pilot360 Basics"], "images": ["https://images.unsplash.com/photo-1501066927591-314112b5888e?w=800&q=80"], "status": "available", "featured": False, "created_at": now, "updated_at": now},
-        {"title": "2024 Ford Bronco Sport Badlands 4WD", "make": "Ford", "model": "Bronco Sport", "year": 2024, "price": 47800, "mileage": 8900, "condition": "used", "body_type": "SUV", "fuel_type": "Gas", "transmission": "Automatic", "exterior_color": "Eruption Green", "interior_color": "Roast", "engine": "2.0L EcoBoost 250hp", "drivetrain": "4WD", "doors": 4, "seats": 5, "vin": "3FMCR9D98PRD12345", "stock_number": "A005", "description": "Born Wild. The Badlands conquers every terrain with HOSS 3.0 suspension, 7 G.O.A.T. driving modes, locking rear differential, and waterproof interior zones. True adventure awaits.", "features": ["HOSS 3.0 Suspension", "7 GOAT Modes", "Trail Turn Assist", "Locking Rear Diff", "Bash Plates", "Mud-Terrain Tires", "Waterproof Interior"], "images": ["https://images.unsplash.com/photo-1528824788011-fbb82c9abad3?w=800&q=80", "https://images.unsplash.com/photo-1504215680853-026ed2a45def?w=800&q=80"], "status": "available", "featured": True, "created_at": now, "updated_at": now},
-        {"title": "2022 Ford Ranger Lariat 4WD FX4", "make": "Ford", "model": "Ranger", "year": 2022, "price": 38900, "mileage": 32000, "condition": "used", "body_type": "Truck", "fuel_type": "Gas", "transmission": "Automatic", "exterior_color": "Antimatter Blue", "interior_color": "Black", "engine": "2.3L EcoBoost", "drivetrain": "4WD", "doors": 4, "seats": 5, "vin": "1FTER4FH5NLD34567", "stock_number": "A006", "description": "Mid-size perfection. The Ranger Lariat FX4 brings together genuine off-road capability, premium interior comfort, and impressive towing in an urban-friendly package.", "features": ["FX4 Off-Road Package", "SYNC 4 8in", "Lariat Leather", "Heated Front Seats", "Wireless Charging", "B&O Sound", "Trail Control"], "images": ["https://images.unsplash.com/photo-1609521263047-f8f205293f24?w=800&q=80"], "status": "available", "featured": False, "created_at": now, "updated_at": now},
-        {"title": "2023 Ford Expedition MAX Limited 8-Pass", "make": "Ford", "model": "Expedition", "year": 2023, "price": 89500, "mileage": 15000, "condition": "used", "body_type": "SUV", "fuel_type": "Gas", "transmission": "Automatic", "exterior_color": "Star White Metallic", "interior_color": "Sandstone", "engine": "3.5L EcoBoost V6", "drivetrain": "4WD", "doors": 4, "seats": 8, "vin": "1FMJU2AT4PEA12345", "stock_number": "A007", "description": "The ultimate expression of Ford luxury and capability. 8-passenger seating, massaging front seats, 15.5-inch SYNC 4A display, and class-leading towing make every journey extraordinary.", "features": ["8-Passenger Seating", "Massaging Front Seats", "15.5in SYNC 4A", "B&O Sound", "Panoramic Vista Roof", "Pro Trailer Backup", "Power Running Boards", "Max Recline Seats"], "images": ["https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=800&q=80"], "status": "available", "featured": False, "created_at": now, "updated_at": now}
-    ]
-    await db.vehicles.insert_many(vehicles)
-    logger.info(f"Seeded {len(vehicles)} vehicles")
-
+    global client, db
+    try:
+        client = AsyncIOMotorClient(mongo_url, serverSelectionTimeoutMS=5000, connectTimeoutMS=10000)
+        db = client[db_name]; await client.admin.command('ping')
+        await db.users.create_index("email", unique=True)
+        await db.vehicles.create_index([("status", 1), ("featured", -1)])
+        admin_email = os.environ.get("ADMIN_EMAIL", "admin@autonorth.ca")
+        admin_password = os.environ.get("ADMIN_PASSWORD", "AdminPass26")
+        if not await db.users.find_one({"email": admin_email}):
+            await db.users.insert_one({"email": admin_email, "password_hash": hash_password(admin_password), "name": "Admin", "role": "admin", "created_at": datetime.now(timezone.utc)})
+    except Exception as e: logger.error(f"Startup failed: {e}")
 
 app.include_router(api_router)
-
 @app.on_event("shutdown")
 async def shutdown_db(): client.close()

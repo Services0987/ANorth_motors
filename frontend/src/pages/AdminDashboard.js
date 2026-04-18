@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Car, Users, TrendingUp, DollarSign, Plus, ArrowRight, CircleCheck, Clock, CircleX } from 'lucide-react';
+import { Car, Users, TrendingUp, DollarSign, ArrowRight, CircleCheck, Clock, CircleX } from 'lucide-react';
 import axios from 'axios';
 import AdminLayout from '../components/AdminLayout';
 
-const API = (process.env.REACT_APP_BACKEND_URL || '') + '/api';
+const SAFE_ICON = (Icon, props = {}) => Icon ? <Icon {...props} /> : null;
+const API = '/api';
 
 const STATUS_STYLES = {
   new: 'bg-blue-500/20 text-blue-400 border border-blue-500/30',
@@ -23,6 +24,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     axios.get(`${API}/stats`, { withCredentials: true })
       .then(({ data }) => setStats(data))
+      .catch(err => console.error("Stats fetch failed:", err))
       .finally(() => setLoading(false));
   }, []);
 
@@ -37,23 +39,16 @@ export default function AdminDashboard() {
 
   return (
     <AdminLayout title="Operations Hub">
-      <div className="space-y-8" data-testid="admin-dashboard">
-        {/* Stat Cards */}
+      <div className="space-y-8">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           {loading ? (
             [...Array(6)].map((_, i) => <div key={i} className="h-28 bg-[#0A0A0A] border border-white/[0.05] animate-pulse" />)
           ) : (
             statCards.map((card, i) => (
-              <motion.div
-                key={card.label}
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05, duration: 0.5 }}
-                className="relative group cursor-pointer"
-              >
-                <Link to={card.link} className="block bg-[#0A0A0A] border border-white/[0.05] hover:border-[#D4AF37]/30 p-5 transition-all duration-300">
-                  <div className={`w-9 h-9 ${card.bg} flex items-center justify-center mb-4 transition-transform group-hover:scale-110`}>
-                    {card.icon && <card.icon size={18} className={card.color} />}
+              <motion.div key={card.label} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="group">
+                <Link to={card.link} className="block bg-[#0A0A0A] border border-white/[0.05] hover:border-[#D4AF37]/30 p-5 transition-all">
+                  <div className={`w-9 h-9 ${card.bg} flex items-center justify-center mb-4`}>
+                    {SAFE_ICON(card.icon, { size: 18, className: card.color })}
                   </div>
                   <p className={`font-heading text-3xl font-bold ${card.color} mb-1 tracking-tight`}>{card.value}</p>
                   <p className="text-white/35 text-[10px] font-heading uppercase tracking-widest">{card.label}</p>
@@ -63,60 +58,44 @@ export default function AdminDashboard() {
           )}
         </div>
 
-        {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Link to="/admin/inventory" className="bg-[#0A0A0A] border border-white/[0.05] hover:border-[#D4AF37]/30 p-6 flex items-center justify-between transition-all duration-200 group" data-testid="quick-action-inventory">
+          <Link to="/admin/inventory" className="bg-[#0A0A0A] border border-white/[0.05] hover:border-[#D4AF37]/30 p-6 flex items-center justify-between group">
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-[#D4AF37]/10 flex items-center justify-center"><Car size={18} className="text-[#D4AF37]" /></div>
-              <div><p className="font-heading text-white text-sm font-medium">Manage Inventory</p><p className="text-white/30 text-xs font-body">Add, edit or remove vehicles</p></div>
+              <div className="w-10 h-10 bg-[#D4AF37]/10 flex items-center justify-center">{SAFE_ICON(Car, { size: 18, className: "text-[#D4AF37]" })}</div>
+              <div><p className="font-heading text-white text-sm font-medium">Manage Inventory</p><p className="text-white/30 text-xs">Add/Edit listings</p></div>
             </div>
-            <ArrowRight size={16} className="text-white/20 group-hover:text-[#D4AF37] transition-colors" />
+            {SAFE_ICON(ArrowRight, { size: 16, className: "text-white/20 group-hover:text-[#D4AF37]" })}
           </Link>
 
-          <Link to="/admin/leads" className="bg-[#0A0A0A] border border-white/[0.05] hover:border-blue-500/30 p-6 flex items-center justify-between transition-all duration-200 group" data-testid="quick-action-leads">
+          <Link to="/admin/leads" className="bg-[#0A0A0A] border border-white/[0.05] hover:border-blue-500/30 p-6 flex items-center justify-between group">
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-blue-500/10 flex items-center justify-center"><Users size={18} className="text-blue-400" /></div>
-              <div><p className="font-heading text-white text-sm font-medium">View Leads</p><p className="text-white/30 text-xs font-body">{stats?.new_leads || 0} new leads waiting</p></div>
+              <div className="w-10 h-10 bg-blue-500/10 flex items-center justify-center">{SAFE_ICON(Users, { size: 18, className: "text-blue-400" })}</div>
+              <div><p className="font-heading text-white text-sm font-medium">View Leads</p><p className="text-white/30 text-xs">{stats?.new_leads || 0} waiting</p></div>
             </div>
-            <ArrowRight size={16} className="text-white/20 group-hover:text-blue-400 transition-colors" />
+            {SAFE_ICON(ArrowRight, { size: 16, className: "text-white/20 group-hover:text-blue-400" })}
           </Link>
-
-          <Link to="/" target="_blank" className="bg-[#0A0A0A] border border-white/[0.05] hover:border-emerald-500/30 p-6 flex items-center justify-between transition-all duration-200 group">
+          
+          <Link to="/" className="bg-[#0A0A0A] border border-white/[0.05] hover:border-emerald-500/30 p-6 flex items-center justify-between group">
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-emerald-500/10 flex items-center justify-center"><TrendingUp size={18} className="text-emerald-400" /></div>
-              <div><p className="font-heading text-white text-sm font-medium">View Website</p><p className="text-white/30 text-xs font-body">See live public site</p></div>
+              <div className="w-10 h-10 bg-emerald-500/10 flex items-center justify-center">{SAFE_ICON(TrendingUp, { size: 18, className: "text-emerald-400" })}</div>
+              <div><p className="font-heading text-white text-sm font-medium">Live Site</p><p className="text-white/30 text-xs">View public view</p></div>
             </div>
-            <ArrowRight size={16} className="text-white/20 group-hover:text-emerald-400 transition-colors" />
+            {SAFE_ICON(ArrowRight, { size: 16, className: "text-white/20 group-hover:text-emerald-400" })}
           </Link>
         </div>
 
-        {/* Recent Leads */}
         <div className="bg-[#0A0A0A] border border-white/[0.05]">
           <div className="px-6 py-4 border-b border-white/[0.05] flex items-center justify-between">
             <h2 className="font-heading text-sm font-medium text-white">Recent Leads</h2>
-            <Link to="/admin/leads" className="text-xs font-body text-white/30 hover:text-white transition-colors flex items-center gap-1">
-              View All <ArrowRight size={12} />
-            </Link>
           </div>
-
-          {loading ? (
-            <div className="p-8 text-center text-white/30 font-body text-sm">Loading...</div>
-          ) : !stats?.recent_leads?.length ? (
-            <div className="p-8 text-center text-white/30 font-body text-sm">No leads yet.</div>
-          ) : (
+          {!stats?.recent_leads?.length ? <div className="p-8 text-center text-white/30">No leads.</div> : (
             <div className="divide-y divide-white/[0.03]">
-              {stats.recent_leads.map((lead) => (
-                <div key={lead.id} className="px-6 py-4 flex items-center gap-4" data-testid={`recent-lead-${lead.id}`}>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-heading text-white text-sm font-medium truncate">{lead.name}</p>
-                    <p className="text-white/30 text-xs font-body">{lead.email}</p>
-                  </div>
-                  <div className="hidden md:block flex-1 min-w-0">
-                    <p className="text-white/50 text-xs font-body truncate">{lead.vehicle_title || '—'}</p>
-                  </div>
+              {stats.recent_leads.map(lead => (
+                <div key={lead.id} className="px-6 py-4 flex items-center gap-4">
+                  <div className="flex-1 truncate"><p className="text-white text-sm font-medium">{lead.name}</p></div>
                   <div className="flex items-center gap-3">
-                    <span className="text-white/30 text-xs font-body hidden lg:block">{TYPE_LABELS[lead.lead_type] || lead.lead_type}</span>
-                    <span className={`px-2 py-0.5 text-xs font-body rounded-none ${STATUS_STYLES[lead.status] || STATUS_STYLES.new}`}>{lead.status}</span>
+                    <span className="text-white/30 text-xs">{TYPE_LABELS[lead.lead_type] || lead.lead_type}</span>
+                    <span className={`px-2 py-0.5 text-[10px] uppercase ${STATUS_STYLES[lead.status] || STATUS_STYLES.new}`}>{lead.status}</span>
                   </div>
                 </div>
               ))}

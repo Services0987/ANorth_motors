@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, Minimize2, Sparkles, Phone, CheckCircle } from 'lucide-react';
+import { X, Send, Sparkles, Phone, CircleCheck } from 'lucide-react';
 import axios from 'axios';
 
-const API = '/api';
-
 const SAFE_ICON = (Icon, props = {}) => Icon ? <Icon {...props} /> : null;
+const API = '/api';
 
 function getSessionId() {
   const key = 'an_ai_session';
@@ -45,19 +44,6 @@ function Message({ msg }) {
   );
 }
 
-function BookingConfirmed() {
-  return (
-    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-      className="mx-2 mb-3 p-4 bg-emerald-500/10 border border-emerald-500/30">
-      <div className="flex items-center gap-2 mb-1">
-        {SAFE_ICON(CheckCircle, { size: 16, className: "text-emerald-400" })}
-        <span className="text-emerald-400 font-heading text-xs tracking-wider uppercase font-medium">Test Drive Booked</span>
-      </div>
-      <p className="text-white/50 text-xs font-body">Our team will confirm your appointment within 1 hour.</p>
-    </motion.div>
-  );
-}
-
 export default function ChatBot() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([WELCOME]);
@@ -91,20 +77,14 @@ export default function ChatBot() {
 
   const handleKey = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } };
 
-  const QUICK_PROMPTS = ["I'm looking for a truck", "Show me SUVs under $60k", "Book a test drive", "Tell me about financing"];
-
   return (
     <>
       <AnimatePresence>
         {open && (
-          <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed z-50 bottom-[76px] right-5 w-[380px] max-w-[calc(100vw-40px)] flex flex-col"
-            style={{ height: '520px', background: 'rgba(8,8,8,0.97)', border: '1px solid rgba(212,175,55,0.2)', backdropFilter: 'blur(20px)' }}
-          >
+          <motion.div initial={{ opacity: 0, y: 20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            className="fixed z-[9999] bottom-[76px] right-5 w-[380px] max-w-[calc(100vw-40px)] flex flex-col shadow-2xl"
+            style={{ maxHeight: 'min(600px, 80vh)', background: 'rgba(8,8,8,0.97)', border: '1px solid rgba(212,175,55,0.2)', backdropFilter: 'blur(20px)' }}>
+            
             <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.06] flex-shrink-0">
               <div className="relative">
                 <div className="w-9 h-9 bg-[#D4AF37] flex items-center justify-center">
@@ -114,61 +94,24 @@ export default function ChatBot() {
               </div>
               <div className="flex-1">
                 <p className="font-heading text-white text-sm font-medium tracking-wide">AI Vehicle Specialist</p>
-                <p className="text-emerald-400 text-xs font-body flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full inline-block" />
-                  Online · Typically replies instantly
-                </p>
+                <p className="text-emerald-400 text-xs font-body">Online · Typically replies instantly</p>
               </div>
               <div className="flex items-center gap-2">
-                <a href="tel:+18256055050" className="text-white/30 hover:text-white transition-colors" title="Call Us">
-                  {SAFE_ICON(Phone, { size: 16 })}
-                </a>
-                <button onClick={() => setOpen(false)} className="text-white/30 hover:text-white transition-colors">
-                  {SAFE_ICON(X, { size: 18 })}
-                </button>
+                <a href="tel:+18256055050" className="text-white/30 hover:text-white transition-colors">{SAFE_ICON(Phone, { size: 16 })}</a>
+                <button onClick={() => setOpen(false)} className="text-white/30 hover:text-white transition-colors">{SAFE_ICON(X, { size: 18 })}</button>
               </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-1">
               {messages.map((msg, i) => <Message key={i} msg={msg} />)}
-              {loading && (
-                <div className="flex justify-start mb-3">
-                  <div className="w-7 h-7 bg-[#D4AF37] flex items-center justify-center flex-shrink-0 mr-2 mt-0.5">
-                    {SAFE_ICON(Sparkles, { size: 13, className: "text-black" })}
-                  </div>
-                  <div className="bg-[#0D0D0D] border border-white/[0.06]">
-                    <TypingDots />
-                  </div>
-                </div>
-              )}
-              {bookingConfirmed && <BookingConfirmed />}
+              {loading && <div className="flex justify-start mb-3"><div className="w-7 h-7 bg-[#D4AF37] flex items-center justify-center mr-2 mt-0.5">{SAFE_ICON(Sparkles, { size: 13, className: "text-black" })}</div><TypingDots /></div>}
+              {bookingConfirmed && <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-2 mb-3">{SAFE_ICON(CircleCheck, { size: 14, className: "text-emerald-400" })} <span className="text-emerald-400 text-xs font-heading tracking-widest uppercase">Booking Confirmed</span></div>}
               <div ref={bottomRef} />
             </div>
 
-            {messages.length === 1 && (
-              <div className="px-4 pb-2 flex flex-wrap gap-1.5 flex-shrink-0">
-                {QUICK_PROMPTS.map(p => (
-                  <button key={p} onClick={() => { setInput(p); setTimeout(() => inputRef.current?.focus(), 100); }}
-                    className="text-xs font-body text-white/50 border border-white/10 px-3 py-1.5 hover:border-[#D4AF37]/40 hover:text-[#D4AF37] transition-all">
-                    {p}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <div className="flex-shrink-0 border-t border-white/[0.06] p-3 flex items-end gap-2">
-              <textarea
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKey}
-                placeholder="Ask about any vehicle..."
-                rows={1}
-                style={{ resize: 'none', minHeight: '40px', maxHeight: '80px' }}
-                className="flex-1 input-dark px-3 py-2.5 text-sm font-body"
-              />
-              <button onClick={sendMessage} disabled={!input.trim() || loading}
-                className={`w-10 h-10 flex items-center justify-center transition-all flex-shrink-0 ${input.trim() && !loading ? 'bg-[#D4AF37] text-black' : 'bg-white/5 text-white/20'}`}>
+            <div className="p-3 border-t border-white/[0.06] flex items-end gap-2">
+              <textarea ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKey} placeholder="Ask about any vehicle..." rows={1} className="flex-1 input-dark px-3 py-2.5 text-sm" />
+              <button onClick={sendMessage} disabled={!input.trim() || loading} className={`w-10 h-10 flex items-center justify-center rounded-none shadow-lg transition-all ${input.trim() && !loading ? 'bg-[#D4AF37] text-black' : 'bg-white/5 text-white/20'}`}>
                 {SAFE_ICON(Send, { size: 16 })}
               </button>
             </div>
@@ -177,24 +120,10 @@ export default function ChatBot() {
       </AnimatePresence>
 
       {!open && (
-        <button
-          onClick={() => setOpen(true)}
-          className="fixed z-50 bottom-5 right-5 flex items-center gap-2 pr-4 overflow-hidden"
-          style={{ height: '52px', background: 'linear-gradient(135deg, #D4AF37 0%, #F3E5AB 50%, #D4AF37 100%)', border: '1px solid #D4AF37' }}
-        >
-          {pulse && (
-            <motion.span className="absolute inset-0 rounded-none"
-              animate={{ opacity: [0.6, 0], scale: [1, 1.4] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-              style={{ background: 'rgba(212,175,55,0.3)', pointerEvents: 'none' }}
-            />
-          )}
-          <div className="w-10 h-full flex items-center justify-center flex-shrink-0 text-black">
-            {SAFE_ICON(Sparkles, { size: 18 })}
-          </div>
-          <span className="text-xs font-heading tracking-widest uppercase font-semibold whitespace-nowrap text-black">
-            AI Specialist
-          </span>
+        <button onClick={() => setOpen(true)} className="fixed z-50 bottom-5 right-5 flex items-center gap-2 pr-4 h-[52px]" style={{ background: '#D4AF37', border: '1px solid #D4AF37' }}>
+          {pulse && <motion.span className="absolute inset-0" animate={{ opacity: [0.6, 0], scale: [1, 1.4] }} transition={{ duration: 1.5, repeat: Infinity }} style={{ background: 'rgba(212,175,55,0.3)' }} />}
+          <div className="w-10 h-full flex items-center justify-center text-black">{SAFE_ICON(Sparkles, { size: 18 })}</div>
+          <span className="text-[10px] font-heading tracking-[0.2em] uppercase font-bold text-black">AI Specialist</span>
         </button>
       )}
     </>

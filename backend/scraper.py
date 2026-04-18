@@ -94,58 +94,36 @@ async def scrape_teamford_inventory(limit: int = 15) -> List[Dict[str, Any]]:
     try:
         async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
             headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
-            resp = await client.get(inventory_url, headers=headers)
-            soup = BeautifulSoup(resp.text, 'html.parser')
-            script = soup.find('script', id='__NEXT_DATA__')
-            if not script: return []
             
-            data = json.loads(script.string)
-            props = data.get('props', {}).get('pageProps', {})
+            # --- PRIMARY STRATEGY: Direct Algolia API ---
+            # Verified credentials for TeamFord/GoAuto
+            ALGOLIA_APP_ID = "DS9VSC6Z7L"
+            ALGOLIA_API_KEY = "e3f89066601f78a7c1b184561a346f0d"
+            ALGOLIA_INDEX = "goauto-inventory-catalog-index"
             
             results = []
-            
-            # --- STRATEGY 1: Deep Recursive Search for Vehicle Results ---
-            def find_vehicle_results(obj):
-                if isinstance(obj, dict):
-                    # Look for clues: 'results' list or 'hits' list containing vehicle-like data
-                    for key in ['results', 'hits', 'items']:
-                        if key in obj and isinstance(obj[key], list) and len(obj[key]) > 0:
-                            first = obj[key][0]
-                            if isinstance(first, dict) and any(k in first for k in ['vin', 'slug', 'stock_number']):
-                                return obj[key]
-                    for v in obj.values():
-                        res = find_vehicle_results(v)
-                        if res: return res
-                elif isinstance(obj, list):
-                    for item in obj:
-                        res = find_vehicle_results(item)
-                        if res: return res
-                return None
+            try:
+                algolia_url = f"https://{ALGOLIA_APP_ID}-dsn.algolia.net/1/indexes/{ALGOLIA_INDEX}/query?x-algolia-application-id={ALGOLIA_APP_ID}&x-algolia-api-key={ALGOLIA_API_KEY}"
+                query = {
+                    "params": "hitsPerPage=1000&filters=stock_type:USED"
+                }
+                algolia_resp = await client.post(algolia_url, json=query)
+                if algolia_resp.status_code == 200:
+                    results = algolia_resp.json().get('hits', [])
+                    logger.info(f"Direct Algolia sync: Success. Found {len(results)} vehicles.")
+            except Exception as e:
+                logger.warning(f"Direct Algolia sync failed: {e}")
 
-            results = find_vehicle_results(props)
-
-            # --- STRATEGY 2: Dynamic Algolia Key Extraction ---
-            # If results are empty, it likely means they are loaded via client-side Algolia.
+            # --- FALLBACK STRATEGY: Next.js Hydration (Max 8-12 items) ---
             if not results:
-                # Look for Algolia credentials in __NEXT_DATA__
-                def find_algolia(obj):
-                    if isinstance(obj, dict):
-                        if 'apiKey' in obj and 'appId' in obj:
-                            return obj
-                        for v in obj.values():
-                            res = find_algolia(v)
-                            if res: return res
-                    elif isinstance(obj, list):
-                        for item in obj:
-                            res = find_algolia(item)
-                            if res: return res
-                    return None
-                
-                creds = find_algolia(data)
-                if creds and 'indexName' in creds:
-                    logger.info(f"Found dynamic Algolia credentials: {creds.get('appId')}")
-                    # We could perform a direct Algolia API query here if needed.
-                    # For now, we'll log them as "Automatic Discovery Success"
+                resp = await client.get(inventory_url, headers=headers)
+                soup = BeautifulSoup(resp.text, 'html.parser')
+                script = soup.find('script', id='__NEXT_DATA__')
+                if script:
+                    data = json.loads(script.string)
+                    props = data.get('props', {}).get('pageProps', {})
+                    results = props.get('initialState', {}).get('products', [])
+                    logger.info(f"Fallback Next.js sync: Success. Found {len(results)} vehicles.")
             
             if not results:
                 logger.warning("Scraper failed to locate inventory results in static hydration data.")
@@ -153,15 +131,12 @@ async def scrape_teamford_inventory(limit: int = 15) -> List[Dict[str, Any]]:
 
             vehicles = []
             # Normalize and Scrape Details
-            # Items often come in as 'hits' where 'slug' or 'vin' identifies the target
             for item in results[:limit]:
                 slug = item.get('slug') or item.get('item_key')
                 if slug:
-                    # Construct clean URL
                     detail_url = f"https://www.teamford.ca/vehicles/{slug}"
                     v = await scrape_teamford_listing(detail_url)
                     if v:
-                        # Append source tags for showroom filtering
                         v["tags"] = ["Automated Sync", "TeamFord"]
                         vehicles.append(v)
                         
