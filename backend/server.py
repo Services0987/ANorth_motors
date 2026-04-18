@@ -308,7 +308,7 @@ async def import_vehicles(file: UploadFile = File(...), cu=Depends(get_current_u
 async def csv_template(cu=Depends(get_current_user)):
     from fastapi.responses import Response as FR
     headers = "title,make,model,year,price,mileage,condition,body_type,fuel_type,transmission,exterior_color,interior_color,engine,drivetrain,vin,stock_number,description,features,images,status,featured\n"
-    sample = '2024 Ford F-150 XLT SuperCrew 4x4,Ford,F-150,2024,52900,12000,used,Truck,Gas,Automatic,Oxford White,Black,3.5L EcoBoost V6,4WD,1FTFW1ET4EKF34678,A001,"Excellent condition truck",Apple CarPlay|Heated Seats|Remote Start,https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800,available,false\n'
+    sample = '2024 Ford F-150 XLT,Ford,F-150,2024,52900,12000,used,Truck,Gas,Automatic,Oxford White,Black,3.5L EcoBoost V6,4WD,1FTFW1ET4EKF34678,A001,"Excellent condition truck",Apple CarPlay|Heated Seats|Remote Start,https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800,available,false\n'
     return FR(content=headers + sample, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=autonorth_template.csv"})
 
 
@@ -453,11 +453,9 @@ Write your confirmation message naturally, then on a NEW LINE output:
 
 Be genuine, helpful, never pushy. If asked about financing say we offer rates from 3.99% APR with quick approvals."""
 
-
         msg = data.message.lower().strip()
         response_text = ""
 
-        # Atomic Bot Intelligence: Resolving Explorer ST vs Location Intent Collision
         # 1. Intent: Specific Vehicle Matches (Dynamic) - PRIORITY
         vehicle_keywords = ["f-150", "f150", "ram", "dodge", "truck", "suv", "ford", "chevy", "bronco", "explorer", "st", "raptor", "tremor"]
         if any(x in msg for x in vehicle_keywords):
@@ -516,9 +514,7 @@ async def startup():
     if await db.vehicles.count_documents({}) == 0:
         await seed_vehicles()
 
-    pathlib.Path("/app/memory").mkdir(exist_ok=True)
-    with open("/app/memory/test_credentials.md", "w") as f:
-        f.write(f"# AutoNorth Motors Test Credentials\n\n## Admin\n- Email: {admin_email}\n- Password: {admin_password}\n")
+    # Local memory logging removed for Vercel compatibility
 
 
 async def seed_vehicles():
