@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, Minimize2, Sparkles, Phone, CircleCheck } from 'lucide-react';
+import { X, Send, Minimize2, Sparkles, Phone, CheckCircle } from 'lucide-react';
 import axios from 'axios';
 
-const API = (process.env.REACT_APP_BACKEND_URL || '') + '/api';
+const API = '/api';
+
+const SAFE_ICON = (Icon, props = {}) => Icon ? <Icon {...props} /> : null;
 
 function getSessionId() {
   const key = 'an_ai_session';
@@ -32,7 +34,7 @@ function Message({ msg }) {
       className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-3`}>
       {!isUser && (
         <div className="w-7 h-7 bg-[#D4AF37] flex items-center justify-center flex-shrink-0 mr-2 mt-0.5">
-          <Sparkles size={13} className="text-black" />
+          {SAFE_ICON(Sparkles, { size: 13, className: "text-black" })}
         </div>
       )}
       <div className={`max-w-[80%] px-4 py-3 text-sm font-body leading-relaxed ${isUser ? 'bg-white/10 text-white border border-white/10' : 'bg-[#0D0D0D] text-white/80 border border-white/[0.06]'}`}
@@ -48,7 +50,7 @@ function BookingConfirmed() {
     <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
       className="mx-2 mb-3 p-4 bg-emerald-500/10 border border-emerald-500/30">
       <div className="flex items-center gap-2 mb-1">
-        <CircleCheck size={16} className="text-emerald-400" />
+        {SAFE_ICON(CheckCircle, { size: 16, className: "text-emerald-400" })}
         <span className="text-emerald-400 font-heading text-xs tracking-wider uppercase font-medium">Test Drive Booked</span>
       </div>
       <p className="text-white/50 text-xs font-body">Our team will confirm your appointment within 1 hour.</p>
@@ -93,7 +95,6 @@ export default function ChatBot() {
 
   return (
     <>
-      {/* Chat Panel */}
       <AnimatePresence>
         {open && (
           <motion.div
@@ -101,21 +102,13 @@ export default function ChatBot() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed z-[9999] bottom-[76px] right-5 w-[380px] max-w-[calc(100vw-40px)] flex flex-col shadow-2xl"
-            style={{ 
-              height: 'auto', 
-              maxHeight: 'min(600px, 80vh)',
-              background: 'rgba(8,8,8,0.97)', 
-              border: '1px solid rgba(212,175,55,0.2)', 
-              backdropFilter: 'blur(20px)' 
-            }}
-            data-testid="chatbot-panel"
+            className="fixed z-50 bottom-[76px] right-5 w-[380px] max-w-[calc(100vw-40px)] flex flex-col"
+            style={{ height: '520px', background: 'rgba(8,8,8,0.97)', border: '1px solid rgba(212,175,55,0.2)', backdropFilter: 'blur(20px)' }}
           >
-            {/* Header */}
             <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.06] flex-shrink-0">
               <div className="relative">
                 <div className="w-9 h-9 bg-[#D4AF37] flex items-center justify-center">
-                  <Sparkles size={16} className="text-black" />
+                  {SAFE_ICON(Sparkles, { size: 16, className: "text-black" })}
                 </div>
                 <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-[#080808]" />
               </div>
@@ -128,21 +121,20 @@ export default function ChatBot() {
               </div>
               <div className="flex items-center gap-2">
                 <a href="tel:+18256055050" className="text-white/30 hover:text-white transition-colors" title="Call Us">
-                  <Phone size={16} />
+                  {SAFE_ICON(Phone, { size: 16 })}
                 </a>
                 <button onClick={() => setOpen(false)} className="text-white/30 hover:text-white transition-colors">
-                  <X size={18} />
+                  {SAFE_ICON(X, { size: 18 })}
                 </button>
               </div>
             </div>
 
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-1" style={{ scrollbarWidth: 'thin', scrollbarColor: '#D4AF37 transparent' }}>
+            <div className="flex-1 overflow-y-auto p-4 space-y-1">
               {messages.map((msg, i) => <Message key={i} msg={msg} />)}
               {loading && (
                 <div className="flex justify-start mb-3">
                   <div className="w-7 h-7 bg-[#D4AF37] flex items-center justify-center flex-shrink-0 mr-2 mt-0.5">
-                    <Sparkles size={13} className="text-black" />
+                    {SAFE_ICON(Sparkles, { size: 13, className: "text-black" })}
                   </div>
                   <div className="bg-[#0D0D0D] border border-white/[0.06]">
                     <TypingDots />
@@ -153,7 +145,6 @@ export default function ChatBot() {
               <div ref={bottomRef} />
             </div>
 
-            {/* Quick prompts */}
             {messages.length === 1 && (
               <div className="px-4 pb-2 flex flex-wrap gap-1.5 flex-shrink-0">
                 {QUICK_PROMPTS.map(p => (
@@ -165,36 +156,31 @@ export default function ChatBot() {
               </div>
             )}
 
-            {/* Input */}
             <div className="flex-shrink-0 border-t border-white/[0.06] p-3 flex items-end gap-2">
               <textarea
                 ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKey}
-                placeholder="Ask about any vehicle, financing, or test drives..."
+                placeholder="Ask about any vehicle..."
                 rows={1}
                 style={{ resize: 'none', minHeight: '40px', maxHeight: '80px' }}
                 className="flex-1 input-dark px-3 py-2.5 text-sm font-body"
-                data-testid="chat-input"
               />
               <button onClick={sendMessage} disabled={!input.trim() || loading}
-                className={`w-10 h-10 flex items-center justify-center transition-all flex-shrink-0 ${input.trim() && !loading ? 'bg-[#D4AF37] text-black hover:bg-[#F3E5AB]' : 'bg-white/5 text-white/20'}`}
-                data-testid="chat-send-btn">
-                <Send size={16} />
+                className={`w-10 h-10 flex items-center justify-center transition-all flex-shrink-0 ${input.trim() && !loading ? 'bg-[#D4AF37] text-black' : 'bg-white/5 text-white/20'}`}>
+                {SAFE_ICON(Send, { size: 16 })}
               </button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Trigger Button — hidden when panel is open (header has close) */}
       {!open && (
         <button
           onClick={() => setOpen(true)}
           className="fixed z-50 bottom-5 right-5 flex items-center gap-2 pr-4 overflow-hidden"
-          style={{ height: '52px', background: 'linear-gradient(135deg, #D4AF37 0%, #F3E5AB 50%, #D4AF37 100%)', border: '1px solid #D4AF37', backdropFilter: 'blur(10px)' }}
-          data-testid="chatbot-toggle"
+          style={{ height: '52px', background: 'linear-gradient(135deg, #D4AF37 0%, #F3E5AB 50%, #D4AF37 100%)', border: '1px solid #D4AF37' }}
         >
           {pulse && (
             <motion.span className="absolute inset-0 rounded-none"
@@ -204,7 +190,7 @@ export default function ChatBot() {
             />
           )}
           <div className="w-10 h-full flex items-center justify-center flex-shrink-0 text-black">
-            <Sparkles size={18} />
+            {SAFE_ICON(Sparkles, { size: 18 })}
           </div>
           <span className="text-xs font-heading tracking-widest uppercase font-semibold whitespace-nowrap text-black">
             AI Specialist
