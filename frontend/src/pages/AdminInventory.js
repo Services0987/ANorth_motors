@@ -3,8 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Plus, Pencil, Trash2, X, Check, Star, Search, 
   ChevronDown, RefreshCw, Globe, Link as LinkIcon, Layers, 
-  ChevronLeft, ChevronRight, LayoutGrid, FileText, CircleAlert,
-  StarOff, Upload, Download, LayoutList, CircleCheck
+  ChevronLeft, ChevronRight, LayoutGrid, FileText, AlertCircle,
+  StarOff, Upload, Download, LayoutList, CheckCircle
 } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -161,7 +161,7 @@ export default function AdminInventory() {
            <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 bg-[#D4AF37]/10 flex items-center justify-center border border-[#D4AF37]/30">
-                  {SAFE_ICON(CircleAlert, { size: 14, className: `text-[#D4AF37] ${scraperLoading ? 'animate-spin' : ''}` })}
+                  {SAFE_ICON(AlertCircle, { size: 14, className: `text-[#D4AF37] ${scraperLoading ? 'animate-spin' : ''}` })}
                 </div>
                 <div>
                   <h3 className="text-white text-sm font-heading font-medium tracking-wide">Automated Inventory Sync</h3>
