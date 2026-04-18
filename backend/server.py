@@ -1,6 +1,6 @@
 from dotenv import load_dotenv
 load_dotenv()
-import google.generativeai as genai
+from google import genai
 
 import os
 import re
@@ -298,54 +298,49 @@ async def import_vehicles(file: UploadFile = File(...), cu=Depends(get_current_u
     except UnicodeDecodeError:
         decoded = content.decode("latin-1")
     reader = csv.DictReader(io.StringIO(decoded))
-    created, errors = 0, []
-    now = datetime.now(timezone.utc)
-    for i, row in enumerate(reader, 1):
+    added = 0
+    for row in reader:
         try:
             v = {
-                "title": row.get("title", "").strip(),
+                "title": row.get("title", f"{row.get('year')} {row.get('make')} {row.get('model')}").strip(),
                 "make": row.get("make", "").strip(),
                 "model": row.get("model", "").strip(),
                 "year": int(row.get("year", 2024)),
                 "price": float(row.get("price", 0)),
                 "mileage": int(row.get("mileage", 0)),
-                "condition": row.get("condition", "used").strip().lower(),
-                "body_type": row.get("body_type", "Sedan").strip(),
-                "fuel_type": row.get("fuel_type", "Gas").strip(),
-                "transmission": row.get("transmission", "Automatic").strip(),
-                "exterior_color": row.get("exterior_color", "").strip(),
-                "interior_color": row.get("interior_color", "").strip(),
-                "engine": row.get("engine", "").strip(),
-                "drivetrain": row.get("drivetrain", "FWD").strip(),
+                "condition": row.get("condition", "used").lower(),
+                "body_type": row.get("body_type", "Sedan"),
+                "fuel_type": row.get("fuel_type", "Gas"),
+                "transmission": row.get("transmission", "Automatic"),
+                "exterior_color": row.get("exterior_color", ""),
+                "interior_color": row.get("interior_color", ""),
+                "engine": row.get("engine", ""),
+                "drivetrain": row.get("drivetrain", ""),
                 "vin": row.get("vin", "").strip(),
                 "stock_number": row.get("stock_number", "").strip(),
-                "description": row.get("description", "").strip(),
-                "features": [f.strip() for f in row.get("features", "").split("|") if f.strip()],
-                "images": [im.strip() for im in row.get("images", "").split("|") if im.strip()],
-                "status": row.get("status", "available").strip().lower(),
-                "featured": str(row.get("featured", "false")).lower() in ("true", "1", "yes"),
-                "created_at": now, "updated_at": now,
+                "description": row.get("description", ""),
+                "images": [img.strip() for img in row.get("images", "").split(",") if img.strip()],
+                "status": "available",
+                "created_at": datetime.now(timezone.utc),
+                "updated_at": datetime.now(timezone.utc)
             }
-            if not v["title"] or not v["make"]:
-                errors.append(f"Row {i}: missing title/make"); continue
-            await db.vehicles.insert_one(v)
-            created += 1
+            if not v["vin"] and not v["stock_number"]: continue
+            await db.vehicles.update_one(
+                {"$or": [{"vin": v["vin"]}, {"stock_number": v["stock_number"]}]} if v["vin"] or v["stock_number"] else {"title": v["title"]},
+                {"$set": v},
+                upsert=True
+            )
+            added += 1
         except Exception as e:
-            errors.append(f"Row {i}: {e}")
-    return {"created": created, "errors": errors[:10]}
-
-@api_router.get("/vehicles/template/csv")
-async def csv_template(cu=Depends(get_current_user)):
-    from fastapi.responses import Response as FR
-    headers = "title,make,model,year,price,mileage,condition,body_type,fuel_type,transmission,exterior_color,interior_color,engine,drivetrain,vin,stock_number,description,features,images,status,featured\n"
-    sample = '2024 Ford F-150 XLT,Ford,F-150,2024,52900,12000,used,Truck,Gas,Automatic,Oxford White,Black,3.5L EcoBoost V6,4WD,1FTFW1ET4EKF34678,A001,"Excellent condition truck",Apple CarPlay|Heated Seats|Remote Start,https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800,available,false\n'
-    return FR(content=headers + sample, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=autonorth_template.csv"})
-
+            logger.error(f"Row import error: {e}")
+            continue
+    return {"message": f"Imported {added} vehicles"}
 
 # ─── Leads ────────────────────────────────────────────────────────
 @api_router.post("/leads")
 async def create_lead(data: LeadCreate):
-    doc = {**data.model_dump(), "status": "new", "created_at": datetime.now(timezone.utc)}
+    now = datetime.now(timezone.utc)
+    doc = {**data.model_dump(), "status": "new", "created_at": now}
     result = await db.leads.insert_one(doc)
     doc["_id"] = result.inserted_id
     return Lead.from_mongo(doc).model_dump(mode='json')
@@ -494,13 +489,18 @@ LEAD CAPTURE: [[LEAD::{{"name":"NAME","email":"EMAIL","phone":"PHONE","vehicle_t
         gemini_api_key = os.environ.get("GEMINI_API_KEY")
         if not gemini_api_key:
             msg = data.message.lower().strip()
-            # Rule-based fallback
             if "truck" in msg: return {"response": "We have some stunning trucks in stock, like the Ford F-150. Would you like to see our full inventory?", "lead_captured": False}
             return {"response": "Welcome to AutoNorth Motors! How can I help you find your next vehicle in Edmonton today?", "lead_captured": False}
 
-        genai.configure(api_key=gemini_api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=system_instruction)
-        if data.session_id not in chat_sessions: chat_sessions[data.session_id] = model.start_chat(history=[])
+        client = genai.Client(api_key=gemini_api_key)
+        
+        # New SDK Chat Session Logic
+        if data.session_id not in chat_sessions:
+            chat_sessions[data.session_id] = client.chats.create(
+                model='gemini-1.5-flash',
+                config=genai.types.GenerateContentConfig(system_instruction=system_instruction)
+            )
+            
         chat = chat_sessions[data.session_id]
         response = chat.send_message(data.message)
         raw = response.text
