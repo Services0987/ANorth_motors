@@ -18,6 +18,10 @@
       "destination": "/api/index.py"
     },
     {
+      "source": "/(.*)/static/(.*)",
+      "destination": "/static/$2"
+    },
+    {
       "source": "/static/(.*)",
       "destination": "/static/$1"
     },

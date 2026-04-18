@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Plus, Pencil, Trash2, X, Check, Star, Search, 
-  ChevronDown, RefreshCw, Globe, Link as LinkIcon, Layers, 
+  Plus, Pencil, Trash2, X, Check, Star, Search,
+  ChevronDown, RefreshCw, Globe, Link, Layers, 
   ChevronLeft, ChevronRight, LayoutGrid, FileText, AlertCircle,
   StarOff, Upload, Download, LayoutList, CheckCircle
-} from 'lucide-react';
-import axios from 'axios';
+} from 'lucide-react';import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import AdminLayout from '../components/AdminLayout';
 
-const SAFE_ICON = (Icon, props = {}) => Icon ? <Icon {...props} /> : null;
+const SAFE_ICON = (Icon, props = {}) => {
+  if (!Icon) return null;
+  try { return <Icon {...props} />; } catch (e) { return null; }
+};
 const API = '/api';
 const PLACEHOLDER = 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=200&q=40';
 
@@ -189,7 +191,7 @@ export default function AdminInventory() {
                 <input className="input-dark w-full pl-9 pr-4 py-2.5 text-sm font-body" placeholder="Paste any vehicle URL from teamford.ca..." value={scraperUrl} onChange={e => setScraperUrl(e.target.value)} />
               </div>
               <button onClick={handleUrlImport} disabled={!scraperUrl || scraperLoading} className="btn-outline px-6 py-2.5 text-[10px] font-heading tracking-widest uppercase flex items-center gap-2">
-                {SAFE_ICON(LinkIcon, { size: 11 })} Import URL
+                {SAFE_ICON(Link, { size: 11 })} Import URL
               </button>
            </div>
            {lastSync && <p className="text-white/20 text-[9px] mt-3 font-body uppercase tracking-widest">Last Successful Sync: {new Date(lastSync).toLocaleString()}</p>}
