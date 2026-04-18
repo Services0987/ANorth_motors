@@ -11,7 +11,7 @@ import { useAuth } from '../contexts/AuthContext';
 import AdminLayout from '../components/AdminLayout';
 
 const SAFE_ICON = (Icon, props = {}) => {
-  if (!Icon || typeof Icon !== 'function' && typeof Icon !== 'object') return null;
+  if (!Icon || (typeof Icon !== 'function' && typeof Icon !== 'object')) return null;
   return <Icon {...props} />;
 };
 const API = '/api';
@@ -90,7 +90,7 @@ export default function AdminInventory() {
   const addFeature = () => { if (newFeature.trim()) { setF('features', [...form.features, newFeature.trim()]); setNewFeature(''); } };
   const removeFeature = (i) => setF('features', form.features.filter((_, idx) => idx !== i));
   const addImage = () => { if (newImage.trim()) { setF('images', [...form.images, newImage.trim()]); setNewImage(''); } };
-  const removeImage = (i) => setF('images', form.images.filter((_, idx) => idx !== i));
+  removeImage = (i) => setF('images', form.images.filter((_, idx) => idx !== i));
   
   const moveImage = (index, direction) => {
     const newImages = [...form.images];
@@ -146,6 +146,18 @@ export default function AdminInventory() {
     if (!scraperUrl) return; setScraperLoading(true);
     try { await axios.post(`${API}/scraper/import-url`, { url: scraperUrl }, { withCredentials: true }); setScraperUrl(''); fetchVehicles(); }
     catch (err) { console.error(err); } finally { setScraperLoading(false); }
+  };
+
+  const handleCSVUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    setLoading(true);
+    try {
+      await axios.post(`${API}/vehicles/import`, formData, { withCredentials: true, headers: { 'Content-Type': 'multipart/form-data' } });
+      fetchVehicles();
+    } catch (err) { console.error(err); } finally { setLoading(false); }
   };
 
   const toggleSelect = (id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -214,9 +226,15 @@ export default function AdminInventory() {
             )}
             <span className="text-white/25 text-xs font-body ml-2">{filtered.length} vehicles matching</span>
           </div>
-          <button onClick={openAdd} className="btn-gold px-6 py-3 text-xs flex items-center gap-2 border border-white/10">
-            {SAFE_ICON(Plus, { size: 14 })} Add Manual Listing
-          </button>
+          <div className="flex items-center gap-3">
+            <input type="file" id="csv-upload" className="hidden" accept=".csv" onChange={handleCSVUpload} />
+            <label htmlFor="csv-upload" className="btn-outline px-6 py-3 text-xs flex items-center gap-2 cursor-pointer transition-all hover:bg-white/5">
+              {SAFE_ICON(Upload, { size: 14 })} Bulk CSV Import
+            </label>
+            <button onClick={openAdd} className="btn-gold px-6 py-3 text-xs flex items-center gap-2 border border-white/10 shadow-[0_0_20px_rgba(212,175,55,0.15)]">
+              {SAFE_ICON(Plus, { size: 14 })} Add Manual Listing
+            </button>
+          </div>
         </div>
 
         <div className="bg-[#0A0A0A] border border-white/[0.05] overflow-x-auto">
@@ -304,13 +322,53 @@ export default function AdminInventory() {
                       </div>
                     </section>
                 </div>
-                <div className="col-span-12 lg:col-span-5 space-y-8">
-                  <Field label="Listing Name"><Input value={form.title} onChange={e => setF('title', e.target.value)} /></Field>
-                  <Field label="Price"><Input type="number" value={form.price} onChange={e => setF('price', e.target.value)} /></Field>
-                  <Field label="Make"><Input value={form.make} onChange={e => setF('make', e.target.value)} /></Field>
-                  <Field label="Model"><Input value={form.model} onChange={e => setF('model', e.target.value)} /></Field>
-                  <Field label="Year"><Input type="number" value={form.year} onChange={e => setF('year', e.target.value)} /></Field>
-                  <Field label="Condition"><Sel options={['used','new']} value={form.condition} onChange={e => setF('condition', e.target.value)} /></Field>
+                <div className="col-span-12 lg:col-span-5 space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <Field label="Listing Name"><Input value={form.title} onChange={e => setF('title', e.target.value)} /></Field>
+                    <Field label="Price"><Input type="number" value={form.price} onChange={e => setF('price', e.target.value)} /></Field>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Field label="Make"><Input value={form.make} onChange={e => setF('make', e.target.value)} /></Field>
+                    <Field label="Model"><Input value={form.model} onChange={e => setF('model', e.target.value)} /></Field>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <Field label="Year"><Input type="number" value={form.year} onChange={e => setF('year', e.target.value)} /></Field>
+                    <Field label="Mileage"><Input type="number" value={form.mileage} onChange={e => setF('mileage', e.target.value)} /></Field>
+                    <Field label="Condition"><Sel options={['used','new']} value={form.condition} onChange={e => setF('condition', e.target.value)} /></Field>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Field label="VIN"><Input value={form.vin} onChange={e => setF('vin', e.target.value)} /></Field>
+                    <Field label="Stock #"><Input value={form.stock_number} onChange={e => setF('stock_number', e.target.value)} /></Field>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Field label="Body Type"><Sel options={['Sedan','SUV','Truck','Coupe','Van','Wagon']} value={form.body_type} onChange={e => setF('body_type', e.target.value)} /></Field>
+                    <Field label="Transmission"><Sel options={['Automatic','Manual','CVT']} value={form.transmission} onChange={e => setF('transmission', e.target.value)} /></Field>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Field label="Fuel Type"><Sel options={['Gas','Diesel','Electric','Hybrid']} value={form.fuel_type} onChange={e => setF('fuel_type', e.target.value)} /></Field>
+                    <Field label="Drivetrain"><Sel options={['FWD','RWD','AWD','4WD']} value={form.drivetrain} onChange={e => setF('drivetrain', e.target.value)} /></Field>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Field label="Exterior Color"><Input value={form.exterior_color} onChange={e => setF('exterior_color', e.target.value)} /></Field>
+                    <Field label="Interior Color"><Input value={form.interior_color} onChange={e => setF('interior_color', e.target.value)} /></Field>
+                  </div>
+                  <Field label="Description"><textarea className="input-dark w-full px-3 py-2.5 text-sm font-body h-24" value={form.description} onChange={e => setF('description', e.target.value)} /></Field>
+                  
+                  <section>
+                    <p className="text-[10px] tracking-[0.3em] uppercase text-[#D4AF37] font-heading mb-4">Features & Tech</p>
+                    <div className="flex gap-2 mb-3">
+                      <Input value={newFeature} onChange={e => setNewFeature(e.target.value)} placeholder="Add feature (e.g. Sunroof)..." onKeyDown={e => e.key === 'Enter' && addFeature()} />
+                      <button type="button" onClick={addFeature} className="btn-gold px-4 py-2 uppercase text-[10px]">Add</button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {form.features.map((f, i) => (
+                        <div key={i} className="bg-white/5 border border-white/10 px-2 py-1 flex items-center gap-2 group">
+                          <span className="text-white/60 text-[10px] uppercase">{f}</span>
+                          <button type="button" onClick={() => removeFeature(i)} className="text-white/20 hover:text-red-400">{SAFE_ICON(X, { size: 10 })}</button>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
                 </div>
               </div>
               <div className="px-8 py-6 border-t border-white/[0.06] flex gap-4">

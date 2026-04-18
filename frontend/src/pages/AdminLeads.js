@@ -4,7 +4,11 @@ import { X, Trash2, Phone, Mail, Car, Calendar, ChevronDown, Search } from 'luci
 import axios from 'axios';
 import AdminLayout from '../components/AdminLayout';
 
-const API = (process.env.REACT_APP_BACKEND_URL || '') + '/api';
+const SAFE_ICON = (Icon, props = {}) => {
+  if (!Icon || (typeof Icon !== 'function' && typeof Icon !== 'object')) return null;
+  return <Icon {...props} />;
+};
+const API = '/api';
 
 const STATUS_STYLES = {
   new: 'bg-blue-500/20 text-blue-400 border border-blue-500/30',
@@ -108,7 +112,7 @@ export default function AdminLeads() {
         {/* Toolbar */}
         <div className="flex flex-wrap gap-3 items-center">
           <div className="relative flex-1 min-w-48">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+            {SAFE_ICON(Search, { size: 14, className: "absolute left-3 top-1/2 -translate-y-1/2 text-white/30" })}
             <input className="input-dark pl-9 pr-4 py-2.5 text-sm font-body w-full" placeholder="Search name, email, vehicle..." value={search} onChange={(e) => setSearch(e.target.value)} data-testid="leads-search" />
           </div>
           <div className="relative">
@@ -116,7 +120,7 @@ export default function AdminLeads() {
               <option value="all">All Types</option>
               {Object.entries(TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
-            <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
+            {SAFE_ICON(ChevronDown, { size: 13, className: "absolute right-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" })}
           </div>
           <span className="text-white/30 text-xs font-body ml-auto">{filtered.length} lead{filtered.length !== 1 ? 's' : ''}</span>
         </div>
@@ -172,7 +176,7 @@ export default function AdminLeads() {
                     </td>
                     <td className="px-4 py-3">
                       <button onClick={(e) => { e.stopPropagation(); setDeleteConfirm(lead.id); }} className="text-white/20 hover:text-red-400 transition-colors" data-testid={`lead-delete-${lead.id}`}>
-                        <Trash2 size={14} />
+                        {SAFE_ICON(Trash2, { size: 14 })}
                       </button>
                     </td>
                   </tr>
@@ -193,7 +197,7 @@ export default function AdminLeads() {
               >
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="font-heading text-sm font-medium text-white">Lead Details</h3>
-                  <button onClick={() => setSelectedLead(null)} className="text-white/30 hover:text-white"><X size={16} /></button>
+                  <button onClick={() => setSelectedLead(null)} className="text-white/30 hover:text-white">{SAFE_ICON(X, { size: 16 })}</button>
                 </div>
 
                 <div className="space-y-4">
@@ -201,11 +205,11 @@ export default function AdminLeads() {
                     <p className="text-[10px] tracking-[0.15em] uppercase text-white/20 font-heading mb-1">Contact</p>
                     <p className="font-heading text-white text-base font-medium">{selectedLead.name}</p>
                     <a href={`mailto:${selectedLead.email}`} className="flex items-center gap-2 text-white/50 hover:text-[#D4AF37] text-sm font-body mt-1 transition-colors">
-                      <Mail size={13} /> {selectedLead.email}
+                      {SAFE_ICON(Mail, { size: 13 })} {selectedLead.email}
                     </a>
                     {selectedLead.phone && (
                       <a href={`tel:${selectedLead.phone}`} className="flex items-center gap-2 text-white/50 hover:text-[#D4AF37] text-sm font-body mt-1 transition-colors">
-                        <Phone size={13} /> {selectedLead.phone}
+                        {SAFE_ICON(Phone, { size: 13 })} {selectedLead.phone}
                       </a>
                     )}
                   </div>
@@ -228,7 +232,7 @@ export default function AdminLeads() {
                     <div className="border-t border-white/[0.05] pt-4">
                       <p className="text-[10px] tracking-[0.15em] uppercase text-white/20 font-heading mb-2">Vehicle Interest</p>
                       <div className="flex items-start gap-2 text-white/60 text-sm font-body">
-                        <Car size={14} className="text-[#D4AF37] mt-0.5 flex-shrink-0" />
+                        {SAFE_ICON(Car, { size: 14, className: "text-[#D4AF37] mt-0.5 flex-shrink-0" })}
                         {selectedLead.vehicle_title}
                       </div>
                     </div>
@@ -238,7 +242,7 @@ export default function AdminLeads() {
                     <div className="border-t border-white/[0.05] pt-4">
                       <p className="text-[10px] tracking-[0.15em] uppercase text-white/20 font-heading mb-2">Test Drive</p>
                       <div className="flex items-center gap-2 text-white/60 text-sm font-body">
-                        <Calendar size={14} className="text-[#D4AF37]" />
+                        {SAFE_ICON(Calendar, { size: 14, className: "text-[#D4AF37]" })}
                         {selectedLead.preferred_date} {selectedLead.preferred_time && `at ${selectedLead.preferred_time}`}
                       </div>
                     </div>
@@ -276,11 +280,11 @@ export default function AdminLeads() {
 
                   <div className="pt-2 flex gap-2">
                     <a href={`mailto:${selectedLead.email}`} className="flex-1 btn-outline py-2.5 text-xs text-center flex items-center justify-center gap-2">
-                      <Mail size={13} /> Email
+                      {SAFE_ICON(Mail, { size: 13 })} Email
                     </a>
                     {selectedLead.phone && (
                       <a href={`tel:${selectedLead.phone}`} className="flex-1 btn-outline py-2.5 text-xs text-center flex items-center justify-center gap-2">
-                        <Phone size={13} /> Call
+                        {SAFE_ICON(Phone, { size: 13 })} Call
                       </a>
                     )}
                   </div>
@@ -296,7 +300,7 @@ export default function AdminLeads() {
         {deleteConfirm && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
             <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} className="glass-card p-8 max-w-sm w-full text-center">
-              <Trash2 size={28} className="text-red-400 mx-auto mb-3" />
+              {SAFE_ICON(Trash2, { size: 28, className: "text-red-400 mx-auto mb-3" })}
               <h3 className="font-heading text-white text-base mb-2">Delete this lead?</h3>
               <p className="text-white/40 text-sm font-body mb-6">This cannot be undone.</p>
               <div className="flex gap-3">
