@@ -2,16 +2,17 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Plus, Pencil, Trash2, X, Check, Star, Search,
-  ChevronDown, RefreshCw, Globe, Link, Layers, 
-  ChevronLeft, ChevronRight, LayoutGrid, FileText, AlertCircle,
+  ChevronDown, RefreshCcw as RefreshCw, Globe, Link, Layers, 
+  ChevronLeft, ChevronRight, LayoutGrid, FileText, AlertTriangle as AlertCircle,
   StarOff, Upload, Download, LayoutList, CheckCircle
-} from 'lucide-react';import axios from 'axios';
+} from 'lucide-react';
+import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import AdminLayout from '../components/AdminLayout';
 
 const SAFE_ICON = (Icon, props = {}) => {
-  if (!Icon) return null;
-  try { return <Icon {...props} />; } catch (e) { return null; }
+  if (!Icon || typeof Icon !== 'function' && typeof Icon !== 'object') return null;
+  return <Icon {...props} />;
 };
 const API = '/api';
 const PLACEHOLDER = 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=200&q=40';
@@ -155,8 +156,10 @@ export default function AdminInventory() {
   if (loadingAuth) return <div className="min-h-screen bg-[#050505] flex items-center justify-center font-heading text-[#D4AF37] uppercase tracking-[0.3em] text-xs">Initializing Secure Portal...</div>;
   if (!user) return <div className="min-h-screen bg-[#050505] flex items-center justify-center font-heading text-white/20 uppercase tracking-[0.3em] text-xs">Unauthorized · 403</div>;
 
+  console.log("AdminInventory Rendering Hub Section...");
   return (
     <AdminLayout title="Inventory Power-Center">
+
       <div className="space-y-6">
         {/* Scraper & Sync Hub */}
         <div className="bg-[#0A0A0A] border border-[#D4AF37]/20 p-5">
