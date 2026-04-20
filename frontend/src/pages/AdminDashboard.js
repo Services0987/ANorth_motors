@@ -5,7 +5,10 @@ import { Car, Users, TrendingUp, DollarSign, ArrowRight, CircleCheck, Clock, Cir
 import axios from 'axios';
 import AdminLayout from '../components/AdminLayout';
 
-const SAFE_ICON = (Icon, props = {}) => Icon ? <Icon {...props} /> : null;
+const SAFE_ICON = (Icon, props = {}) => {
+  if (!Icon || (typeof Icon !== 'function' && typeof Icon !== 'object')) return null;
+  return <Icon {...props} />;
+};
 const API = '/api';
 
 const STATUS_STYLES = {

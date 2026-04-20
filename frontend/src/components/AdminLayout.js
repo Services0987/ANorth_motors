@@ -3,7 +3,10 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Car, Users, LogOut, Menu, X, ChevronRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
-const SAFE_ICON = (Icon, props = {}) => Icon ? <Icon {...props} /> : null;
+const SAFE_ICON = (Icon, props = {}) => {
+  if (!Icon || (typeof Icon !== 'function' && typeof Icon !== 'object')) return null;
+  return <Icon {...props} />;
+};
 
 const navItems = [
   { to: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
