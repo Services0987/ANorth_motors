@@ -44,6 +44,8 @@ export default function Inventory() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
+  const [page, setPage] = useState(1);
+  const limit = 40;
 
   const [filters, setFilters] = useState({
     search: '',
@@ -66,25 +68,33 @@ export default function Inventory() {
       if (filters.fuel_type) params.append('fuel_type', filters.fuel_type);
       if (filters.min_price) params.append('min_price', filters.min_price);
       if (filters.max_price) params.append('max_price', filters.max_price);
-      params.append('limit', '50');
+      params.append('limit', limit.toString());
+      params.append('skip', ((page - 1) * limit).toString());
 
       const { data } = await axios.get(`${API}/vehicles?${params}`);
       setVehicles(data.vehicles || []);
       setTotal(data.total || 0);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters, page]);
 
   useEffect(() => {
     fetchVehicles();
   }, [fetchVehicles]);
 
-  const updateFilter = (key, value) => setFilters((prev) => ({ ...prev, [key]: value }));
+  const updateFilter = (key, value) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+    setPage(1); // Reset to page 1 on filter change
+  };
 
-  const clearFilters = () => setFilters({ search: '', condition: '', make: '', body_type: '', fuel_type: '', min_price: '', max_price: '' });
+  const clearFilters = () => {
+    setFilters({ search: '', condition: '', make: '', body_type: '', fuel_type: '', min_price: '', max_price: '' });
+    setPage(1);
+  };
 
   const activeFilters = Object.values(filters).filter(Boolean).length;
 
@@ -182,6 +192,33 @@ export default function Inventory() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" data-testid="vehicles-grid">
             {vehicles?.map((v, i) => <VehicleCard key={v._id || v.id || i} vehicle={v} index={i} />)}
+          </div>
+        )}
+
+        {/* Pagination Section */}
+        {total > limit && !loading && (
+          <div className="mt-12 flex justify-center items-center gap-6">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className={`px-6 py-2.5 text-xs font-heading uppercase tracking-widest transition-all ${
+                page === 1 ? 'text-white/10 border border-white/10 cursor-not-allowed' : 'text-white border border-white/20 hover:border-[#D4AF37] hover:text-[#D4AF37]'
+              }`}
+            >
+              Previous
+            </button>
+            <div className="text-white/50 font-body text-sm lowercase">
+              Page <span className="text-white">{page}</span> of {Math.ceil(total / limit)}
+            </div>
+            <button
+              onClick={() => setPage(p => p + 1)}
+              disabled={page >= Math.ceil(total / limit)}
+              className={`px-6 py-2.5 text-xs font-heading uppercase tracking-widest transition-all ${
+                page >= Math.ceil(total / limit) ? 'text-white/10 border border-white/10 cursor-not-allowed' : 'text-white border border-white/20 hover:border-[#D4AF37] hover:text-[#D4AF37]'
+              }`}
+            >
+              Next
+            </button>
           </div>
         )}
       </div>

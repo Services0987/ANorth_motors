@@ -7,7 +7,12 @@ import AdminLayout from '../components/AdminLayout';
 
 const SAFE_ICON = (Icon, props = {}) => {
   if (!Icon || (typeof Icon !== 'function' && typeof Icon !== 'object')) return null;
-  return <Icon {...props} />;
+  try {
+    return <Icon {...props} />;
+  } catch (e) {
+    console.error("Icon render failed:", e);
+    return null;
+  }
 };
 const API = '/api';
 

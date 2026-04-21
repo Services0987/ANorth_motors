@@ -90,7 +90,7 @@ export default function AdminInventory() {
   const addFeature = () => { if (newFeature.trim()) { setF('features', [...form.features, newFeature.trim()]); setNewFeature(''); } };
   const removeFeature = (i) => setF('features', form.features.filter((_, idx) => idx !== i));
   const addImage = () => { if (newImage.trim()) { setF('images', [...form.images, newImage.trim()]); setNewImage(''); } };
-  removeImage = (i) => setF('images', form.images.filter((_, idx) => idx !== i));
+  const removeImage = (i) => setF('images', form.images.filter((_, idx) => idx !== i));
   
   const moveImage = (index, direction) => {
     const newImages = [...form.images];

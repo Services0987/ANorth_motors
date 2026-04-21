@@ -5,7 +5,12 @@ import { useAuth } from '../contexts/AuthContext';
 
 const SAFE_ICON = (Icon, props = {}) => {
   if (!Icon || (typeof Icon !== 'function' && typeof Icon !== 'object')) return null;
-  return <Icon {...props} />;
+  try {
+    return <Icon {...props} />;
+  } catch (e) {
+    console.error("Icon render failed in Layout:", e);
+    return null;
+  }
 };
 
 const navItems = [

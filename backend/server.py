@@ -488,6 +488,7 @@ LEAD CAPTURE: [[LEAD::{{"name":"NAME","email":"EMAIL","phone":"PHONE","vehicle_t
 
         gemini_api_key = os.environ.get("GEMINI_API_KEY")
         if not gemini_api_key:
+            logger.warning("[AI_RESTRICTION] GEMINI_API_KEY is missing. AI Specialist restricted to safety fallbacks.")
             msg = data.message.lower().strip()
             if "truck" in msg: return {"response": "We have some stunning trucks in stock, like the Ford F-150. Would you like to see our full inventory?", "lead_captured": False}
             return {"response": "Welcome to AutoNorth Motors! How can I help you find your next vehicle in Edmonton today?", "lead_captured": False}
