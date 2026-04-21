@@ -106,15 +106,42 @@ export default function Inventory() {
         <meta name="keywords" content="used trucks Edmonton, SUVs for sale Alberta, Ford inventory Edmonton, AutoNorth Motors vehicles, buy used car Edmonton, Alberta auto sales" />
       </Helmet>
 
-      <div className="bg-[#050505] min-h-screen" data-testid="inventory-page">
+      <div className="bg-[#050505] min-h-screen transition-colors duration-700" style={{ backgroundColor: hoveredColor || '#050505' }} data-testid="inventory-page">
       <Navbar />
 
-      <div className="pt-32 pb-6 px-6 md:px-12 max-w-7xl mx-auto">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-          <p className="text-xs tracking-[0.2em] uppercase text-[#D4AF37] font-heading mb-2">Our Collection</p>
-          <h1 className="font-heading text-4xl md:text-5xl font-light text-white tracking-tight">
-            Vehicle <span className="gradient-text">Inventory</span>
+      {/* Bazaar Featured Header (Snap Scroll Style) */}
+      <div className="relative h-[100vh] lg:h-[90vh] flex flex-col items-center justify-center text-center px-6 overflow-hidden">
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }} 
+          animate={{ opacity: 1, y: 0 }}
+          className="z-10 relative"
+        >
+          <p className="text-[10px] tracking-[0.5em] uppercase text-[#D4AF37] font-heading mb-6">World Class Performance</p>
+          <h1 className="font-heading text-6xl md:text-8xl lg:text-[10rem] font-bold text-white tracking-tighter leading-none mb-8">
+            AUTO<span className="text-transparent border-text">NORTH</span>
           </h1>
+          <div className="h-[1px] w-48 bg-white/10 mx-auto mb-8" />
+          <p className="text-white/40 font-body text-xs lg:text-sm tracking-[0.2em] uppercase max-w-lg mx-auto leading-relaxed">
+            Curated Excellence. Unmatched Quality. <br />Experience the Edmonton Gold Standard.
+          </p>
+        </motion.div>
+        
+        {/* Background Visual Element */}
+        <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden opacity-20">
+          <motion.div 
+            animate={{ scale: [1, 1.1, 1], rotate: [0, 5, 0] }}
+            transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+            className="w-full h-full bg-[radial-gradient(circle_at_50%_50%,#D4AF37-30%,transparent-70%)] blur-[120px]" 
+          />
+        </div>
+      </div>
+
+      <div className="py-20 px-6 md:px-12 max-w-7xl mx-auto border-t border-white/[0.03]">
+        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
+          <h2 className="font-heading text-3xl md:text-4xl font-light text-white tracking-tight mb-2">
+            The <span className="gradient-text">Collection</span>
+          </h2>
+          <p className="text-white/30 text-[10px] uppercase font-heading tracking-[0.3em]">Browsing all available units</p>
         </motion.div>
       </div>
 

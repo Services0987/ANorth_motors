@@ -45,6 +45,7 @@ function Message({ msg }) {
 }
 
 export default function ChatBot() {
+  const [inventory, setInventory] = useState([]);
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([WELCOME]);
   const [input, setInput] = useState('');
@@ -54,6 +55,34 @@ export default function ChatBot() {
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const sessionId = getSessionId();
+
+  // Load Inventory for Zero-Cost Intelligence
+  useEffect(() => {
+    axios.get(`${API}/vehicles?limit=1000`).then(res => setInventory(res.data.vehicles || []));
+  }, []);
+
+  const getLocalResponse = (text) => {
+    const q = text.toLowerCase();
+    const matches = inventory.filter(v => 
+      v.make.toLowerCase().includes(q) || 
+      v.model.toLowerCase().includes(q) || 
+      v.title.toLowerCase().includes(q) ||
+      (q.includes('truck') && v.body_type === 'Truck') ||
+      (q.includes('suv') && v.body_type === 'SUV')
+    );
+
+    if (q.includes('price') || q.includes('cheap') || q.includes('cost')) {
+      const sorted = [...inventory].sort((a,b) => a.price - b.price);
+      if (sorted[0]) return `Our most affordable vehicle is the ${sorted[0].title} for $${sorted[0].price.toLocaleString()}. We have ${inventory.length} total vehicles available for you!`;
+    }
+
+    if (matches.length > 0) {
+      const top = matches[0];
+      return `We have exactly what you're looking for! The ${top.title} is currently available for $${top.price.toLocaleString()}. It has ${top.mileage.toLocaleString()} KM. Would you like to see more details?`;
+    }
+
+    return "I found several options that might match! How about we narrow it down by your budget or preferred body type (Truck, SUV, Sedan)?";
+  };
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
   useEffect(() => { if (open) { setTimeout(() => inputRef.current?.focus(), 300); setPulse(false); } }, [open]);
@@ -66,10 +95,15 @@ export default function ChatBot() {
     setLoading(true);
     try {
       const { data } = await axios.post(`${API}/chat`, { session_id: sessionId, message: text });
-      setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
+      // Detect if backend returned a specific "API KEY MISSING" signal or handle fallback
+      if (data.response.includes('[AI_RESTRICTION]')) {
+        setMessages(prev => [...prev, { role: 'assistant', content: getLocalResponse(text) }]);
+      } else {
+        setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
+      }
       if (data.lead_captured) setBookingConfirmed(true);
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Connection issue — please call us at 825-605-5050 or use the contact form.' }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: getLocalResponse(text) }]);
     } finally {
       setLoading(false);
     }
