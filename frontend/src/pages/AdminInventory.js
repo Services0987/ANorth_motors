@@ -343,82 +343,84 @@ export default function AdminInventory() {
                     <button onClick={() => setAddMode('manual')} className="w-full text-white/20 text-[10px] uppercase tracking-widest font-heading hover:text-white transition-colors">Skip to Manual Entry</button>
                   </div>
                 ) : (
-                  <div className="col-span-12 lg:col-span-7 space-y-10">
-                    <section>
-                      <p className="text-[10px] tracking-[0.3em] uppercase text-[#D4AF37] font-heading mb-4">{SAFE_ICON(LayoutGrid, { size: 12 })} Visual Assets</p>
-                      <div className="space-y-4">
-                        <div className="flex gap-2">
-                          <input className="input-dark flex-1 px-4 py-3 text-sm font-body" placeholder="Import link..." value={newImage} onChange={e => setNewImage(e.target.value)} />
-                          <button type="button" onClick={addImage} className="btn-gold px-6 py-3 text-xs uppercase">Upload</button>
-                        </div>
-                        <div className="grid grid-cols-4 gap-3">
-                          {form.images.map((img, i) => (
-                            <div key={i} className="relative aspect-[4/3] border border-white/5 group">
-                              <img src={img} alt="" className="w-full h-full object-cover" />
-                              <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2">
-                                <button type="button" onClick={() => moveImage(i, -1)}>{SAFE_ICON(ChevronLeft, { size: 12 })}</button>
-                                <button type="button" onClick={() => removeImage(i)}>{SAFE_ICON(Trash2, { size: 12 })}</button>
-                                <button type="button" onClick={() => moveImage(i, 1)}>{SAFE_ICON(ChevronRight, { size: 12 })}</button>
+                  <>
+                    <div className="col-span-12 lg:col-span-7 space-y-10">
+                      <section>
+                        <p className="text-[10px] tracking-[0.3em] uppercase text-[#D4AF37] font-heading mb-4">{SAFE_ICON(LayoutGrid, { size: 12 })} Visual Assets</p>
+                        <div className="space-y-4">
+                          <div className="flex gap-2">
+                            <input className="input-dark flex-1 px-4 py-3 text-sm font-body" placeholder="Import link..." value={newImage} onChange={e => setNewImage(e.target.value)} />
+                            <button type="button" onClick={addImage} className="btn-gold px-6 py-3 text-xs uppercase">Upload</button>
+                          </div>
+                          <div className="grid grid-cols-4 gap-3">
+                            {form.images.map((img, i) => (
+                              <div key={i} className="relative aspect-[4/3] border border-white/5 group">
+                                <img src={img} alt="" className="w-full h-full object-cover" />
+                                <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2">
+                                  <button type="button" onClick={() => moveImage(i, -1)}>{SAFE_ICON(ChevronLeft, { size: 12 })}</button>
+                                  <button type="button" onClick={() => removeImage(i)}>{SAFE_ICON(Trash2, { size: 12 })}</button>
+                                  <button type="button" onClick={() => moveImage(i, 1)}>{SAFE_ICON(ChevronRight, { size: 12 })}</button>
+                                </div>
                               </div>
+                            ))}
+                          </div>
+                        </div>
+                      </section>
+                    </div>
+                    <div className="col-span-12 lg:col-span-5 space-y-6">
+                      <div className="grid grid-cols-2 gap-4">
+                        <Field label="Listing Name"><Input value={form.title} onChange={e => setF('title', e.target.value)} /></Field>
+                        <Field label="Price"><Input type="number" value={form.price} onChange={e => setF('price', e.target.value)} /></Field>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <Field label="Make"><Input value={form.make} onChange={e => setF('make', e.target.value)} /></Field>
+                        <Field label="Model"><Input value={form.model} onChange={e => setF('model', e.target.value)} /></Field>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4">
+                        <Field label="Year"><Input type="number" value={form.year} onChange={e => setF('year', e.target.value)} /></Field>
+                        <Field label="Mileage"><Input type="number" value={form.mileage} onChange={e => setF('mileage', e.target.value)} /></Field>
+                        <Field label="Condition"><Sel options={['used','new']} value={form.condition} onChange={e => setF('condition', e.target.value)} /></Field>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <Field label="VIN">
+                          <div className="flex gap-2">
+                            <Input value={form.vin} onChange={e => setF('vin', e.target.value)} />
+                            <button type="button" onClick={handleVinPopulate} className="btn-outline px-3 py-2 text-[9px] font-heading tracking-tighter hover:text-[#D4AF37]">DECODE</button>
+                          </div>
+                        </Field>
+                        <Field label="Stock #"><Input value={form.stock_number} onChange={e => setF('stock_number', e.target.value)} /></Field>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <Field label="Body Type"><Sel options={['Sedan','SUV','Truck','Coupe','Van','Wagon']} value={form.body_type} onChange={e => setF('body_type', e.target.value)} /></Field>
+                        <Field label="Transmission"><Sel options={['Automatic','Manual','CVT']} value={form.transmission} onChange={e => setF('transmission', e.target.value)} /></Field>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <Field label="Fuel Type"><Sel options={['Gas','Diesel','Electric','Hybrid']} value={form.fuel_type} onChange={e => setF('fuel_type', e.target.value)} /></Field>
+                        <Field label="Drivetrain"><Sel options={['FWD','RWD','AWD','4WD']} value={form.drivetrain} onChange={e => setF('drivetrain', e.target.value)} /></Field>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <Field label="Exterior Color"><Input value={form.exterior_color} onChange={e => setF('exterior_color', e.target.value)} /></Field>
+                        <Field label="Interior Color"><Input value={form.interior_color} onChange={e => setF('interior_color', e.target.value)} /></Field>
+                      </div>
+                      <Field label="Description"><textarea className="input-dark w-full px-3 py-2.5 text-sm font-body h-24" value={form.description} onChange={e => setF('description', e.target.value)} /></Field>
+                      
+                      <section>
+                        <p className="text-[10px] tracking-[0.3em] uppercase text-[#D4AF37] font-heading mb-4">Features & Tech</p>
+                        <div className="flex gap-2 mb-3">
+                          <Input value={newFeature} onChange={e => setNewFeature(e.target.value)} placeholder="Add feature (e.g. Sunroof)..." onKeyDown={e => e.key === 'Enter' && addFeature()} />
+                          <button type="button" onClick={addFeature} className="btn-gold px-4 py-2 uppercase text-[10px]">Add</button>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {form.features.map((f, i) => (
+                            <div key={i} className="bg-white/5 border border-white/10 px-2 py-1 flex items-center gap-2 group">
+                              <span className="text-white/60 text-[10px] uppercase">{f}</span>
+                              <button type="button" onClick={() => removeFeature(i)} className="text-white/20 hover:text-red-400">{SAFE_ICON(X, { size: 10 })}</button>
                             </div>
                           ))}
                         </div>
-                      </div>
-                    </section>
-                </div>
-                <div className="col-span-12 lg:col-span-5 space-y-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field label="Listing Name"><Input value={form.title} onChange={e => setF('title', e.target.value)} /></Field>
-                    <Field label="Price"><Input type="number" value={form.price} onChange={e => setF('price', e.target.value)} /></Field>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field label="Make"><Input value={form.make} onChange={e => setF('make', e.target.value)} /></Field>
-                    <Field label="Model"><Input value={form.model} onChange={e => setF('model', e.target.value)} /></Field>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <Field label="Year"><Input type="number" value={form.year} onChange={e => setF('year', e.target.value)} /></Field>
-                    <Field label="Mileage"><Input type="number" value={form.mileage} onChange={e => setF('mileage', e.target.value)} /></Field>
-                    <Field label="Condition"><Sel options={['used','new']} value={form.condition} onChange={e => setF('condition', e.target.value)} /></Field>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field label="VIN">
-                      <div className="flex gap-2">
-                        <Input value={form.vin} onChange={e => setF('vin', e.target.value)} />
-                        <button type="button" onClick={handleVinPopulate} className="btn-outline px-3 py-2 text-[9px] font-heading tracking-tighter hover:text-[#D4AF37]">DECODE</button>
-                      </div>
-                    </Field>
-                    <Field label="Stock #"><Input value={form.stock_number} onChange={e => setF('stock_number', e.target.value)} /></Field>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field label="Body Type"><Sel options={['Sedan','SUV','Truck','Coupe','Van','Wagon']} value={form.body_type} onChange={e => setF('body_type', e.target.value)} /></Field>
-                    <Field label="Transmission"><Sel options={['Automatic','Manual','CVT']} value={form.transmission} onChange={e => setF('transmission', e.target.value)} /></Field>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field label="Fuel Type"><Sel options={['Gas','Diesel','Electric','Hybrid']} value={form.fuel_type} onChange={e => setF('fuel_type', e.target.value)} /></Field>
-                    <Field label="Drivetrain"><Sel options={['FWD','RWD','AWD','4WD']} value={form.drivetrain} onChange={e => setF('drivetrain', e.target.value)} /></Field>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field label="Exterior Color"><Input value={form.exterior_color} onChange={e => setF('exterior_color', e.target.value)} /></Field>
-                    <Field label="Interior Color"><Input value={form.interior_color} onChange={e => setF('interior_color', e.target.value)} /></Field>
-                  </div>
-                  <Field label="Description"><textarea className="input-dark w-full px-3 py-2.5 text-sm font-body h-24" value={form.description} onChange={e => setF('description', e.target.value)} /></Field>
-                  
-                  <section>
-                    <p className="text-[10px] tracking-[0.3em] uppercase text-[#D4AF37] font-heading mb-4">Features & Tech</p>
-                    <div className="flex gap-2 mb-3">
-                      <Input value={newFeature} onChange={e => setNewFeature(e.target.value)} placeholder="Add feature (e.g. Sunroof)..." onKeyDown={e => e.key === 'Enter' && addFeature()} />
-                      <button type="button" onClick={addFeature} className="btn-gold px-4 py-2 uppercase text-[10px]">Add</button>
+                      </section>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      {form.features.map((f, i) => (
-                        <div key={i} className="bg-white/5 border border-white/10 px-2 py-1 flex items-center gap-2 group">
-                          <span className="text-white/60 text-[10px] uppercase">{f}</span>
-                          <button type="button" onClick={() => removeFeature(i)} className="text-white/20 hover:text-red-400">{SAFE_ICON(X, { size: 10 })}</button>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                </div>
+                  </>
               </div>
               <div className="px-8 py-6 border-t border-white/[0.06] flex gap-4">
                 <button type="button" onClick={closeModal} className="btn-outline flex-1 py-4 text-xs uppercase">Discard</button>
