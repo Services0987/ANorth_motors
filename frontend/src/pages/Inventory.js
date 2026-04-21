@@ -119,7 +119,7 @@ export default function Inventory() {
         >
           <p className="text-[10px] tracking-[0.5em] uppercase text-[#D4AF37] font-heading mb-6">World Class Performance</p>
           <h1 className="font-heading text-6xl md:text-8xl lg:text-[10rem] font-bold text-white tracking-tighter leading-none mb-8">
-            AUTO<span className="text-transparent border-text">NORTH</span>
+            AUTO<span className="text-transparent" style={{ WebkitTextStroke: '1px rgba(255,255,255,0.4)', textStroke: '1px rgba(255,255,255,0.4)' }}>NORTH</span>
           </h1>
           <div className="h-[1px] w-48 bg-white/10 mx-auto mb-8" />
           <p className="text-white/40 font-body text-xs lg:text-sm tracking-[0.2em] uppercase max-w-lg mx-auto leading-relaxed">

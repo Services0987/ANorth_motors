@@ -63,6 +63,12 @@ export default function ChatBot() {
 
   const getLocalResponse = (text) => {
     const q = text.toLowerCase();
+    
+    // Help with quantity question
+    if (q.includes('how many') || q.includes('total vehicle')) {
+      return `We currently have ${inventory.length || 'over 1,500'} vehicles in stock! From heavy-duty trucks to luxury SUVs, we have it all. What can I help you find?`;
+    }
+
     const matches = inventory.filter(v => 
       v.make.toLowerCase().includes(q) || 
       v.model.toLowerCase().includes(q) || 
@@ -78,10 +84,10 @@ export default function ChatBot() {
 
     if (matches.length > 0) {
       const top = matches[0];
-      return `We have exactly what you're looking for! The ${top.title} is currently available for $${top.price.toLocaleString()}. It has ${top.mileage.toLocaleString()} KM. Would you like to see more details?`;
+      return `I found a perfect ${top.title} for you! It's currently priced at $${top.price.toLocaleString()} with only ${top.mileage.toLocaleString()} KM. Shall I book a test drive for you? (Just leave your phone number!)`;
     }
 
-    return "I found several options that might match! How about we narrow it down by your budget or preferred body type (Truck, SUV, Sedan)?";
+    return "I can help you find any vehicle in our Edmonton inventory. Try asking about a specific model like 'Ford F-150' or 'Ram 1500', or ask about our SUV collection!";
   };
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
@@ -95,8 +101,8 @@ export default function ChatBot() {
     setLoading(true);
     try {
       const { data } = await axios.post(`${API}/chat`, { session_id: sessionId, message: text });
-      // Detect if backend returned a specific "API KEY MISSING" signal or handle fallback
-      if (data.response.includes('[AI_RESTRICTION]')) {
+      // If backend returns a missing key warning OR repeats the generic welcome, trigger Local Brain
+      if (data.response.includes('[AI_RESTRICTION]') || data.response.includes('Welcome to AutoNorth Motors!')) {
         setMessages(prev => [...prev, { role: 'assistant', content: getLocalResponse(text) }]);
       } else {
         setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);

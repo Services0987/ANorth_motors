@@ -105,21 +105,21 @@ export default function ExitIntentPopup() {
                     data-testid="exit-popup-name"
                   />
                   <input
-                    type="email"
-                    className="input-dark w-full px-4 py-3 text-sm font-body"
-                    placeholder="Email Address *"
-                    value={form.email}
-                    onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    required
-                    data-testid="exit-popup-email"
-                  />
-                  <input
                     type="tel"
-                    className="input-dark w-full px-4 py-3 text-sm font-body"
-                    placeholder="Phone Number (optional)"
+                    className="input-dark w-full px-4 py-3 text-sm font-body border-[#D4AF37]/30"
+                    placeholder="Phone Number *"
                     value={form.phone}
                     onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    required
                     data-testid="exit-popup-phone"
+                  />
+                  <input
+                    type="email"
+                    className="input-dark w-full px-4 py-3 text-sm font-body"
+                    placeholder="Email Address (Optional)"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    data-testid="exit-popup-email"
                   />
                   <button
                     type="submit"

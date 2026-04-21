@@ -23,6 +23,7 @@ export default function VehicleDetail() {
   const [form, setForm] = useState({ name: '', email: '', phone: '', message: '', preferred_date: '', preferred_time: '', down_payment: '' });
   const [submitted, setSubmitted] = useState(false);
   const [sending, setSending] = useState(false);
+  const [phoneError, setPhoneError] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [galleryHovered, setGalleryHovered] = useState(false);
   const galleryRef = useRef(null);
@@ -289,8 +290,8 @@ export default function VehicleDetail() {
                   ) : (
                     <form onSubmit={handleSubmit} className="space-y-3" data-testid="vehicle-lead-form">
                       <input className="input-dark w-full px-4 py-3 text-sm font-body" placeholder="Full Name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required data-testid="lead-name" />
-                      <input type="email" className="input-dark w-full px-4 py-3 text-sm font-body" placeholder="Email Address *" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required data-testid="lead-email" />
-                      <input type="tel" className="input-dark w-full px-4 py-3 text-sm font-body" placeholder="Phone Number" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} data-testid="lead-phone" />
+                      <input type="tel" className={`input-dark w-full px-4 py-3 text-sm font-body ${phoneError ? 'border-red-500' : ''}`} placeholder="Phone Number *" value={form.phone} onChange={(e) => { setForm({ ...form, phone: e.target.value }); setPhoneError(false); }} required data-testid="lead-phone" />
+                      <input type="email" className="input-dark w-full px-4 py-3 text-sm font-body" placeholder="Email Address (Optional)" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} data-testid="lead-email" />
                       {activeTab === 'test_drive' && (
                         <div className="grid grid-cols-2 gap-3">
                           <input type="date" className="input-dark px-3 py-3 text-sm font-body" value={form.preferred_date} onChange={(e) => setForm({ ...form, preferred_date: e.target.value })} data-testid="lead-date" />
