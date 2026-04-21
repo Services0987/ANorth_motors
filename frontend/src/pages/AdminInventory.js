@@ -58,6 +58,7 @@ export default function AdminInventory() {
   const [newImage, setNewImage] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [addMode, setAddMode] = useState('manual'); // 'manual' or 'url'
   
   // Scraper State
   const [scraperUrl, setScraperUrl] = useState('');
@@ -144,8 +145,32 @@ export default function AdminInventory() {
 
   const handleUrlImport = async () => {
     if (!scraperUrl) return; setScraperLoading(true);
-    try { await axios.post(`${API}/scraper/import-url`, { url: scraperUrl }, { withCredentials: true }); setScraperUrl(''); fetchVehicles(); }
+    try { 
+      const { data } = await axios.post(`${API}/scraper/import-url`, { url: scraperUrl }, { withCredentials: true }); 
+      setScraperUrl(''); 
+      // If we are in the modal, populate it. Otherwise just refresh.
+      if (showModal) {
+        setForm(prev => ({ ...prev, ...data.vehicle, images: [...(data.vehicle.images || [])], features: [...(data.vehicle.features || [])] }));
+        setAddMode('manual');
+      } else {
+        fetchVehicles();
+      }
+    }
     catch (err) { console.error(err); } finally { setScraperLoading(false); }
+  };
+
+  const handleVinPopulate = async () => {
+    if (!form.vin || form.vin.length < 17) return;
+    setScraperLoading(true);
+    try {
+      // Basic VIN pattern matching to help admin
+      const yearPrefix = form.vin.charAt(9);
+      const yearMap = { 'A': 2010, 'B': 2011, 'C': 2012, 'D': 2013, 'E': 2014, 'F': 2015, 'G': 2016, 'H': 2017, 'J': 2018, 'K': 2019, 'L': 2020, 'M': 2021, 'N': 2022, 'P': 2023, 'R': 2024, 'S': 2025 };
+      if (yearMap[yearPrefix.toUpperCase()]) setF('year', yearMap[yearPrefix.toUpperCase()]);
+      
+      // We could call a 3rd party API here, but for now we provide feedback hint
+      console.log("VIN Detected: Attempting intelligence population...");
+    } finally { setScraperLoading(false); }
   };
 
   const handleCSVUpload = async (e) => {
@@ -228,12 +253,17 @@ export default function AdminInventory() {
           </div>
           <div className="flex items-center gap-3">
             <input type="file" id="csv-upload" className="hidden" accept=".csv" onChange={handleCSVUpload} />
-            <label htmlFor="csv-upload" className="btn-outline px-6 py-3 text-xs flex items-center gap-2 cursor-pointer transition-all hover:bg-white/5">
-              {SAFE_ICON(Upload, { size: 14 })} Bulk CSV Import
+            <div className="flex bg-[#0A0A0A] border border-white/10 p-1">
+              <button onClick={openAdd} className="bg-[#D4AF37] hover:bg-[#F3E5AB] text-black px-5 py-2.5 text-xs font-bold uppercase transition-all flex items-center gap-2">
+                {SAFE_ICON(Plus, { size: 14 })} Manual
+              </button>
+              <button onClick={() => { openAdd(); setAddMode('url'); }} className="text-white/40 hover:text-white px-5 py-2.5 text-xs font-bold uppercase transition-all flex items-center gap-2">
+                {SAFE_ICON(Link, { size: 14 })} URL
+              </button>
+            </div>
+            <label htmlFor="csv-upload" className="btn-outline px-6 py-3 text-xs flex items-center gap-2 cursor-pointer">
+              {SAFE_ICON(Upload, { size: 14 })} CSV
             </label>
-            <button onClick={openAdd} className="btn-gold px-6 py-3 text-xs flex items-center gap-2 border border-white/10 shadow-[0_0_20px_rgba(212,175,55,0.15)]">
-              {SAFE_ICON(Plus, { size: 14 })} Add Manual Listing
-            </button>
           </div>
         </div>
 
@@ -299,7 +329,21 @@ export default function AdminInventory() {
                 <button onClick={closeModal}>{SAFE_ICON(X, { size: 18 })}</button>
               </div>
               <div className="flex-1 overflow-y-auto p-10 grid grid-cols-12 gap-10">
-                <div className="col-span-12 lg:col-span-7 space-y-10">
+                {addMode === 'url' ? (
+                  <div className="col-span-12 space-y-6 max-w-xl mx-auto py-10 w-full">
+                    <div className="text-center mb-8">
+                      {SAFE_ICON(Link, { size: 32, className: "text-[#D4AF37] mx-auto mb-4" })}
+                      <h3 className="text-white text-xl font-heading mb-2">Import from External URL</h3>
+                      <p className="text-white/40 text-sm font-body">Paste a TeamFord.ca or GoAuto listing URL to automatically extract all specs and high-res images.</p>
+                    </div>
+                    <div className="flex gap-3">
+                      <input className="input-dark w-full px-4 py-3 text-sm font-body" placeholder="https://www.teamford.ca/vehicles/..." value={scraperUrl} onChange={e => setScraperUrl(e.target.value)} />
+                      <button onClick={handleUrlImport} disabled={scraperLoading} className="btn-gold px-8 py-3 text-xs uppercase font-bold">{scraperLoading ? 'Scraping...' : 'Fetch'}</button>
+                    </div>
+                    <button onClick={() => setAddMode('manual')} className="w-full text-white/20 text-[10px] uppercase tracking-widest font-heading hover:text-white transition-colors">Skip to Manual Entry</button>
+                  </div>
+                ) : (
+                  <div className="col-span-12 lg:col-span-7 space-y-10">
                     <section>
                       <p className="text-[10px] tracking-[0.3em] uppercase text-[#D4AF37] font-heading mb-4">{SAFE_ICON(LayoutGrid, { size: 12 })} Visual Assets</p>
                       <div className="space-y-4">
@@ -337,7 +381,12 @@ export default function AdminInventory() {
                     <Field label="Condition"><Sel options={['used','new']} value={form.condition} onChange={e => setF('condition', e.target.value)} /></Field>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <Field label="VIN"><Input value={form.vin} onChange={e => setF('vin', e.target.value)} /></Field>
+                    <Field label="VIN">
+                      <div className="flex gap-2">
+                        <Input value={form.vin} onChange={e => setF('vin', e.target.value)} />
+                        <button type="button" onClick={handleVinPopulate} className="btn-outline px-3 py-2 text-[9px] font-heading tracking-tighter hover:text-[#D4AF37]">DECODE</button>
+                      </div>
+                    </Field>
                     <Field label="Stock #"><Input value={form.stock_number} onChange={e => setF('stock_number', e.target.value)} /></Field>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
