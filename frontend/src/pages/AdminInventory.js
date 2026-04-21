@@ -421,7 +421,8 @@ export default function AdminInventory() {
                         </section>
                       </div>
                     </>
-              </div>
+                  )}
+                </div>
               <div className="px-8 py-6 border-t border-white/[0.06] flex gap-4">
                 <button type="button" onClick={closeModal} className="btn-outline flex-1 py-4 text-xs uppercase">Discard</button>
                 <button type="button" onClick={handleSave} disabled={saving} className="btn-gold flex-1 py-4 text-xs font-bold uppercase">{saving ? 'Processing...' : 'Finalize Listing'}</button>
