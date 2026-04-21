@@ -9,49 +9,110 @@ import Footer from '../components/Footer';
 import VehicleCard from '../components/VehicleCard';
 
 const API = (process.env.REACT_APP_BACKEND_URL || '') + '/api';
-const TYRE = '/tyre.png';
 
 const MAKES      = ['All', 'Ford', 'Toyota', 'Honda', 'Chevrolet', 'BMW', 'Mercedes', 'Audi', 'Hyundai', 'Kia', 'Dodge', 'Jeep', 'RAM', 'GMC', 'Nissan', 'Mazda', 'Volvo'];
 const BODY_TYPES = ['All', 'Truck', 'SUV', 'Sedan', 'Coupe', 'Hatchback', 'Wagon', 'Minivan', 'Cargo Van'];
 const FUEL_TYPES = ['All', 'Gas', 'Diesel', 'Hybrid', 'Electric'];
 const CONDITIONS = ['All', 'new', 'used'];
 
-/* ─── Spinning‑Tyre "O" (only used on this page's hero) ─────────────────── */
-function TyreO({ size = 120 }) {
+/* ─── 3D Rotated Glowing Diamond & Turbine Wheel (Wow Factor "O") ─── */
+function WowTurbineO({ size = 160 }) {
   return (
-    <span
-      className="inline-flex items-center justify-center relative"
-      style={{ width: size, height: size, verticalAlign: 'middle', marginLeft: 6, marginRight: 6 }}
+    <div
+      className="inline-flex items-center justify-center relative mx-4 lg:mx-8"
+      style={{ width: size, height: size, verticalAlign: 'middle', perspective: '1000px' }}
     >
-      <motion.img
-        src={TYRE}
-        alt="O"
-        style={{
-          width: '100%',
-          height: '100%',
-          objectFit: 'contain',
-          filter: 'drop-shadow(0 0 28px rgba(212,175,55,0.55)) brightness(1.15)',
-        }}
-        animate={{ rotate: 360 }}
-        transition={{ duration: 6, repeat: Infinity, ease: 'linear' }}
-      />
-      {/* inner radial pulse */}
+      {/* Intense Gold Backlight Glow */}
       <motion.div
+        className="absolute inset-0 rounded-full"
+        animate={{ scale: [1, 1.4, 1], opacity: [0.3, 0.8, 0.3] }}
+        transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
         style={{
-          position: 'absolute',
-          inset: 0,
-          borderRadius: '50%',
-          background:
-            'conic-gradient(from 0deg, transparent 0deg, rgba(212,175,55,0.35) 25deg, transparent 50deg)',
+          background: 'radial-gradient(circle, rgba(212,175,55,1) 0%, rgba(212,175,55,0) 70%)',
+          filter: 'blur(30px)',
+          zIndex: 0,
         }}
-        animate={{ rotate: [0, 360] }}
-        transition={{ duration: 1.8, repeat: Infinity, ease: 'linear' }}
       />
-    </span>
+      
+      {/* Solid Black Metallic Diamond */}
+      <motion.div
+        className="absolute w-full h-full border-2 border-[#D4AF37]/50 shadow-2xl overflow-hidden"
+        style={{
+          background: 'linear-gradient(135deg, #111 0%, #050505 100%)',
+          rotate: 45,
+          zIndex: 1,
+          boxShadow: '0 0 40px rgba(212,175,55,0.2)',
+        }}
+      >
+        {/* Diamond inner reflection sweep */}
+        <motion.div
+          className="absolute inset-0 bg-white"
+          animate={{ x: ['-200%', '200%'] }}
+          transition={{ duration: 3, repeat: Infinity, repeatDelay: 5, ease: 'easeInOut' }}
+          style={{ opacity: 0.05, transform: 'rotate(-45deg)' }}
+        />
+      </motion.div>
+
+      {/* The Central Spinning Wheel (SVG Turbine) */}
+      <motion.div
+        className="absolute z-10 w-[75%] h-[75%] rounded-full shadow-[0_0_20px_rgba(0,0,0,0.8)_inset]"
+        animate={{ rotate: 360 }}
+        transition={{ duration: 12, repeat: Infinity, ease: 'linear' }}
+        style={{
+          background: 'radial-gradient(circle at 30% 30%, #333 0%, #050505 90%)',
+          border: '4px solid #1a1a1a',
+        }}
+      >
+        {/* Brake Caliper (Static behind spokes, wait, we put it strictly under the spokes) */}
+        <div className="absolute top-[15%] right-[15%] w-[30%] h-[30%] rounded-full bg-[#cc0000] z-0 blur-[1px]" />
+        
+        {/* Detailed SVG Alloy Wheel Spokes */}
+        <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full z-10 drop-shadow-2xl">
+          <defs>
+            <linearGradient id="spokeGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#fff" stopOpacity="0.8" />
+              <stop offset="50%" stopColor="#888" stopOpacity="1" />
+              <stop offset="100%" stopColor="#222" stopOpacity="1" />
+            </linearGradient>
+            <radialGradient id="centerCap" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#D4AF37" stopOpacity="1" />
+              <stop offset="100%" stopColor="#8a6d1a" stopOpacity="1" />
+            </radialGradient>
+          </defs>
+          {/* Outer Rim */}
+          <circle cx="50" cy="50" r="47" fill="none" stroke="url(#spokeGlow)" strokeWidth="6" />
+          
+          {/* Multiple Spokes */}
+          {[0, 45, 90, 135, 180, 225, 270, 315].map((angle, i) => (
+            <g key={i} transform={`rotate(${angle} 50 50)`}>
+              <path d="M 50 50 L 47 10 L 53 10 Z" fill="url(#spokeGlow)" />
+              {/* Complex inner groove */}
+              <line x1="50" y1="50" x2="50" y2="5" stroke="#111" strokeWidth="1" />
+            </g>
+          ))}
+          
+          {/* Center Cap */}
+          <circle cx="50" cy="50" r="10" fill="url(#centerCap)" />
+          {/* Center Logo 'AN' mini */}
+          <text x="50" y="52.5" fontSize="6" fontWeight="bold" fill="#000" textAnchor="middle" fontFamily="'Outfit', sans-serif">
+            AN
+          </text>
+        </svg>
+
+        {/* Dynamic Light Sweep on the Wheel */}
+        <motion.div
+          className="absolute inset-0 rounded-full"
+          animate={{ rotate: -360 }} /* Counter-rotate so the light source looks static */
+          transition={{ duration: 12, repeat: Infinity, ease: 'linear' }}
+        >
+          <div className="absolute top-0 w-full h-[30%] bg-gradient-to-b from-white/30 to-transparent rounded-t-full" />
+        </motion.div>
+      </motion.div>
+    </div>
   );
 }
 
-/* ─── 3-D card‑tilt hook ─────────────────────────────────────────────────── */
+/* ─── 3-D card tilt hook ─── */
 function use3DTilt(strength = 12) {
   const ref = useRef(null);
   const x = useMotionValue(0);
@@ -66,14 +127,12 @@ function use3DTilt(strength = 12) {
     y.set((e.clientY - top) / height - 0.5);
   }, [x, y]);
 
-  const handleLeave = useCallback(() => {
-    x.set(0); y.set(0);
-  }, [x, y]);
+  const handleLeave = useCallback(() => { x.set(0); y.set(0); }, [x, y]);
 
   return { ref, rotateX, rotateY, handleMouse, handleLeave };
 }
 
-/* ─── Filter select ──────────────────────────────────────────────────────── */
+/* ─── Filter select ─── */
 function FilterSelect({ label, value, options, onChange, testId }) {
   return (
     <div className="relative">
@@ -86,9 +145,7 @@ function FilterSelect({ label, value, options, onChange, testId }) {
           data-testid={testId}
         >
           {options.map((opt) => (
-            <option key={opt} value={opt === 'All' ? '' : opt} className="bg-[#0A0A0A]">
-              {opt}
-            </option>
+            <option key={opt} value={opt === 'All' ? '' : opt} className="bg-[#0A0A0A]">{opt}</option>
           ))}
         </select>
         <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
@@ -97,10 +154,9 @@ function FilterSelect({ label, value, options, onChange, testId }) {
   );
 }
 
-/* ─── Enhanced Vehicle Card Wrapper with 3-D tilt ────────────────────────── */
+/* ─── Bazaar Card ─── */
 function BazaarCard({ vehicle, index }) {
   const { ref, rotateX, rotateY, handleMouse, handleLeave } = use3DTilt(8);
-
   return (
     <motion.div
       ref={ref}
@@ -116,13 +172,12 @@ function BazaarCard({ vehicle, index }) {
   );
 }
 
-/* ─── Animated page numbers (max 7 visible) ─────────────────────────────── */
+/* ─── Pagination ─── */
 function Pagination({ page, totalPages, onPage }) {
   const pages = [];
   const delta = 2;
   const left  = Math.max(2, page - delta);
   const right = Math.min(totalPages - 1, page + delta);
-
   pages.push(1);
   if (left > 2) pages.push('…');
   for (let i = left; i <= right; i++) pages.push(i);
@@ -130,58 +185,26 @@ function Pagination({ page, totalPages, onPage }) {
   if (totalPages > 1) pages.push(totalPages);
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="mt-14 flex justify-center items-center gap-2 flex-wrap"
-    >
-      <button
-        onClick={() => onPage(page - 1)}
-        disabled={page <= 1}
-        className={`w-10 h-10 flex items-center justify-center border transition-all ${page <= 1 ? 'border-white/5 text-white/10 cursor-not-allowed' : 'border-white/15 text-white/50 hover:border-[#D4AF37] hover:text-[#D4AF37]'}`}
-      >
-        <ChevronLeft size={15} />
-      </button>
-
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-14 flex justify-center items-center gap-2 flex-wrap">
+      <button onClick={() => onPage(page - 1)} disabled={page <= 1} className={`w-10 h-10 flex items-center justify-center border transition-all ${page <= 1 ? 'border-white/5 text-white/10 cursor-not-allowed' : 'border-white/15 text-white/50 hover:border-[#D4AF37] hover:text-[#D4AF37]'}`}><ChevronLeft size={15} /></button>
       {pages.map((p, i) =>
         p === '…' ? (
           <span key={`ellipsis-${i}`} className="w-10 h-10 flex items-center justify-center text-white/25 text-sm">…</span>
         ) : (
-          <motion.button
-            key={p}
-            onClick={() => onPage(p)}
-            whileHover={{ scale: 1.08 }}
-            whileTap={{ scale: 0.95 }}
-            className={`w-10 h-10 flex items-center justify-center border text-sm font-heading transition-all duration-200 ${
-              p === page
-                ? 'border-[#D4AF37] bg-[#D4AF37]/10 text-[#D4AF37]'
-                : 'border-white/10 text-white/40 hover:border-white/30 hover:text-white'
-            }`}
-          >
-            {p}
-          </motion.button>
+          <motion.button key={p} onClick={() => onPage(p)} whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.95 }} className={`w-10 h-10 flex items-center justify-center border text-sm font-heading transition-all duration-200 ${p === page ? 'border-[#D4AF37] bg-[#D4AF37]/10 text-[#D4AF37]' : 'border-white/10 text-white/40 hover:border-white/30 hover:text-white'}`}>{p}</motion.button>
         )
       )}
-
-      <button
-        onClick={() => onPage(page + 1)}
-        disabled={page >= totalPages}
-        className={`w-10 h-10 flex items-center justify-center border transition-all ${page >= totalPages ? 'border-white/5 text-white/10 cursor-not-allowed' : 'border-white/15 text-white/50 hover:border-[#D4AF37] hover:text-[#D4AF37]'}`}
-      >
-        <ChevronRight size={15} />
-      </button>
+      <button onClick={() => onPage(page + 1)} disabled={page >= totalPages} className={`w-10 h-10 flex items-center justify-center border transition-all ${page >= totalPages ? 'border-white/5 text-white/10 cursor-not-allowed' : 'border-white/15 text-white/50 hover:border-[#D4AF37] hover:text-[#D4AF37]'}`}><ChevronRight size={15} /></button>
     </motion.div>
   );
 }
 
-/* ─────────────────────────────────────────────────────────────────────────── */
 export default function Inventory() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [vehicles, setVehicles] = useState([]);
   const [total, setTotal]       = useState(0);
   const [loading, setLoading]   = useState(true);
   const [showFilters, setShowFilters] = useState(false);
-  const [hoveredColor, setHoveredColor] = useState(null);
   const [page, setPage] = useState(1);
   const limit = 40;
 
@@ -195,7 +218,6 @@ export default function Inventory() {
     max_price: '',
   });
 
-  /* ── Fetch ── */
   const fetchVehicles = useCallback(async () => {
     setLoading(true);
     try {
@@ -214,24 +236,13 @@ export default function Inventory() {
       setVehicles(data.vehicles || []);
       setTotal(data.total || 0);
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { console.error(err); } finally { setLoading(false); }
   }, [filters, page]);
 
   useEffect(() => { fetchVehicles(); }, [fetchVehicles]);
 
-  const updateFilter = (key, value) => {
-    setFilters((prev) => ({ ...prev, [key]: value }));
-    setPage(1);
-  };
-
-  const clearFilters = () => {
-    setFilters({ search: '', condition: '', make: '', body_type: '', fuel_type: '', min_price: '', max_price: '' });
-    setPage(1);
-  };
+  const updateFilter = (key, value) => { setFilters((prev) => ({ ...prev, [key]: value })); setPage(1); };
+  const clearFilters = () => { setFilters({ search: '', condition: '', make: '', body_type: '', fuel_type: '', min_price: '', max_price: '' }); setPage(1); };
 
   const activeFilters = Object.values(filters).filter(Boolean).length;
   const totalPages    = Math.ceil(total / limit);
@@ -242,11 +253,9 @@ export default function Inventory() {
   const heroY       = useTransform(scrollY, [0, 500], [0, 80]);
 
   /* ── compute hero tyre size from viewport ── */
-  const [tyreSize, setTyreSize] = useState(120);
+  const [tyreSize, setTyreSize] = useState(160);
   useEffect(() => {
-    const update = () => {
-      setTyreSize(Math.min(160, Math.max(80, window.innerWidth * 0.09)));
-    };
+    const update = () => setTyreSize(Math.min(220, Math.max(120, window.innerWidth * 0.12)));
     update();
     window.addEventListener('resize', update);
     return () => window.removeEventListener('resize', update);
@@ -255,180 +264,113 @@ export default function Inventory() {
   return (
     <>
       <Helmet>
-        <title>Inventory | AutoNorth Motors Edmonton — Browse New &amp; Used Vehicles</title>
-        <meta name="description" content="Browse our premium inventory of new and used trucks, SUVs and cars at AutoNorth Motors Edmonton. Best selection, best financing, Canada-wide shipping." />
-        <meta name="keywords" content="used trucks Edmonton, SUVs for sale Alberta, Ford inventory Edmonton, AutoNorth Motors vehicles" />
+        <title>Inventory | AutoNorth Motors Edmonton — Premium Vehicles</title>
       </Helmet>
-
-      <div
-        className="bg-[#050505] min-h-screen transition-colors duration-700"
-        style={{ backgroundColor: hoveredColor || '#050505' }}
-        data-testid="inventory-page"
-      >
+      <div className="bg-[#050505] min-h-screen" data-testid="inventory-page">
         <Navbar />
 
         {/* ══════════════════════════════════════════════════════
-            HERO  —  Bazaar Cinematic Header (Inventory-only)
+            HERO  —  The "Mind Blowing" AUTONORTH Display
         ══════════════════════════════════════════════════════ */}
-        <motion.div
-          style={{ opacity: heroOpacity }}
-          className="relative h-screen flex flex-col items-center justify-center text-center px-6 overflow-hidden"
-        >
-          {/* ── ambient glow blobs ── */}
-          <motion.div
-            animate={{ scale: [1, 1.3, 1], rotate: [0, 30, 0], opacity: [0.12, 0.22, 0.12] }}
-            transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
-            className="absolute top-1/4 left-1/4 w-[600px] h-[600px] rounded-full pointer-events-none"
-            style={{ background: 'radial-gradient(circle, rgba(212,175,55,0.25) 0%, transparent 70%)', filter: 'blur(80px)' }}
-          />
-          <motion.div
-            animate={{ scale: [1.2, 1, 1.2], rotate: [20, 0, 20], opacity: [0.08, 0.18, 0.08] }}
-            transition={{ duration: 22, repeat: Infinity, ease: 'easeInOut', delay: 4 }}
-            className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] rounded-full pointer-events-none"
-            style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%)', filter: 'blur(60px)' }}
-          />
-
-          {/* ── 3-D perspective grid floor ── */}
-          <div className="absolute inset-x-0 bottom-0 h-2/5 overflow-hidden pointer-events-none" style={{ perspective: '500px' }}>
-            <div style={{
-              position: 'absolute', inset: 0,
-              backgroundImage: 'linear-gradient(rgba(212,175,55,0.08) 1px,transparent 1px),linear-gradient(90deg,rgba(212,175,55,0.08) 1px,transparent 1px)',
-              backgroundSize: '80px 80px',
-              transform: 'rotateX(72deg) translateZ(-30px) scale(3)',
-              transformOrigin: 'bottom center',
-              maskImage: 'linear-gradient(to top,rgba(0,0,0,0.9) 0%,transparent 80%)',
-              WebkitMaskImage: 'linear-gradient(to top,rgba(0,0,0,0.9) 0%,transparent 80%)',
-            }} />
-          </div>
-
-          {/* ── ambient particles ── */}
-          <div className="absolute inset-0 pointer-events-none">
-            {[...Array(8)].map((_, i) => (
-              <motion.div key={i}
-                className="absolute rounded-full bg-[#D4AF37]"
-                style={{ width: 2 + (i % 3), height: 2 + (i % 3), left: `${10 + i * 11}%`, top: `${15 + (i % 4) * 18}%` }}
-                animate={{ y: [-12, 12, -12], opacity: [0.15, 0.55, 0.15] }}
-                transition={{ duration: 3.5 + i * 0.4, repeat: Infinity, ease: 'easeInOut', delay: i * 0.3 }}
+        <motion.div style={{ opacity: heroOpacity }} className="relative h-screen flex flex-col items-center justify-center text-center px-6 overflow-hidden bg-black">
+          {/* Subtle slow zooming stars/particles */}
+          <div className="absolute inset-0 pointer-events-none opacity-40">
+            {[...Array(30)].map((_, i) => (
+              <motion.div key={i} className="absolute w-[2px] h-[2px] bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.8)]"
+                style={{
+                  left: `${(i * 13) % 100}%`,
+                  top: `${(i * 29) % 100}%`,
+                }}
+                animate={{
+                  scale: [0, 1.5, 0],
+                  opacity: [0, 1, 0],
+                }}
+                transition={{ duration: 4 + (i % 3), repeat: Infinity, delay: i * 0.1, ease: 'easeInOut' }}
               />
             ))}
           </div>
 
-          {/* ── hero content ── */}
           <motion.div
             style={{ y: heroY }}
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
-            className="relative z-10"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
+            className="relative z-10 w-full flex flex-col items-center justify-center"
           >
             <motion.p
-              initial={{ opacity: 0, letterSpacing: '0.1em' }}
-              animate={{ opacity: 1, letterSpacing: '0.5em' }}
-              transition={{ duration: 1.2, delay: 0.3 }}
-              className="text-[10px] tracking-[0.5em] uppercase text-[#D4AF37] font-heading mb-8"
+              initial={{ y: 20, opacity: 0, letterSpacing: '0.1em' }}
+              animate={{ y: 0, opacity: 1, letterSpacing: '0.6em' }}
+              transition={{ duration: 1.4, delay: 0.3 }}
+              className="text-[10px] md:text-xs uppercase text-[#D4AF37] font-heading font-medium mb-12 shadow-black drop-shadow-xl"
             >
               World Class Performance
             </motion.p>
 
-            {/* ✦ THE GRAND AUTONORTH LOGO WITH SPINNING TYRE ✦ */}
+            {/* ━━ THE WOW FACTOR LOGO ━━ */}
             <div
-              className="flex items-center justify-center flex-wrap leading-none mb-6"
+              className="flex items-center justify-center flex-wrap leading-none w-full max-w-[1400px] mb-8"
               style={{
-                fontFamily: "'Outfit', sans-serif",
-                fontSize: 'clamp(3.5rem, 10vw, 9rem)',
+                fontFamily: "'Syncopate', 'Outfit', sans-serif",
+                fontSize: 'clamp(3rem, 11vw, 11rem)',
                 fontWeight: 800,
-                lineHeight: 1,
-                letterSpacing: '-0.04em',
+                letterSpacing: '-0.02em',
               }}
             >
-              {/* AUTO — solid white */}
-              {['A', 'U', 'T'].map((l, i) => (
-                <motion.span
-                  key={l}
-                  className="text-white"
-                  initial={{ opacity: 0, y: -20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8, delay: 0.5 + i * 0.08, ease: [0.16, 1, 0.3, 1] }}
-                >
-                  {l}
-                </motion.span>
-              ))}
-              {/* Spinning Tyre replaces 'O' */}
-              <motion.span
-                initial={{ opacity: 0, scale: 0.5, rotate: -180 }}
+              {/* AUT */}
+              <motion.div className="flex text-white drop-shadow-2xl">
+                {['A', 'U', 'T'].map((l, i) => (
+                  <motion.span
+                    key={l}
+                    initial={{ opacity: 0, x: -50, filter: 'blur(10px)' }}
+                    animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+                    transition={{ duration: 1, delay: 0.5 + i * 0.1, ease: [0.16, 1, 0.3, 1] }}
+                  >
+                    {l}
+                  </motion.span>
+                ))}
+              </motion.div>
+
+              {/* THE ROTATED GLOWING SQUARE WITH WHEEL */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.3, rotate: 180 }}
                 animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                transition={{ duration: 1.2, delay: 0.76, ease: [0.16, 1, 0.3, 1] }}
+                transition={{ duration: 1.5, delay: 0.8, ease: [0.34, 1.56, 0.64, 1] }}
+                className="flex items-center justify-center"
               >
-                <TyreO size={tyreSize} />
-              </motion.span>
+                <WowTurbineO size={tyreSize} />
+              </motion.div>
 
-              {/* Thin gold separator */}
-              <motion.span
-                className="mx-3 md:mx-5 self-stretch"
-                style={{ width: 1.5, background: 'linear-gradient(to bottom, transparent, rgba(212,175,55,0.6), transparent)' }}
-                initial={{ scaleY: 0 }}
-                animate={{ scaleY: 1 }}
-                transition={{ duration: 0.8, delay: 1.0 }}
-              />
-
-              {/* NORTH — outlined */}
-              {['N', 'O', 'R', 'T', 'H'].map((l, i) => (
-                <motion.span
-                  key={`north-${l}`}
-                  style={{
-                    color: 'transparent',
-                    WebkitTextStroke: '1.5px rgba(255,255,255,0.35)',
-                  }}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8, delay: 1.1 + i * 0.08, ease: [0.16, 1, 0.3, 1] }}
-                >
-                  {l}
-                </motion.span>
-              ))}
+              {/* NORTH - Outlined Architectural Style */}
+              <motion.div className="flex">
+                {['N', 'O', 'R', 'T', 'H'].map((l, i) => (
+                  <motion.span
+                    key={`north-${l}`}
+                    style={{
+                      color: 'transparent',
+                      WebkitTextStroke: '2px rgba(255,255,255,0.4)',
+                    }}
+                    initial={{ opacity: 0, x: 50, filter: 'blur(10px)' }}
+                    animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+                    transition={{ duration: 1, delay: 1.1 + i * 0.1, ease: [0.16, 1, 0.3, 1] }}
+                  >
+                    {l}
+                  </motion.span>
+                ))}
+              </motion.div>
             </div>
 
-            {/* ── full‑logo light sweep ── */}
             <motion.div
-              className="absolute inset-0 pointer-events-none overflow-hidden"
-              aria-hidden
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.8 }}
+              className="flex flex-col items-center"
             >
-              <motion.div
-                style={{
-                  position: 'absolute', top: 0, bottom: 0, width: '18%',
-                  background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent)',
-                  skewX: '-12deg',
-                }}
-                animate={{ x: ['-30%', '160%'] }}
-                transition={{ duration: 3.5, repeat: Infinity, repeatDelay: 6, ease: 'easeInOut' }}
-              />
+              <div className="h-px w-64 bg-gradient-to-r from-transparent via-[#D4AF37]/50 to-transparent mb-6" />
+              <p className="text-white/40 font-body text-[10px] md:text-sm tracking-[0.25em] md:tracking-[0.35em] uppercase leading-relaxed text-center px-4 max-w-2xl drop-shadow-md">
+                Curated Excellence. Unmatched Quality.<br />Experience the Edmonton Gold Standard.
+              </p>
             </motion.div>
-
-            {/* Sub‑line */}
-            <motion.div
-              className="h-px w-48 mx-auto mb-8"
-              style={{ background: 'linear-gradient(to right, transparent, rgba(255,255,255,0.15), transparent)' }}
-              initial={{ scaleX: 0 }}
-              animate={{ scaleX: 1 }}
-              transition={{ duration: 1, delay: 1.5 }}
-            />
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 1.7 }}
-              className="text-white/40 font-body text-xs lg:text-sm tracking-[0.25em] uppercase max-w-lg mx-auto leading-relaxed"
-            >
-              Curated Excellence. Unmatched Quality.<br />Experience the Edmonton Gold Standard.
-            </motion.p>
           </motion.div>
 
-          {/* ── scroll indicator ── */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 2.2 }}
-            className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
-          >
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2.2 }} className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-20">
             <span className="text-white/20 text-[9px] tracking-[0.4em] uppercase font-body">Scroll to Browse</span>
             <motion.div animate={{ y: [0, 8, 0] }} transition={{ duration: 1.4, repeat: Infinity }}>
               <ChevronDown size={18} className="text-white/15" />
@@ -436,30 +378,25 @@ export default function Inventory() {
           </motion.div>
         </motion.div>
 
-        {/* ══════════════════════════════════════════════════════
-            COLLECTION HEADER
-        ══════════════════════════════════════════════════════ */}
-        <div className="py-16 px-6 md:px-12 max-w-7xl mx-auto border-t border-white/[0.04]">
+        {/* COLLECTION HEADER */}
+        <div className="py-16 px-6 md:px-12 max-w-7xl mx-auto border-t border-white/[0.04] bg-[#050505] relative z-20">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-            <p className="text-[10px] tracking-[0.4em] uppercase text-[#D4AF37] font-heading mb-2">What We Have</p>
-            <h2 className="font-heading text-3xl md:text-4xl font-light text-white tracking-tight mb-2">
-              The <span className="gradient-text">Collection</span>
+            <h2 className="font-heading text-3xl md:text-5xl font-light text-white tracking-tight mb-2">
+              The <span className="gradient-text font-bold">Collection</span>
             </h2>
-            <p className="text-white/30 text-[10px] uppercase font-heading tracking-[0.3em]">
-              {total > 0 ? `${total} vehicles available` : 'Browsing all available units'}
+            <p className="text-white/40 text-[10px] md:text-xs uppercase font-heading tracking-[0.3em]">
+              {total > 0 ? `${total} Premium Vehicles Available` : 'Browsing all available units'}
             </p>
           </motion.div>
         </div>
 
-        {/* ══════════════════════════════════════════════════════
-            STICKY SEARCH + FILTER BAR
-        ══════════════════════════════════════════════════════ */}
-        <div className="sticky top-20 z-30 bg-[#050505]/95 backdrop-blur-xl border-b border-white/[0.05] px-6 md:px-12 py-4">
+        {/* SEARCH + FILTER BAR */}
+        <div className="sticky top-20 z-30 bg-[#050505]/95 backdrop-blur-xl border-y border-white/[0.08] px-6 md:px-12 py-4 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
           <div className="max-w-7xl mx-auto flex flex-wrap gap-3 items-center">
-            <div className="flex-1 min-w-60 relative">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+            <div className="flex-1 min-w-60 relative group">
+              <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-[#D4AF37] transition-colors" />
               <input
-                className="input-dark w-full pl-10 pr-4 py-2.5 text-sm font-body"
+                className="w-full bg-[#111] border border-white/10 focus:border-[#D4AF37]/50 rounded-none pl-12 pr-4 py-3 text-sm text-white placeholder:text-white/30 font-body transition-all outline-none shadow-inner"
                 placeholder="Search make, model, or keyword..."
                 value={filters.search}
                 onChange={(e) => updateFilter('search', e.target.value)}
@@ -469,10 +406,10 @@ export default function Inventory() {
 
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-body tracking-wider uppercase transition-all duration-200 border ${
+              className={`flex items-center gap-2 px-6 py-3 text-xs font-heading font-medium tracking-[0.2em] uppercase transition-all duration-300 border ${
                 showFilters || activeFilters > 0
-                  ? 'border-[#D4AF37] text-[#D4AF37] bg-[#D4AF37]/10'
-                  : 'border-white/10 text-white/50 hover:border-white/20 hover:text-white'
+                  ? 'border-[#D4AF37] text-black bg-[#D4AF37] shadow-[0_0_15px_rgba(212,175,55,0.4)]'
+                  : 'border-white/15 text-white/60 hover:border-white/40 hover:text-white hover:bg-white/5'
               }`}
               data-testid="inventory-filter-toggle"
             >
@@ -483,90 +420,66 @@ export default function Inventory() {
             {activeFilters > 0 && (
               <button
                 onClick={clearFilters}
-                className="flex items-center gap-1.5 text-white/40 hover:text-white text-xs font-body transition-colors"
+                className="flex items-center gap-1.5 px-4 text-white/40 hover:text-white text-[10px] tracking-widest uppercase font-heading transition-colors"
                 data-testid="clear-filters-btn"
               >
-                <X size={14} /> Clear
+                <X size={14} /> Reset
               </button>
             )}
-
-            <span className="text-white/40 text-sm font-body ml-auto">
-              {total} vehicle{total !== 1 ? 's' : ''} found
-            </span>
           </div>
 
           <AnimatePresence>
             {showFilters && (
               <motion.div
                 key="filters"
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                className="max-w-7xl mx-auto mt-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 pb-2"
+                initial={{ opacity: 0, height: 0, y: -10 }}
+                animate={{ opacity: 1, height: 'auto', y: 0 }}
+                exit={{ opacity: 0, height: 0, y: -10 }}
+                className="overflow-hidden"
               >
-                <FilterSelect label="Condition" value={filters.condition} options={CONDITIONS} onChange={(v) => updateFilter('condition', v)} testId="filter-condition" />
-                <FilterSelect label="Make"      value={filters.make}      options={MAKES}      onChange={(v) => updateFilter('make', v)}      testId="filter-make" />
-                <FilterSelect label="Body Type" value={filters.body_type} options={BODY_TYPES} onChange={(v) => updateFilter('body_type', v)} testId="filter-body-type" />
-                <FilterSelect label="Fuel Type" value={filters.fuel_type} options={FUEL_TYPES} onChange={(v) => updateFilter('fuel_type', v)} testId="filter-fuel-type" />
-                <div>
-                  <label className="text-[10px] tracking-[0.15em] uppercase text-white/30 font-heading block mb-1.5">Min Price</label>
-                  <input type="number" className="input-dark w-full px-3 py-2.5 text-sm font-body" placeholder="$0"  value={filters.min_price} onChange={(e) => updateFilter('min_price', e.target.value)} data-testid="filter-min-price" />
-                </div>
-                <div>
-                  <label className="text-[10px] tracking-[0.15em] uppercase text-white/30 font-heading block mb-1.5">Max Price</label>
-                  <input type="number" className="input-dark w-full px-3 py-2.5 text-sm font-body" placeholder="Any" value={filters.max_price} onChange={(e) => updateFilter('max_price', e.target.value)} data-testid="filter-max-price" />
+                <div className="max-w-7xl mx-auto mt-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5 pb-4">
+                  <FilterSelect label="Condition" value={filters.condition} options={CONDITIONS} onChange={(v) => updateFilter('condition', v)} testId="filter-condition" />
+                  <FilterSelect label="Make"      value={filters.make}      options={MAKES}      onChange={(v) => updateFilter('make', v)}      testId="filter-make" />
+                  <FilterSelect label="Body Type" value={filters.body_type} options={BODY_TYPES} onChange={(v) => updateFilter('body_type', v)} testId="filter-body-type" />
+                  <FilterSelect label="Fuel Type" value={filters.fuel_type} options={FUEL_TYPES} onChange={(v) => updateFilter('fuel_type', v)} testId="filter-fuel-type" />
+                  <div>
+                    <label className="text-[10px] tracking-[0.15em] uppercase text-white/40 font-heading block mb-1.5">Min Price</label>
+                    <input type="number" className="w-full bg-[#111] border border-white/10 focus:border-[#D4AF37]/50 outline-none px-3 py-2.5 text-sm text-white font-body transition-all" placeholder="$0"  value={filters.min_price} onChange={(e) => updateFilter('min_price', e.target.value)} data-testid="filter-min-price" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] tracking-[0.15em] uppercase text-white/40 font-heading block mb-1.5">Max Price</label>
+                    <input type="number" className="w-full bg-[#111] border border-white/10 focus:border-[#D4AF37]/50 outline-none px-3 py-2.5 text-sm text-white font-body transition-all" placeholder="Any" value={filters.max_price} onChange={(e) => updateFilter('max_price', e.target.value)} data-testid="filter-max-price" />
+                  </div>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
 
-        {/* ══════════════════════════════════════════════════════
-            VEHICLE GRID
-        ══════════════════════════════════════════════════════ */}
-        <div className="max-w-7xl mx-auto px-6 md:px-12 py-10">
+        {/* VEHICLE GRID */}
+        <div className="max-w-7xl mx-auto px-6 md:px-12 py-12 relative z-20">
           <AnimatePresence mode="wait">
             {loading ? (
-              <motion.div
-                key="loading"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-              >
+              <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                 {[...Array(8)].map((_, i) => (
-                  <motion.div
-                    key={i}
-                    className="glass-card aspect-[4/5]"
-                    animate={{ opacity: [0.4, 0.7, 0.4] }}
-                    transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.1 }}
-                  />
+                  <motion.div key={i} className="glass-card aspect-[4/5] overflow-hidden relative" animate={{ opacity: [0.4, 0.7, 0.4] }} transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.1 }}>
+                    <div className="absolute inset-0 bg-gradient-to-tr from-white/5 to-transparent" />
+                  </motion.div>
                 ))}
               </motion.div>
             ) : vehicles.length === 0 ? (
-              <motion.div
-                key="empty"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-center py-24"
-              >
-                <div className="text-6xl mb-4">🔍</div>
-                <h3 className="font-heading text-white text-2xl mb-3">No vehicles found</h3>
-                <p className="text-white/45 font-body text-base mb-6">Try adjusting your filters to see more results.</p>
-                <button onClick={clearFilters} className="btn-gold px-6 py-3 text-sm" data-testid="no-results-clear-btn">
-                  Clear All Filters
+              <motion.div key="empty" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center py-32 border border-white/5 bg-white/[0.02]">
+                <div className="w-20 h-20 mx-auto mb-6 flex items-center justify-center rounded-full bg-white/5 border border-white/10">
+                  <Search size={32} className="text-[#D4AF37]" />
+                </div>
+                <h3 className="font-heading text-white text-3xl font-light mb-3">No models found</h3>
+                <p className="text-white/40 font-body text-base mb-8 max-w-md mx-auto">We couldn't find any vehicles matching your exact criteria. Uncover more by broadening your search.</p>
+                <button onClick={clearFilters} className="btn-gold px-8 py-4 text-xs tracking-widest font-heading font-medium" data-testid="no-results-clear-btn">
+                  Clear Filters
                 </button>
               </motion.div>
             ) : (
-              <motion.div
-                key={`grid-page-${page}`}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-                data-testid="vehicles-grid"
-              >
+              <motion.div key={`grid-page-${page}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8" data-testid="vehicles-grid">
                 {vehicles.map((v, i) => (
                   <BazaarCard key={v._id || v.id || i} vehicle={v} index={i} />
                 ))}
@@ -574,23 +487,15 @@ export default function Inventory() {
             )}
           </AnimatePresence>
 
-          {/* ── Pagination ── */}
           {!loading && totalPages > 1 && (
-            <Pagination
-              page={page}
-              totalPages={totalPages}
-              onPage={(p) => { setPage(Math.max(1, Math.min(p, totalPages))); }}
-            />
+            <div className="mt-20 border-t border-white/5 pt-10">
+              <Pagination page={page} totalPages={totalPages} onPage={(p) => { setPage(Math.max(1, Math.min(p, totalPages))); window.scrollTo({ top: 300, behavior: 'smooth' }); }} />
+            </div>
           )}
 
-          {/* ── Page info ── */}
           {!loading && total > 0 && (
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-center text-white/20 text-xs font-body mt-4 tracking-widest uppercase"
-            >
-              Showing {(page - 1) * limit + 1}–{Math.min(page * limit, total)} of {total} vehicles
+            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center text-white/20 text-[10px] font-heading mt-6 tracking-widest uppercase">
+              Showing {(page - 1) * limit + 1}–{Math.min(page * limit, total)} of {total} listings
             </motion.p>
           )}
         </div>
