@@ -44,6 +44,7 @@ export default function Inventory() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
+  const [hoveredColor, setHoveredColor] = useState(null);
   const [page, setPage] = useState(1);
   const limit = 40;
 
