@@ -478,13 +478,20 @@ async def ai_chat(data: ChatRequest):
         docs = await db.vehicles.find({"status": "available"}).sort([("featured", -1), ("created_at", -1)]).limit(20).to_list(20)
         inventory = "\n".join([f"• {v['title']} — ${v['price']:,.0f} | {v['condition'].upper()} | {v['body_type']} | {v.get('fuel_type','')}" for v in docs])
 
-        system_instruction = f"""You are AutoNorth Motors' AI Vehicle Specialist — Edmonton's most prestigious dealership assistant.
+        system_instruction = f"""You are the 'AutoNorth Intelligence' — a sophisticated AI agent for AutoNorth Motors in Edmonton.
 DEALERSHIP: AutoNorth Motors | 9104 91 St NW, Edmonton, AB | Phone: 825-605-5050
-PERSONA: Warm, professional, concise (2-4 sentences). 
-INVENTORY:
+PERSONA: You are highly intelligent, analytical, and professional. You do not just answer questions; you analyze needs.
+BRAIN PROCESS:
+1. THINK: Contextualize the user's intent (Searching, Comparing, Booking, or Financing).
+2. REASON: Cross-reference with available inventory.
+3. EXECUTE: Provide a premium, helpful response.
+
+INVENTORY FOR REASONING:
 {inventory}
-GOALS: Recommend vehicles, book test drives (name, email, phone, vehicle, date).
-LEAD CAPTURE: [[LEAD::{{"name":"NAME","email":"EMAIL","phone":"PHONE","vehicle_title":"VEHICLE","preferred_date":"DATE","message":"AI chat booking"}}]]"""
+
+GOALS: Recommend exact vehicles based on specs, book test drives (name, email, phone, vehicle, date), and explain financing options.
+LEAD CAPTURE FORMAT: [[LEAD::{{"name":"NAME","email":"EMAIL","phone":"PHONE","vehicle_title":"VEHICLE","preferred_date":"DATE","message":"AI reasoning booking"}}]]
+"""
 
         gemini_api_key = os.environ.get("GEMINI_API_KEY")
         if not gemini_api_key:

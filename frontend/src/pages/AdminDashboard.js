@@ -1,18 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Car, Users, TrendingUp, DollarSign, ArrowRight, CircleCheck, Clock, CircleX } from 'lucide-react';
+import { Car, Users, TrendingUp, DollarSign, ArrowRight, CheckCircle as CircleCheck, Clock, XCircle as CircleX } from 'lucide-react';
 import axios from 'axios';
 import AdminLayout from '../components/AdminLayout';
 
 const SAFE_ICON = (Icon, props = {}) => {
   if (!Icon || (typeof Icon !== 'function' && typeof Icon !== 'object')) return null;
-  try {
-    return <Icon {...props} />;
-  } catch (e) {
-    console.error("Icon render failed:", e);
-    return null;
-  }
+  return <Icon {...props} />;
 };
 const API = '/api';
 
@@ -53,7 +47,7 @@ export default function AdminDashboard() {
             [...Array(6)].map((_, i) => <div key={i} className="h-28 bg-[#0A0A0A] border border-white/[0.05] animate-pulse" />)
           ) : (
             statCards.map((card, i) => (
-              <motion.div key={card.label} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="group">
+              <div key={card.label} className="group">
                 <Link to={card.link} className="block bg-[#0A0A0A] border border-white/[0.05] hover:border-[#D4AF37]/30 p-5 transition-all">
                   <div className={`w-9 h-9 ${card.bg} flex items-center justify-center mb-4`}>
                     {SAFE_ICON(card.icon, { size: 18, className: card.color })}
@@ -61,7 +55,7 @@ export default function AdminDashboard() {
                   <p className={`font-heading text-3xl font-bold ${card.color} mb-1 tracking-tight`}>{card.value}</p>
                   <p className="text-white/35 text-[10px] font-heading uppercase tracking-widest">{card.label}</p>
                 </Link>
-              </motion.div>
+              </div>
             ))
           )}
         </div>

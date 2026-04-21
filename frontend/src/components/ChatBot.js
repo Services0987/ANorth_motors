@@ -137,7 +137,7 @@ async function tryCaptureLead(text, sessionId) {
     await axios.post(`${API}/leads`, {
       phone,
       lead_type: 'chatbot',
-      message: `Chatbot lead — phone shared: ${text}`,
+      message: `Chatbot Intelligence lead — phone shared: ${text}`,
       session_id: sessionId,
     });
     return true;
@@ -177,23 +177,38 @@ function Bubble({ msg }) {
 
 /* ── Neural pulse (thinking indicator) ─────────────────── */
 function ThinkingPulse() {
+  const [step, setStep] = useState(0);
+  const steps = ["Contextualizing Query...", "Accessing Live Inventory...", "Synthesizing Professional Response..."];
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setStep(s => (s < 2 ? s + 1 : s));
+    }, 800);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="flex justify-start items-center gap-2 mb-3">
       <div className="w-7 h-7 bg-[#D4AF37] flex items-center justify-center flex-shrink-0">
         <BrainCircuit size={13} className="text-black" />
       </div>
-      <div className="flex items-center gap-1.5 px-4 py-3 border border-white/[0.06] bg-[#0D0D0D]">
-        {[0, 1, 2].map((i) => (
-          <motion.div
-            key={i}
-            className="w-1.5 h-1.5 bg-[#D4AF37] rounded-full"
-            animate={{ scale: [1, 1.6, 1], opacity: [0.4, 1, 0.4] }}
-            transition={{ duration: 0.9, repeat: Infinity, delay: i * 0.2 }}
-          />
-        ))}
-        <span className="text-white/25 text-[10px] font-body ml-2 tracking-widest uppercase">
-          Scanning inventory…
-        </span>
+      <div className="flex flex-col gap-1 px-4 py-3 border border-white/[0.06] bg-[#0D0D0D] min-w-[200px]">
+        <div className="flex items-center gap-1.5">
+          {[0, 1, 2].map((i) => (
+            <motion.div
+              key={i}
+              className="w-1.5 h-1.5 bg-[#D4AF37] rounded-full"
+              animate={{ scale: [1, 1.6, 1], opacity: [0.4, 1, 0.4] }}
+              transition={{ duration: 0.9, repeat: Infinity, delay: i * 0.2 }}
+            />
+          ))}
+          <span className="text-[#D4AF37] text-[9px] font-heading font-bold ml-2 tracking-widest uppercase">
+            Thinking Brain
+          </span>
+        </div>
+        <p className="text-white/30 text-[8px] uppercase tracking-tighter mt-1 animate-pulse">
+           {steps[step]}
+        </p>
       </div>
     </div>
   );
