@@ -268,7 +268,7 @@ export default function ChatBot() {
   // Load full inventory once
   useEffect(() => {
     axios
-      .get(`${API}/vehicles?limit=500`)
+      .get(`${API}/vehicles?limit=500&_t=${Date.now()}`)
       .then((res) => setInventory(res.data.vehicles || []))
       .catch(() => {});
   }, []);

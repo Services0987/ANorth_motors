@@ -37,19 +37,7 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-6 md:px-12">
         <div className="flex items-center justify-between h-20">
           <Link to="/" className="flex items-center gap-3" data-testid="nav-logo">
-            {location.pathname.startsWith('/inventory') ? (
-              <AnimatedLogo size="small" />
-            ) : (
-              <>
-                <div className="w-10 h-10 bg-[#D4AF37] flex items-center justify-center font-heading font-bold text-black text-lg">
-                  AN
-                </div>
-                <div>
-                  <p className="font-heading font-semibold text-white text-sm tracking-widest uppercase">AutoNorth</p>
-                  <p className="text-white/40 text-xs tracking-[0.15em] uppercase">Motors</p>
-                </div>
-              </>
-            )}
+             <AnimatedLogo size="small" />
           </Link>
 
           <div className="hidden md:flex items-center gap-10">
