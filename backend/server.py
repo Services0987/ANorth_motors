@@ -430,7 +430,7 @@ async def import_vehicle_from_url(data: Dict[str, str], cu=Depends(get_current_u
 @api_router.post("/scraper/sync/teamford")
 async def sync_teamford(cu=Depends(get_current_user)):
     from scraper import scrape_teamford_inventory
-    v_list = await scrape_teamford_inventory(limit=15)
+    v_list = await scrape_teamford_inventory(limit=30)
     added, updated = 0, 0
     for v in (v_list or []):
         try:

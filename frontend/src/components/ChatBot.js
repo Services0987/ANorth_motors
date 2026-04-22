@@ -178,12 +178,18 @@ function Bubble({ msg }) {
 /* ── Neural pulse (thinking indicator) ─────────────────── */
 function ThinkingPulse() {
   const [step, setStep] = useState(0);
-  const steps = ["Contextualizing Query...", "Accessing Live Inventory...", "Synthesizing Professional Response..."];
+  const steps = [
+    "Analyzing User Intent...",
+    "Querying Live AutoNorth Inventory...",
+    "Cross-Referencing Vehicle Specifications...",
+    "Synthesizing Intelligent Response...",
+    "Finalizing Professional Narrative..."
+  ];
   
   useEffect(() => {
     const interval = setInterval(() => {
-      setStep(s => (s < 2 ? s + 1 : s));
-    }, 800);
+      setStep(s => (s < 4 ? s + 1 : s));
+    }, 900);
     return () => clearInterval(interval);
   }, []);
 
@@ -255,8 +261,8 @@ export default function ChatBot() {
     const entities = extractEntities(text);
     const matches = filterInventory(inventory, entities);
 
-    // Simulate "thinking" delay for UX realism (900–1400ms)
-    const delay = 900 + Math.random() * 500;
+    // AI Intelligence Theater: Mandatory thinking delay for perceived reasoning (2.5 - 4.5s)
+    const delay = 2500 + Math.random() * 2000;
 
     setTimeout(() => {
       try {

@@ -64,6 +64,7 @@ export default function AdminInventory() {
   const [scraperLoading, setScraperLoading] = useState(false);
   const [autoSync, setAutoSync] = useState(false);
   const [lastSync, setLastSync] = useState(null);
+  const [syncStatus, setSyncStatus] = useState(null); // { added, updated }
 
   const fetchVehicles = useCallback(async () => {
     setLoading(true);
@@ -131,8 +132,15 @@ export default function AdminInventory() {
 
   const handleSyncNow = async () => {
     setScraperLoading(true);
-    try { await axios.post(`${API}/scraper/sync/teamford`, {}, { withCredentials: true }); fetchVehicles(); fetchScraperSettings(); }
-    catch (err) { console.error(err); } finally { setScraperLoading(false); }
+    setSyncStatus(null);
+    try { 
+      const { data } = await axios.post(`${API}/scraper/sync/teamford`, {}, { withCredentials: true }); 
+      setSyncStatus({ added: data.added, updated: data.updated });
+      fetchVehicles(); 
+      fetchScraperSettings(); 
+    }
+    catch (err) { console.error(err); alert("Sync failed. Check logs."); } 
+    finally { setScraperLoading(false); }
   };
 
   const handleUrlImport = async () => {
@@ -202,9 +210,17 @@ export default function AdminInventory() {
                        <div className={`absolute top-0.5 w-4 h-4 bg-white transition-transform duration-300 rounded-full ${autoSync ? 'translate-x-5' : 'translate-x-0.5'}`} />
                     </button>
                  </div>
-                 <button onClick={handleSyncNow} disabled={scraperLoading} className="btn-gold px-4 py-2 text-[10px] font-heading tracking-widest uppercase flex items-center gap-2">
-                    {SAFE_ICON(RefreshCw, { size: 11, className: scraperLoading ? 'animate-spin' : '' })} Sync TeamFord
-                 </button>
+                 <div className="flex flex-col items-end gap-2">
+                   <button onClick={handleSyncNow} disabled={scraperLoading} className="btn-gold px-4 py-2 text-[10px] font-heading tracking-widest uppercase flex items-center gap-2">
+                      {SAFE_ICON(RefreshCw, { size: 11, className: scraperLoading ? 'animate-spin' : '' })} 
+                      {scraperLoading ? 'Syncing...' : 'Sync TeamFord'}
+                   </button>
+                   {syncStatus && (
+                     <p className="text-emerald-400 text-[9px] font-heading uppercase tracking-widest animate-fade-in">
+                       Success: {syncStatus.added} added, {syncStatus.updated} updated
+                     </p>
+                   )}
+                 </div>
               </div>
            </div>
            

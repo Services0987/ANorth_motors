@@ -2,7 +2,8 @@ import React from 'react';
 import { motion } from 'framer-motion';
 
 // The spinning alloy-wheel asset that replaces the letter "O"
-const TYRE_SRC = '/tyre.png';
+// High-definition alloy wheel asset for the letter "O"
+const TYRE_SRC = '/hd_wheel.png';
 
 const letterVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -85,7 +86,7 @@ export default function AnimatedLogo({ size = 'large', className = '' }) {
 
   /* ── Hero / large variant ────────────────────────────── */
   const autoLetters = ['A', 'U', 'T'];
-  const northLetters = ['N', 'R', 'T', 'H'];
+  const northLetters = ['N', 'O', 'R', 'T', 'H'];
 
   return (
     <div className={`relative ${className}`}>
