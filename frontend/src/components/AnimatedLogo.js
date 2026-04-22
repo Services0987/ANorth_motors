@@ -49,18 +49,19 @@ function SpinningO({ size = 'large' }) {
 export default function AnimatedLogo({ size = 'large', className = '' }) {
   const isLarge = size === 'large';
 
+  /* ── Navbar / small variant with Randomized Interval Animations ──────────────── */
+  const [animPhase, setAnimPhase] = useState(0);
+
+  useEffect(() => {
+    if (isLarge) return; // Don't run interval for hero logo
+    // Cycle animation phase every 8 seconds to show a new entrance effect
+    const interval = setInterval(() => {
+      setAnimPhase(p => (p + 1) % 3);
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [isLarge]);
+
   if (!isLarge) {
-    /* ── Navbar / small variant with Randomized Interval Animations ──────────────── */
-    const [animPhase, setAnimPhase] = useState(0);
-
-    useEffect(() => {
-      // Cycle animation phase every 8 seconds to show a new entrance effect
-      const interval = setInterval(() => {
-        setAnimPhase(p => (p + 1) % 3);
-      }, 8000);
-      return () => clearInterval(interval);
-    }, []);
-
     // 3 distinct high-end text animation variants
     const getVariants = (delayOffset) => {
       if (animPhase === 0) return { initial: { opacity: 0, y: 15 }, animate: { opacity: 1, y: 0, transition: { duration: 0.6, delay: delayOffset } } };
