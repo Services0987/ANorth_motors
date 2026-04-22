@@ -235,7 +235,10 @@ async def list_vehicles(
         if make: q["make"] = {"$regex": make, "$options": "i"}
         if body_type: q["body_type"] = body_type
         if fuel_type: q["fuel_type"] = fuel_type
-        if status and status != "all": q["status"] = status
+        if status and status != "all": 
+            q["$or"] = [{"status": status}]
+            if status == "available":
+                q["$or"].append({"status": {"$exists": False}})
         if featured is not None: q["featured"] = featured
         if min_price is not None or max_price is not None:
             q["price"] = {k: v for k, v in [("$gte", min_price), ("$lte", max_price)] if v is not None}
@@ -437,11 +440,16 @@ async def import_vehicle_from_url(data: Dict[str, str], cu=Depends(get_current_u
 @api_router.post("/scraper/sync/teamford")
 async def sync_teamford(cu=Depends(get_current_user)):
     from scraper import scrape_teamford_inventory
-    v_list = await scrape_teamford_inventory(limit=30)
+    v_list = await scrape_teamford_inventory(limit=1000)
     added, updated = 0, 0
+    synced_vins = []
+    
     for v in (v_list or []):
         try:
             if not v or (not v.get("vin") and not v.get("stock_number")): continue
+            vin_val = v.get("vin")
+            if vin_val: synced_vins.append(vin_val)
+            
             existing = await db.vehicles.find_one({ "$or": [{"vin": v["vin"]}, {"stock_number": v["stock_number"]}] })
             if existing:
                 await db.vehicles.update_one({"_id": existing["_id"]}, {"$set": v})
@@ -452,9 +460,17 @@ async def sync_teamford(cu=Depends(get_current_user)):
         except Exception as e:
             logger.error(f"Error processing synced vehicle: {str(e)}")
             continue
+            
+    deleted_count = 0
+    if synced_vins:
+        d_res = await db.vehicles.delete_many({
+            "source": "teamford_sync",
+            "vin": {"$nin": synced_vins}
+        })
+        deleted_count = d_res.deleted_count
     
     await db.settings.update_one({"key": "scraper"}, {"$set": {"last_sync": datetime.now(timezone.utc)}}, upsert=True)
-    return {"added": added, "updated": updated}
+    return {"added": added, "updated": updated, "deleted": deleted_count}
 
 @api_router.get("/debug/health")
 async def debug_health():

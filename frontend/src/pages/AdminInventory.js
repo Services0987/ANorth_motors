@@ -135,7 +135,7 @@ export default function AdminInventory() {
     setSyncStatus(null);
     try { 
       const { data } = await axios.post(`${API}/scraper/sync/teamford`, {}, { withCredentials: true }); 
-      setSyncStatus({ added: data.added, updated: data.updated });
+      setSyncStatus({ added: data.added, updated: data.updated, deleted: data.deleted });
       fetchVehicles(); 
       fetchScraperSettings(); 
     }
@@ -217,7 +217,7 @@ export default function AdminInventory() {
                    </button>
                    {syncStatus && (
                      <p className="text-emerald-400 text-[9px] font-heading uppercase tracking-widest animate-fade-in">
-                       Success: {syncStatus.added} added, {syncStatus.updated} updated
+                       Success: {syncStatus.added} added, {syncStatus.updated} updated, {syncStatus.deleted || 0} removed
                      </p>
                    )}
                  </div>

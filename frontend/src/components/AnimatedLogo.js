@@ -1,5 +1,5 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // The spinning alloy-wheel asset that replaces the letter "O"
 // High-definition alloy wheel asset for the letter "O"
@@ -50,35 +50,45 @@ export default function AnimatedLogo({ size = 'large', className = '' }) {
   const isLarge = size === 'large';
 
   if (!isLarge) {
-    /* ── Navbar / small variant ──────────────────────────── */
+    /* ── Navbar / small variant with Randomized Interval Animations ──────────────── */
+    const [animPhase, setAnimPhase] = useState(0);
+
+    useEffect(() => {
+      // Cycle animation phase every 8 seconds to show a new entrance effect
+      const interval = setInterval(() => {
+        setAnimPhase(p => (p + 1) % 3);
+      }, 8000);
+      return () => clearInterval(interval);
+    }, []);
+
+    // 3 distinct high-end text animation variants
+    const getVariants = (delayOffset) => {
+      if (animPhase === 0) return { initial: { opacity: 0, y: 15 }, animate: { opacity: 1, y: 0, transition: { duration: 0.6, delay: delayOffset } } };
+      if (animPhase === 1) return { initial: { opacity: 0, scale: 0.9, filter: 'blur(4px)' }, animate: { opacity: 1, scale: 1, filter: 'blur(0px)', transition: { duration: 0.8, delay: delayOffset } } };
+      if (animPhase === 2) return { initial: { opacity: 0, x: -10 }, animate: { opacity: 1, x: 0, transition: { duration: 0.6, type: 'spring', stiffness: 100, delay: delayOffset } } };
+      return { initial: { opacity: 0 }, animate: { opacity: 1 } };
+    };
+
     return (
       <span
-        className={`inline-flex items-center font-heading font-bold tracking-widest text-base uppercase select-none ${className}`}
+        key={animPhase} // Forcing re-mount to re-trigger the animation cycle
+        className={`inline-flex items-center font-heading font-bold text-lg select-none ${className}`}
+        style={{ letterSpacing: '0.15em' }}
       >
         <motion.span
-          className="text-white"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6 }}
+          className="text-white drop-shadow-md"
+          initial={getVariants(0).initial}
+          animate={getVariants(0).animate}
         >
-          AUT
-        </motion.span>
-        <SpinningO size="small" />
-        <motion.span
-          className="text-white"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-        >
-          N
+          AUTO
         </motion.span>
         <motion.span
-          style={{ WebkitTextStroke: '1px rgba(212,175,55,0.7)', color: 'transparent' }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
+          className="text-[#D4AF37] drop-shadow-md ml-[0.05em]"
+          initial={getVariants(0.2).initial}
+          animate={getVariants(0.2).animate}
+          style={{ textShadow: '0 0 8px rgba(212,175,55,0.4)' }}
         >
-          RTH
+          NORTH
         </motion.span>
       </span>
     );

@@ -8,7 +8,8 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-async def scrape_teamford_inventory(limit: int = 25) -> List[Dict[str, Any]]:
+import re
+async def scrape_teamford_inventory(limit: int = 1000) -> List[Dict[str, Any]]:
     """
     Search across TeamFord's used inventory using their native Algolia API.
     Bypasses WAF by using the exact keys used by the front-end.
@@ -72,9 +73,13 @@ async def scrape_teamford_inventory(limit: int = 25) -> List[Dict[str, Any]]:
                 if not processed_images and h.get('thumbnail_url'):
                     processed_images = [h.get('thumbnail_url')]
 
+                raw_desc = h.get("description") or h.get("comments") or f"Check out this {h.get('year')} {h.get('make_name')} {h.get('model_name')} available at AutoNorth Motors."
+                clean_desc = re.sub(r'(?i)team\s*ford', 'AutoNorth', raw_desc)
+                clean_title = re.sub(r'(?i)team\s*ford', 'AutoNorth', f"{h.get('year')} {h.get('make_name')} {h.get('model_name')}").strip()
+
                 vehicles.append({
                     "id": str(h.get("objectID") or h.get("vin") or h.get("stock_number")),
-                    "title": f"{h.get('year')} {h.get('make_name')} {h.get('model_name')}".strip(),
+                    "title": clean_title,
                     "make": h.get("make_name"),
                     "model": h.get("model_name"),
                     "year": int(h.get("year", 2024)),
@@ -90,10 +95,11 @@ async def scrape_teamford_inventory(limit: int = 25) -> List[Dict[str, Any]]:
                     "drivetrain": drivetrain,
                     "vin": h.get("vin"),
                     "stock_number": h.get("stock_number"),
-                    "description": h.get("description") or h.get("comments") or f"Check out this {h.get('year')} {h.get('make_name')} {h.get('model_name')} available at Team Ford.",
+                    "description": clean_desc,
                     "features": h.get("options", []) or h.get("packages", []),
                     "images": processed_images,
                     "status": "available",
+                    "source": "teamford_sync",
                     "featured": False,
                     "source_url": f"https://www.teamford.ca/vehicles/{h.get('slug')}" if h.get('slug') else "https://www.teamford.ca"
                 })

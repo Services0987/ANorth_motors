@@ -21,25 +21,22 @@ const WELCOME_MSG = {
     "Welcome to AutoNorth Motors 🚗\n\nI'm your personal vehicle specialist — I've loaded our full Edmonton inventory and I'm ready to find your perfect match.\n\nTry asking:\n• \"Show me a list of trucks\"\n• \"What's the cheapest SUV?\"\n• \"Do you have any Fords under $40k?\"\n• Or just describe what you need!",
 };
 
-/* ── Intent + entity recognition ───────────────────────── */
+/* ── Advanced Local Intelligence Engine ─────────────────── */
 const INTENTS = {
-  LIST: [
-    /show( me)?( a)? list/i,
-    /what (trucks|suvs|sedans|cars|vehicles|makes|models)/i,
-    /list (all|the|your)/i,
-    /how many/i,
-    /all (available|the)/i,
-  ],
-  PRICE: [/cheapest|lowest price|most affordable|under \$|budget|price range/i],
-  DETAIL: [/tell me more|specs|features|mileage|engine|details about/i],
-  BOOK: [/test drive|book|schedule|appointment|visit/i],
-  LEAD: [/contact|reach out|call me|get back to me/i],
-  GREET: [/^(hi|hello|hey|yo|sup|good morning|good afternoon)[\s!?\.]*$/i],
+  LIST: [/(show|list|find|search|looking for|what do you have|inventory|cars|trucks|suvs|vehicles|available|in stock)/i],
+  PRICE: [/(cheap|affordable|price|cost|under|over|budget|financing|how much|dollar)/i],
+  DETAIL: [/(specs|features|mileage|engine|drivetrain|details|tell me more about|interior|exterior)/i],
+  BOOK: [/(test drive|book|appointment|visit|schedule|come in|see it in person)/i],
+  LEAD: [/(contact|call me|reach out|get back|manager|sales|number)/i],
+  GREET: [/^(hi|hello|hey|greetings|good morning|do you)/i],
+  YES_NO: [/^(yes|no|yeah|nope|sure|ok|okay|fine)/i]
 };
 
-const BODY_TYPES = ['truck', 'suv', 'sedan', 'coupe', 'cargo van', 'minivan', 'hybrid', 'electric', 'convertible'];
-const MAKES = ['ford', 'ram', 'chevy', 'chevrolet', 'toyota', 'honda', 'gmc', 'dodge', 'jeep', 'kia', 'hyundai', 'nissan', 'bmw', 'mercedes', 'audi', 'volvo', 'mazda'];
-const COLORS = ['black', 'white', 'silver', 'grey', 'gray', 'red', 'blue', 'green', 'brown', 'gold'];
+const DB_VARS = {
+  BODY_TYPES: ['truck', 'suv', 'sedan', 'coupe', 'cargo van', 'minivan', 'hybrid', 'electric', 'convertible', 'hatchback'],
+  MAKES: ['ford', 'ram', 'chevy', 'chevrolet', 'toyota', 'honda', 'gmc', 'dodge', 'jeep', 'kia', 'hyundai', 'nissan', 'bmw', 'mercedes', 'audi', 'volvo', 'mazda', 'lexus', 'acura'],
+  COLORS: ['black', 'white', 'silver', 'grey', 'gray', 'red', 'blue', 'green', 'brown', 'gold', 'yellow', 'orange']
+};
 
 function detectIntent(q) {
   for (const [intent, patterns] of Object.entries(INTENTS)) {
@@ -48,81 +45,117 @@ function detectIntent(q) {
   return 'GENERAL';
 }
 
-function extractEntities(q) {
+function extractEntities(q, currentEntities = {}) {
   const lower = q.toLowerCase();
-  const entities = {};
-  BODY_TYPES.forEach((b) => { if (lower.includes(b)) entities.body_type = b; });
-  MAKES.forEach((m) => { if (lower.includes(m)) entities.make = m; });
-  COLORS.forEach((c) => { if (lower.includes(c)) entities.color = c; });
-  const yearMatch = lower.match(/\b(20\d{2})\b/);
-  if (yearMatch) entities.year = yearMatch[1];
-  const priceMatch = lower.match(/\$?([\d,]+)k?\b/);
-  if (priceMatch) entities.max_price = parseInt(priceMatch[1].replace(',', '')) * (lower.includes('k') ? 1000 : 1);
-  const awd = lower.match(/\b(awd|4wd|4x4|all[- ]wheel)\b/i);
-  if (awd) entities.drivetrain = awd[0];
-  return entities;
+  const e = { ...currentEntities }; // Maintain state memory
+  
+  DB_VARS.BODY_TYPES.forEach((b) => { if (lower.includes(b)) e.body_type = b; });
+  DB_VARS.MAKES.forEach((m) => { if (lower.includes(m)) e.make = m; });
+  DB_VARS.COLORS.forEach((c) => { if (lower.includes(c)) e.color = c; });
+  
+  const yearMatch = lower.match(/\b(20\d{2}|19\d{2})\b/);
+  if (yearMatch) e.year = parseInt(yearMatch[1]);
+  
+  const underPrice = lower.match(/(under|below|less than|max) \$?([\d,]+)k?/);
+  if (underPrice) e.max_price = parseInt(underPrice[2].replace(',', '')) * (lower.includes('k') ? 1000 : 1);
+  
+  const cheapMatch = lower.match(/(cheapest|lowest price)/);
+  if (cheapMatch && !e.max_price) e.sort = 'price_asc';
+  
+  const awd = lower.match(/\b(awd|4wd|4x4|all[- ]wheel|four[- ]wheel)\b/i);
+  if (awd) e.drivetrain = awd[0];
+  
+  return e;
 }
 
 function filterInventory(inventory, entities) {
-  return inventory.filter((v) => {
-    const target = `${v.year} ${v.make} ${v.model} ${v.title} ${v.body_type} ${v.exterior_color} ${v.drivetrain}`.toLowerCase();
+  let results = inventory.filter((v) => {
+    const target = `${v.year} ${v.make} ${v.model} ${v.title} ${v.body_type} ${v.exterior_color} ${v.drivetrain} ${v.description}`.toLowerCase();
     if (entities.body_type && !target.includes(entities.body_type)) return false;
     if (entities.make && !target.includes(entities.make)) return false;
     if (entities.color && !target.includes(entities.color)) return false;
-    if (entities.year && !target.includes(entities.year)) return false;
+    if (entities.year && parseInt(v.year) !== entities.year) return false;
     if (entities.drivetrain && !target.includes(entities.drivetrain.toLowerCase())) return false;
     if (entities.max_price && v.price > entities.max_price) return false;
     return true;
   });
+  
+  if (entities.sort === 'price_asc') {
+    results.sort((a,b) => a.price - b.price);
+  }
+  return results;
 }
 
 function formatCurrency(n) {
   return '$' + (n || 0).toLocaleString('en-CA');
 }
 
-function buildLocalResponse(intent, entities, matches, inventory) {
+// Stateful engine closure memory
+let CONVERSATION_STATE = { lastIntent: null, focusedVehicle: null, entities: {} };
+
+function buildLocalResponse(text, inventory) {
+  const intent = detectIntent(text);
+  CONVERSATION_STATE.entities = extractEntities(text, CONVERSATION_STATE.entities);
+  const entities = CONVERSATION_STATE.entities;
+  const matches = filterInventory(inventory, entities);
+  
+  // Dynamic Follow-up Logic
+  if (intent === 'YES_NO' && CONVERSATION_STATE.lastIntent === 'LIST' && matches.length > 5) {
+     return "Excellent. To narrow this down further, are you looking for any specific color, or perhaps a maximum price range?";
+  }
+
+  CONVERSATION_STATE.lastIntent = intent;
+
   switch (intent) {
     case 'GREET':
-      return "Hey there! 👋 Ready to find your next vehicle? I have our full inventory loaded — just tell me what you're after. Make, model, body type, budget — anything!";
+      return "Hello! I am the AutoNorth AI Intelligence Engine ⚡.\n\nI have real-time access to our entire Edmonton inventory. Are you looking for a specific make (like Ford or Honda), a body type (like an SUV or Truck), or trying to stay under a certain budget?";
 
     case 'LIST': {
-      const pool = matches.length > 0 ? matches : inventory.slice(0, 8);
-      if (pool.length === 0) return "I couldn't find any vehicles matching those filters in our current stock. Would you like me to show you everything we have right now?";
-      const items = pool.slice(0, 6).map(
-        (v) => `• ${v.year} ${v.title} — ${formatCurrency(v.price)} | ${(v.mileage || 0).toLocaleString()} km`
-      );
-      const extra = pool.length > 6 ? `\n...and ${pool.length - 6} more matching your criteria!` : '';
-      const filterDesc = Object.keys(entities).length > 0
-        ? `Here are the ${pool.length} ${entities.body_type || entities.make || ''} vehicles I found:`
-        : `Here's a snapshot of our current inventory (${pool.length} vehicles):`;
-      return `${filterDesc}\n\n${items.join('\n')}${extra}\n\nWhich one catches your eye? I can pull full specs, photos, or book a test drive!`;
+      if (matches.length === 0) {
+        CONVERSATION_STATE.entities = {}; // clear memory
+        return "My deepest apologies, but it appears we don't have exact matches for those precise parameters right now. However, inventory updates daily! Would you like me to show you our best overall deals instead?";
+      }
+      
+      const isNarrow = Object.keys(entities).length > 0;
+      const count = matches.length;
+      
+      if (count > 8 && !entities.max_price) {
+        return `I've instantly located **${count} vehicles** matching your request. That's a solid selection!\n\nTo save you from scrolling, what is your ideal maximum budget, or is there a specific mileage you want to stay under?`;
+      }
+
+      const showTop = matches.slice(0, 5);
+      const items = showTop.map(v => `• **${v.year} ${v.title}**\n   └ ${formatCurrency(v.price)} | ${(v.mileage || 0).toLocaleString()} km | ${v.drivetrain || 'FWD'}`);
+      
+      CONVERSATION_STATE.focusedVehicle = showTop[0]; // remember the first result
+      
+      return `Here are the top ${showTop.length} matches I pulled from our vault:\n\n${items.join('\n\n')}\n\n${count > 5 ? `*(Plus ${count - 5} more in stock)*\n\n` : ''}Would you like me to pull the full feature list for the ${showTop[0].year} ${showTop[0].make}, or shall we schedule a test drive?`;
     }
 
     case 'PRICE': {
-      const sorted = [...(matches.length > 0 ? matches : inventory)].sort((a, b) => a.price - b.price);
-      if (!sorted[0]) return "Let me know your budget and I'll find the best options for you!";
-      const top = sorted[0];
-      return `💰 Best value right now is the **${top.year} ${top.title}** at only **${formatCurrency(top.price)}** with ${(top.mileage || 0).toLocaleString()} km.\n\nI can calculate your monthly payment or arrange a test drive — which would you prefer?`;
+      if (matches.length > 0) {
+        const best = matches[0];
+        CONVERSATION_STATE.focusedVehicle = best;
+        return `Looking closely at our pricing data, your best option is the **${best.year} ${best.title}** at **${formatCurrency(best.price)}**.\n\nIt features a ${best.engine || 'solid engine'} and has ${(best.mileage || 0).toLocaleString()} km on it.\n\nI can set up a VIP appointment for you to view this in person. Just leave your phone number!`;
+      }
+      return "Tell me your exact budget (e.g., 'under 30k') and I will mathematically filter out the best possible value in our lot today.";
     }
 
     case 'DETAIL': {
-      const v = matches[0] || inventory[0];
-      if (!v) return "Which vehicle would you like details on? Tell me the year and model!";
-      return `📋 Here are the specs for the **${v.year} ${v.title}**:\n\n• Price: ${formatCurrency(v.price)}\n• Mileage: ${(v.mileage || 0).toLocaleString()} km\n• Engine: ${v.engine || 'N/A'}\n• Drivetrain: ${v.drivetrain || 'N/A'}\n• Exterior: ${v.exterior_color || 'N/A'}\n• Interior: ${v.interior_color || 'N/A'}\n\nWould you like to book a test drive? Just share your phone number!`;
+      const v = CONVERSATION_STATE.focusedVehicle || matches[0] || inventory[0];
+      if (!v) return "I need to know which vehicle you're interested in first! Try asking about SUVs or Trucks.";
+      return `**Deep Dive: ${v.year} ${v.title}** 📊\n\n• Market Price: ${formatCurrency(v.price)}\n• Mileage: ${(v.mileage || 0).toLocaleString()} km\n• Engine Spec: ${v.engine || 'N/A'}\n• Transmission: ${v.transmission || 'N/A'}\n• Drivetrain: ${v.drivetrain || 'N/A'}\n• Interior Finish: ${v.interior_color || 'Standard Premium'}\n\nThis is a highly sought-after model. Want me to alert a specialist to secure the keys for you? Provide your phone number.`;
     }
 
     case 'BOOK':
-      return "I'd love to book a test drive for you! 🗓️\n\nPlease share your **phone number** and preferred day (e.g., This Saturday afternoon) and our team will confirm within the hour.";
-
     case 'LEAD':
-      return "Absolutely! Please leave your **phone number** and one of our specialists will call you back within the hour during business hours (Mon–Sat, 9am–7pm MST).";
+      return "Outstanding choice. Let's get you in the driver's seat 🗓️.\n\nPlease reply with your **phone number** (and preferred day), and the AutoNorth management team will instantly receive your request and confirm within minutes.";
 
     default: {
-      if (matches.length > 0) {
-        const v = matches[0];
-        return `Great news — I found **${matches.length} match${matches.length > 1 ? 'es' : ''}** for your search!\n\nTop result: **${v.year} ${v.title}** — ${formatCurrency(v.price)}, ${(v.mileage || 0).toLocaleString()} km\n\nWant me to show the full list, get specs, or book a test drive?`;
+      if (matches.length > 0 && Object.keys(entities).length > 0) {
+         CONVERSATION_STATE.focusedVehicle = matches[0];
+         return `I dynamically processed your request and found **${matches.length}** high-quality options.\n\nThe most relevant is the **${matches[0].year} ${matches[0].title}** for ${formatCurrency(matches[0].price)}.\n\nFeel free to ask for specs, request more similar cars, or book a viewing right now.`;
       }
-      return "I'm here to help with anything AutoNorth-related! Try asking about specific makes, body types (trucks, SUVs, sedans), pricing, or test drives. What can I find for you?";
+      return "I operate using advanced contextual parsing to find you the best vehicles. You can ask me things like 'Find me a white Ford SUV under 40k' or 'What is your cheapest truck?'. What are you hunting for today?";
     }
   }
 }
@@ -257,10 +290,6 @@ export default function ChatBot() {
       if (captured) setLeadConfirmed(true);
     });
 
-    const intent = detectIntent(text);
-    const entities = extractEntities(text);
-    const matches = filterInventory(inventory, entities);
-
     // AI Intelligence Theater: Mandatory thinking delay for perceived reasoning (2.5 - 4.5s)
     const delay = 2500 + Math.random() * 2000;
 
@@ -278,7 +307,7 @@ export default function ChatBot() {
               {
                 role: 'assistant',
                 content: useLocal
-                  ? buildLocalResponse(intent, entities, matches, inventory)
+                  ? buildLocalResponse(text, inventory)
                   : resp,
               },
             ]);
@@ -288,7 +317,7 @@ export default function ChatBot() {
               ...prev,
               {
                 role: 'assistant',
-                content: buildLocalResponse(intent, entities, matches, inventory),
+                content: buildLocalResponse(text, inventory),
               },
             ]);
           })
@@ -296,7 +325,7 @@ export default function ChatBot() {
       } catch {
         setMessages((prev) => [
           ...prev,
-          { role: 'assistant', content: buildLocalResponse(intent, entities, matches, inventory) },
+          { role: 'assistant', content: buildLocalResponse(text, inventory) },
         ]);
         setThinking(false);
       }
