@@ -245,9 +245,16 @@ async def list_vehicles(
             q["$or"] = [{"title": {"$regex": search, "$options": "i"}}, {"make": {"$regex": search, "$options": "i"}}, {"model": {"$regex": search, "$options": "i"}}]
         total = await db.vehicles.count_documents(q)
         docs = await db.vehicles.find(q).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
-        return {"vehicles": [Vehicle.from_mongo(d).model_dump(mode='json') for d in docs], "total": total, "skip": skip, "limit": limit}
+        vehicles = []
+        for d in docs:
+            try:
+                vehicles.append(Vehicle.from_mongo(d).model_dump(mode='json'))
+            except Exception as ve:
+                logger.warning(f"Skipping malformed vehicle {d.get('_id')}: {ve}")
+                continue
+        return {"vehicles": vehicles, "total": total, "skip": skip, "limit": limit}
     except Exception as e:
-        logger.error(f"Database error in list_vehicles: {str(e)}")
+        logger.error(f"Database/Validation error in list_vehicles: {str(e)}")
         return {"vehicles": [], "total": 0, "skip": skip, "limit": limit, "error": "Service temporarily unavailable"}
 
 @api_router.get("/vehicles/{vehicle_id}")
