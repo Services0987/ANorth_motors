@@ -2,143 +2,141 @@ import httpx
 import json
 import logging
 import asyncio
+import re
 from bs4 import BeautifulSoup
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-import re
-async def scrape_teamford_inventory(limit: int = 1000) -> List[Dict[str, Any]]:
-    """
-    Search across TeamFord's used inventory using their native Algolia API.
-    Bypasses WAF by using the exact keys used by the front-end.
-    """
-    ALGOLIA_APP_ID = "VBAFQME90B"
-    ALGOLIA_API_KEY = "650a66d4bf074b5de276a2ecb945bf80"
-    url = f"https://{ALGOLIA_APP_ID}-dsn.algolia.net/1/indexes/*/queries"
-    
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Referer": "https://www.teamford.ca/",
-        "Origin": "https://www.teamford.ca",
-        "Accept": "*/*",
-        "Content-Type": "application/x-www-form-urlencoded"
-    }
-    
-    params = {
-        "x-algolia-agent": "Algolia for JavaScript (4.26.0); Browser",
-        "x-algolia-api-key": ALGOLIA_API_KEY,
-        "x-algolia-application-id": ALGOLIA_APP_ID
-    }
-    
-    payload = {
-        "requests": [
-            {
-                "indexName": "inventory",
-                "params": f"query=&hitsPerPage={limit}&filters=craft_site_ids:34 AND stock_type:USED"
-            }
-        ]
-    }
-    
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(url, headers=headers, params=params, content=json.dumps(payload))
-            resp.raise_for_status()
-            
-            res_json = resp.json()
-            hits = res_json.get('results', [])[0].get('hits', [])
-            
-            vehicles = []
-            for h in hits:
-                # Correct pricing from list_price
-                price = float(h.get('list_price') or 0)
-                
-                # Correct mileage from odometer
-                mileage = int(h.get('odometer') or 0)
-                
-                # Drivetrain extraction from trim_variation
-                trim_var = h.get('trim_variation', '')
-                drivetrain = "4x4" if "4x4" in trim_var or "4WD" in trim_var else "AWD" if "AWD" in trim_var else "FWD"
-                
-                # Image processing using Cloudinary IDs
-                # Base: https://res.cloudinary.com/goauto-images/image/upload/f_auto,c_fill,ar_14:9,q_auto/v1/
-                photo_ids = h.get('photo_service_ids', [])
-                if not isinstance(photo_ids, list): photo_ids = []
-                
-                processed_images = []
-                for pid in photo_ids:
-                    processed_images.append(f"https://res.cloudinary.com/goauto-images/image/upload/f_auto,c_fill,ar_14:9,q_auto/v1/{pid}.jpg")
-                
-                if not processed_images and h.get('thumbnail_url'):
-                    processed_images = [h.get('thumbnail_url')]
-
-                raw_desc = h.get("description") or h.get("comments") or f"Check out this {h.get('year')} {h.get('make_name')} {h.get('model_name')} available at AutoNorth Motors."
-                clean_desc = re.sub(r'(?i)team\s*ford', 'AutoNorth', raw_desc)
-                clean_title = re.sub(r'(?i)team\s*ford', 'AutoNorth', f"{h.get('year')} {h.get('make_name')} {h.get('model_name')}").strip()
-
-                vehicles.append({
-                    "id": str(h.get("objectID") or h.get("vin") or h.get("stock_number")),
-                    "title": clean_title,
-                    "make": h.get("make_name"),
-                    "model": h.get("model_name"),
-                    "year": int(h.get("year", 2024)),
-                    "price": price,
-                    "mileage": mileage,
-                    "condition": "used",
-                    "body_type": h.get("body_type_category"),
-                    "fuel_type": h.get("fuel_type_name", "Gas"),
-                    "transmission": h.get("transmission_name"),
-                    "exterior_color": h.get("exterior_colour_name") or h.get("exterior_search_colour"),
-                    "interior_color": h.get("interior_color_base"),
-                    "engine": h.get("engine_name"),
-                    "drivetrain": drivetrain,
-                    "vin": h.get("vin"),
-                    "stock_number": h.get("stock_number"),
-                    "description": clean_desc,
-                    "features": h.get("options", []) or h.get("packages", []),
-                    "images": processed_images,
-                    "status": "available",
-                    "source": "teamford_sync",
-                    "featured": False,
-                    "source_url": f"https://www.teamford.ca/vehicles/{h.get('slug')}" if h.get('slug') else "https://www.teamford.ca"
-                })
-            
-            logger.info(f"Successfully fetched {len(vehicles)} live listings with full images from TeamFord Algolia")
-            return vehicles
-
-    except Exception as e:
-        logger.error(f"Algolia fetch error: {str(e)}")
-        return []
-
 async def scrape_teamford_listing(url: str) -> Optional[Dict[str, Any]]:
-    # Keep URL scraper as fallback or for manual imports
+    """
+    Scrapes a single vehicle listing from TeamFord.ca.
+    Mimics a browser 'listener' to pull direct __NEXT_DATA__ content.
+    """
     try:
         async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
-            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.9",
+            }
             resp = await client.get(url, headers=headers)
-            soup = BeautifulSoup(resp.text, 'html.parser')
-            script = soup.find('script', id='__NEXT_DATA__')
-            if not script: return None
-            data = json.loads(script.string)
-            v = data.get('props', {}).get('pageProps', {}).get('vehicle', {})
-            if not v: return None
+            resp.raise_for_status()
             
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            next_data_script = soup.find('script', id='__NEXT_DATA__')
+            
+            if not next_data_script:
+                return None
+                
+            data = json.loads(next_data_script.string)
+            props = data.get('props', {}).get('pageProps', {})
+            v = props.get('vehicle', {})
+            
+            if not v:
+                return None
+            
+            # String Sanitization: Team Ford -> AutoNorth
+            def sanitize(text):
+                if not text: return ""
+                return re.sub(r'(?i)team\s*ford', 'AutoNorth', str(text))
+                
+            raw_desc = v.get("comments", "") or f"Check out this {v.get('year')} {v.get('make')} {v.get('model')} at AutoNorth Motors."
+            
+            images = [img.get("url") for img in v.get("images", []) if img.get("url")]
+            if not images and v.get("thumbnail_url"): images = [v.get("thumbnail_url")]
+
             return {
                 "id": str(v.get("vin") or v.get("stock_number")),
-                "title": f"{v.get('year')} {v.get('make')} {v.get('model')} {v.get('trim', '')}".strip(),
+                "title": sanitize(f"{v.get('year')} {v.get('make')} {v.get('model')} {v.get('trim', '')}".strip()),
                 "make": v.get("make"),
                 "model": v.get("model"),
                 "year": int(v.get("year", 2024)),
-                "price": float(v.get("pricing", {}).get("sell_price") or 0),
-                "mileage": int(v.get("odometer") or 0),
-                "condition": "used",
-                "images": [img.get("url") for img in v.get("images", []) if img.get("url")],
+                "price": float(v.get("pricing", {}).get("sell_price", 0)),
+                "mileage": int(v.get("odometer", 0)),
+                "condition": v.get("stock_type", "used").lower(),
+                "body_type": v.get("body_style"),
+                "fuel_type": v.get("fuel_type", "Gas"),
+                "transmission": v.get("transmission"),
+                "exterior_color": v.get("exterior_color"),
+                "interior_color": v.get("interior_color"),
+                "engine": v.get("engine_description"),
+                "drivetrain": v.get("drivetrain"),
                 "vin": v.get("vin"),
                 "stock_number": v.get("stock_number"),
+                "description": sanitize(raw_desc),
+                "features": [sanitize(f.get("name")) for f in v.get("features", []) if f.get("name")],
+                "images": images,
                 "status": "available",
+                "source": "teamford_sync",
+                "featured": False,
                 "source_url": url
             }
     except Exception as e:
-        logger.error(f"Single scrape error: {str(e)}")
+        logger.error(f"Listener Scrape Error for {url}: {str(e)}")
         return None
+
+async def scrape_teamford_inventory(limit: int = 1000) -> List[Dict[str, Any]]:
+    """
+    Alpha Listener Sync: Cycles through inventory results to build a complete dataset.
+    Bypasses simple blocks by using direct GoAuto result set extraction.
+    """
+    inventory_url = "https://www.teamford.ca/used/inventory/results?region=Edmonton"
+    try:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Referer": "https://www.teamford.ca/",
+            }
+            resp = await client.get(inventory_url, headers=headers)
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            script = soup.find('script', id='__NEXT_DATA__')
+            if not script:
+                logger.error("Failed to find Alpha Data script on TeamFord")
+                return []
+            
+            data = json.loads(script.string)
+            props = data.get('props', {}).get('pageProps', {})
+            
+            # Extract recursive results
+            results = props.get('initialResults', {}).get('results', [])
+            if not results:
+                # Try fallback block search (GoAuto structural variants)
+                blocks = props.get('contentBuilderBlocks', [])
+                for b in blocks:
+                    if b.get('type') == 'Inventory':
+                        results = b.get('data', {}).get('initialResults', {}).get('results', [])
+                        if results: break
+            
+            if not results:
+                logger.warning("No live results found in data stream.")
+                return []
+
+            vehicles = []
+            # Scrape details for each found item
+            # To avoid overloading, we'll limit to the actual requested limit
+            target_list = results[:limit]
+            
+            # Phase 1: Rapid async gathering of detail pages
+            tasks = []
+            for item in target_list:
+                slug = item.get('slug')
+                if slug:
+                    url = f"https://www.teamford.ca/vehicles/{slug}"
+                    tasks.append(scrape_teamford_listing(url))
+            
+            # Execute in batches to be 'listener-safe'
+            batch_size = 10
+            for i in range(0, len(tasks), batch_size):
+                batch = tasks[i:i+batch_size]
+                batch_results = await asyncio.gather(*batch)
+                vehicles.extend([v for v in batch_results if v])
+                await asyncio.sleep(0.5) # Gentle spacing
+            
+            logger.info(f"Alpha Listener Sync Complete: {len(vehicles)} units verified.")
+            return vehicles
+            
+    except Exception as e:
+        logger.error(f"Alpha Sync Failure: {str(e)}")
+        return []

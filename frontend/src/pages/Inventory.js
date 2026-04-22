@@ -206,7 +206,7 @@ export default function Inventory() {
   const [loading, setLoading]   = useState(true);
   const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
-  const limit = 40;
+  const limit = 8;
 
   const [filters, setFilters] = useState({
     search:    '',
@@ -488,8 +488,8 @@ export default function Inventory() {
           </AnimatePresence>
 
           {!loading && totalPages > 1 && (
-            <div className="mt-20 border-t border-white/5 pt-10">
-              <Pagination page={page} totalPages={totalPages} onPage={(p) => { setPage(Math.max(1, Math.min(p, totalPages))); window.scrollTo({ top: 300, behavior: 'smooth' }); }} />
+            <div className="mt-16 flex flex-col items-center">
+              <Pagination page={page} totalPages={totalPages} onPage={(p) => setPage(p)} />
             </div>
           )}
 
