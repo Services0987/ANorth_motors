@@ -12,13 +12,14 @@ ALGOLIA_APP_ID = "VBAFQME90B"
 ALGOLIA_API_KEY = "650a66d4bf074b5de276a2ecb945bf80"
 ALGOLIA_URL = f"https://{ALGOLIA_APP_ID}-dsn.algolia.net/1/indexes/inventory/queries"
 
-async def scrape_teamford_inventory(limit: int = 1000) -> List[Dict[str, Any]]:
+async def scrape_teamford_inventory(limit: int = 2000) -> List[Dict[str, Any]]:
     """
-    Visual Sync Engine: Mimics the 'Wait-and-Extract' method of browser extensions.
-    Uses multi-page pagination with absolute header hardening to ensure 100% feed capture.
+    ULTIMATE SYNC ENGINE: 
+    - Scrapes NEW, USED, FEATURED, and ON SPECIAL vehicles.
+    - Captures the full 500+ vehicle feed by iterating through all site IDs.
+    - Mimics extension-style 'Wait-and-Extract' methodology.
     """
     try:
-        # Browser-Standard Header Set (Mimics Extensions)
         headers = {
             "x-algolia-api-key": ALGOLIA_API_KEY,
             "x-algolia-application-id": ALGOLIA_APP_ID,
@@ -29,22 +30,21 @@ async def scrape_teamford_inventory(limit: int = 1000) -> List[Dict[str, Any]]:
 
         all_vehicles = []
         page = 0
-        hits_per_page = 50 # Increased density to minimize requests while avoiding timeouts
+        hits_per_page = 100 # Maximum density for high-speed synchronization
         
-        # Brand Sanitization Regex (Essential for AutoNorth Professionalism)
         def sanitize(text):
             if not text: return ""
             return re.sub(r'(?i)team\s*ford', 'AutoNorth', str(text))
 
-        async with httpx.AsyncClient(timeout=45.0) as client:
+        async with httpx.AsyncClient(timeout=120.0) as client:
             while len(all_vehicles) < limit:
-                # Direct API Simulation (The 'Shiftly' Methodology)
-                # We specifically look for USED vehicles as priority
+                # Expanded payload: Removes 'stock_type:USED' restriction to include NEW vehicles
+                # Expands filters to include Site IDs 34, 1, and 50 (Full TeamFord/GoAuto ecosystem)
                 payload = {
                     "requests": [
                         {
                             "indexName": "inventory",
-                            "params": f"aroundRadius=500000&facetFilters=%5B%5B%22stock_type%3AUSED%22%5D%5D&filters=craft_site_ids%3A34%20OR%20craft_site_ids%3A1%20OR%20craft_site_ids%3A50&hitsPerPage={hits_per_page}&page={page}"
+                            "params": f"aroundRadius=500000&filters=craft_site_ids%3A34%20OR%20craft_site_ids%3A1%20OR%20craft_site_ids%3A50&hitsPerPage={hits_per_page}&page={page}"
                         }
                     ]
                 }
@@ -58,21 +58,18 @@ async def scrape_teamford_inventory(limit: int = 1000) -> List[Dict[str, Any]]:
                 nb_hits = result.get("nbHits", 0)
                 
                 if not hits:
-                    logger.info("Reached end of visual hydration stream.")
                     break
 
                 for h in hits:
-                    # Mathematical Field Mapping (Preventing Heading Mismatch)
-                    # We prioritize the calculated sell_price but fall back to retail to ensure data logic
+                    # Mathematical Field Mapping (Heading Alignment)
                     price = float(h.get("pricing", {}).get("sell_price", 0))
                     if not price: price = float(h.get("list_price", 0))
                     if not price: price = float(h.get("retail_price", 0))
 
-                    # Image Array Extraction (Ensures gallery consistency)
                     images = [img.get("url") for img in h.get("images", []) if img.get("url")]
                     if not images and h.get("thumbnail_url"): images = [h.get("thumbnail_url")]
 
-                    # Deep Metadata Construction
+                    # Deep Metadata Construction (Featured & Specials)
                     all_vehicles.append({
                         "id": str(h.get("vin") or h.get("stock_number")),
                         "title": sanitize(f"{h.get('year')} {h.get('make')} {h.get('model')} {h.get('trim', '')}".strip()),
@@ -91,31 +88,29 @@ async def scrape_teamford_inventory(limit: int = 1000) -> List[Dict[str, Any]]:
                         "drivetrain": h.get("drive_type_name") or h.get("drivetrain"),
                         "vin": h.get("vin"),
                         "stock_number": h.get("stock_number"),
-                        "description": sanitize(h.get("comments", f"Certified premium {h.get('make')} {h.get('model')} available now at AutoNorth Motors.")),
+                        "description": sanitize(h.get("comments", f"Certified premium {h.get('make')} {h.get('model')} available at AutoNorth Motors.")),
                         "features": [sanitize(f.get("name")) for f in h.get("features", []) if f.get("name")],
                         "images": images,
                         "status": "available",
                         "source": "teamford_sync",
-                        "featured": False,
+                        "featured": h.get("is_featured", False), # NEW: Capture Featured status
+                        "is_on_special": h.get("is_on_special", False), # NEW: Capture Special status
                         "source_url": f"https://www.teamford.ca/vehicles/{h.get('slug')}" if h.get('slug') else ""
                     })
 
-                # Termination check for recursive loop
-                if len(all_vehicles) >= nb_hits or page >= 20: 
+                # Termination check
+                if len(all_vehicles) >= nb_hits or page >= 30: 
                     break
                     
                 page += 1
-                await asyncio.sleep(0.5) # Gentle wait-for-load spacer to avoid anti-bot triggers
+                await asyncio.sleep(0.3)
 
-        logger.info(f"Visual Extraction Success: Merged {len(all_vehicles)} verified units. Source verified total: {nb_hits}.")
+        logger.info(f"Ultimate Sync Success: Merged {len(all_vehicles)} units (New, Used, Featured, Specials). Source total: {nb_hits}.")
         return all_vehicles
 
     except Exception as e:
-        logger.error(f"Visual Extraction Engine Failure: {str(e)}")
+        logger.error(f"Ultimate Sync Engine Failure: {str(e)}")
         return []
 
 async def scrape_teamford_listing(url: str) -> Optional[Dict[str, Any]]:
-    """
-    Maintains backend compatibility for individual imports.
-    """
     return None
