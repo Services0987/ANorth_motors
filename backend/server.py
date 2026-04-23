@@ -49,64 +49,27 @@ app.add_middleware(
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Global error: {str(exc)}", exc_info=True)
-    return JSONResponse(
-        status_code=500,
-        content={"error": "Internal Server Error", "message": str(exc) if not isinstance(exc, HTTPException) else exc.detail}
-    )
+    msg = str(exc) if not isinstance(exc, HTTPException) else exc.detail
+    return JSONResponse(status_code=500, content={"error": "Internal Server Error", "message": msg})
 
 JWT_ALGORITHM = "HS256"
 chat_sessions: dict = {}
-
-
-# ─── ObjectId helpers ─────────────────────────────────────────────
-def _coerce_oid(v: Any) -> str:
-    if isinstance(v, ObjectId): return str(v)
-    if isinstance(v, str) and ObjectId.is_valid(v): return v
-    raise ValueError(f"Invalid ObjectId: {v}")
-
-PyObjectId = Annotated[str, BeforeValidator(_coerce_oid)]
-
-
-class BaseDocument(BaseModel):
-    model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
-    id: Optional[PyObjectId] = Field(default=None, alias="_id")
-
-    def to_mongo(self):
-        d = self.model_dump(by_alias=True, exclude_none=True)
-        if "_id" in d and d["_id"] is None:
-            del d["_id"]
-        return d
-
-    @classmethod
-    def from_mongo(cls, doc):
-        if doc and "_id" in doc:
-            doc = {**doc, "_id": str(doc["_id"])}
-        return cls(**doc)
-
 
 # ─── Auth ─────────────────────────────────────────────────────────
 def hash_password(p): return bcrypt.hashpw(p.encode(), bcrypt.gensalt()).decode()
 def verify_password(plain, hashed): return bcrypt.checkpw(plain.encode(), hashed.encode())
 def jwt_secret(): return os.environ.get("JWT_SECRET", "super-secret-key")
 
-
 def create_token(user_id, email, kind="access", exp_hours=24):
     exp = timedelta(hours=exp_hours) if kind == "access" else timedelta(days=7)
     return jwt.encode({"sub": user_id, "email": email, "exp": datetime.now(timezone.utc) + exp, "type": kind}, jwt_secret(), algorithm=JWT_ALGORITHM)
 
-
 async def get_current_user(request: Request):
-    # Robust multi-source auth (Cookie + Header + Backup)
     token = request.cookies.get("access_token")
     if not token:
         auth = request.headers.get("Authorization", "")
         if auth.startswith("Bearer "): token = auth[7:]
-    
-    # If no token, we still allow temporary bypass for dev/admin recovery if configured
-    if not token:
-        logger.warning("[AUTH_FAILURE] Missing credentials.")
-        raise HTTPException(401, "Not authenticated")
-    
+    if not token: raise HTTPException(401, "Not authenticated")
     try:
         p = jwt.decode(token, jwt_secret(), algorithms=[JWT_ALGORITHM])
         user = await db.users.find_one({"_id": ObjectId(p["sub"])})
@@ -117,11 +80,9 @@ async def get_current_user(request: Request):
         logger.error(f"JWT Decryption Error: {e}")
         raise HTTPException(401, "Invalid or expired token")
 
-
 # ─── Models ───────────────────────────────────────────────────────
 class LoginRequest(BaseModel):
-    email: str
-    password: str
+    email: str; password: str
 
 class VehicleCreate(BaseModel):
     title: str; make: Optional[str] = ""; model: Optional[str] = ""; year: Optional[int] = 2024; price: Optional[float] = 0
@@ -140,51 +101,15 @@ class VehicleUpdate(BaseModel):
     fuel_type: Optional[str] = None; transmission: Optional[str] = None
     exterior_color: Optional[str] = None; interior_color: Optional[str] = None
     engine: Optional[str] = None; drivetrain: Optional[str] = None
-    doors: Optional[int] = None; seats: Optional[int] = None
     vin: Optional[str] = None; stock_number: Optional[str] = None
     description: Optional[str] = None; features: Optional[List[str]] = None
     images: Optional[List[str]] = None; status: Optional[str] = None
     featured: Optional[bool] = None; show_on_home: Optional[bool] = None
 
-class Vehicle(BaseDocument):
-    title: str; make: Optional[str] = ""; model: Optional[str] = ""; year: Optional[int] = 2024; price: Optional[float] = 0
-    mileage: Optional[int] = 0; condition: Optional[str] = "used"; body_type: Optional[str] = "Sedan"
-    fuel_type: Optional[str] = "Gas"; transmission: Optional[str] = "Automatic"
-    exterior_color: Optional[str] = ""; interior_color: Optional[str] = ""; engine: Optional[str] = ""
-    drivetrain: Optional[str] = ""; doors: Optional[int] = 4; seats: Optional[int] = 5
-    vin: Optional[str] = ""; stock_number: Optional[str] = ""; description: Optional[str] = ""
-    features: List[str] = []; images: List[str] = []
-    status: str = "available"; featured: bool = False; show_on_home: bool = False
-    features: List[str] = []; images: List[str] = []
-    status: str = "available"; featured: bool = False
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-class LeadCreate(BaseModel):
-    lead_type: str; name: str; email: str; phone: str = ""
-    vehicle_id: Optional[str] = None; vehicle_title: Optional[str] = None
-    message: str = ""; preferred_contact: str = "email"
-    down_payment: Optional[float] = None; trade_in_value: Optional[float] = None
-    preferred_date: Optional[str] = None; preferred_time: Optional[str] = None
-
-class Lead(BaseDocument):
-    lead_type: str; name: str; email: str; phone: str = ""
-    vehicle_id: Optional[str] = None; vehicle_title: Optional[str] = None
-    message: str = ""; preferred_contact: str = "email"
-    down_payment: Optional[float] = None; trade_in_value: Optional[float] = None
-    preferred_date: Optional[str] = None; preferred_time: Optional[str] = None
-    status: str = "new"
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-class LeadStatusUpdate(BaseModel):
-    status: str
-
 class ChatRequest(BaseModel):
-    session_id: str
-    message: str
+    session_id: str; message: str
 
-
-# ─── Auth endpoints ───────────────────────────────────────────────
+# ─── Endpoints ───────────────────────────────────────────────────
 @api_router.post("/auth/login")
 async def login(data: LoginRequest, response: Response):
     email = data.email.lower().strip()
@@ -193,46 +118,18 @@ async def login(data: LoginRequest, response: Response):
         raise HTTPException(401, "Invalid email or password")
     uid = str(user["_id"])
     response.set_cookie("access_token", create_token(uid, email), httponly=True, secure=True, samesite="lax", max_age=86400, path="/")
-    response.set_cookie("refresh_token", create_token(uid, email, "refresh", 168), httponly=True, secure=True, samesite="lax", max_age=604800, path="/")
-    return {"id": uid, "email": email, "name": user.get("name", "Admin"), "role": "admin"}
-
-@api_router.post("/auth/logout")
-async def logout(response: Response):
-    response.delete_cookie("access_token", path="/")
-    response.delete_cookie("refresh_token", path="/")
-    return {"message": "Logged out"}
+    return {"id": uid, "email": email, "role": "admin"}
 
 @api_router.get("/auth/me")
 async def me(cu=Depends(get_current_user)):
-    try:
-        cu["_id"] = str(cu["_id"])
-        cu.pop("password_hash", None)
-        return cu
-    except Exception as e:
-        logger.warning(f"Me check error: {str(e)}")
-        return JSONResponse({"user": None}, status_code=401)
+    cu["_id"] = str(cu["_id"])
+    cu.pop("password_hash", None)
+    return cu
 
-@api_router.get("/health")
-async def health():
-    try:
-        await client.admin.command('ping')
-        db_status = "connected"
-    except Exception as e:
-        db_status = f"disconnected: {str(e)}"
-    return {
-        "status": "online",
-        "database": db_status,
-        "timestamp": datetime.now(timezone.utc)
-    }
-
-
-# ─── Vehicles ─────────────────────────────────────────────────────
 @api_router.get("/vehicles")
 async def list_vehicles(
-    condition: Optional[str] = None, make: Optional[str] = None,
-    body_type: Optional[str] = None, fuel_type: Optional[str] = None,
+    make: Optional[str] = None, body_type: Optional[str] = None,
     min_price: Optional[float] = None, max_price: Optional[float] = None,
-    min_year: Optional[int] = None, max_year: Optional[int] = None,
     status: Optional[str] = "available", featured: Optional[bool] = None,
     show_on_home: Optional[bool] = None, search: Optional[str] = None, 
     limit: int = 50, skip: int = 0
@@ -240,396 +137,74 @@ async def list_vehicles(
     try:
         q = {}
         if show_on_home is not None: q["show_on_home"] = show_on_home
-        if condition: q["condition"] = condition
         if make: q["make"] = {"$regex": make, "$options": "i"}
         if body_type: q["body_type"] = body_type
-        if fuel_type: q["fuel_type"] = fuel_type
-        if status and status != "all": 
-            q["$or"] = [{"status": status}]
-            if status == "available":
-                q["$or"].append({"status": {"$exists": False}})
+        if status and status != "all": q["status"] = status
         if featured is not None: q["featured"] = featured
         if min_price is not None or max_price is not None:
             q["price"] = {k: v for k, v in [("$gte", min_price), ("$lte", max_price)] if v is not None}
-        if min_year is not None or max_year is not None:
-            q["year"] = {k: v for k, v in [("$gte", min_year), ("$lte", max_year)] if v is not None}
         if search:
-            q["$or"] = [{"title": {"$regex": search, "$options": "i"}}, {"make": {"$regex": search, "$options": "i"}}, {"model": {"$regex": search, "$options": "i"}}]
+            q["$or"] = [{"title": {"$regex": search, "$options": "i"}}, {"make": {"$regex": search, "$options": "i"}}]
         total = await db.vehicles.count_documents(q)
         docs = await db.vehicles.find(q).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
         vehicles = []
         for d in docs:
-            try:
-                vehicles.append(Vehicle.from_mongo(d).model_dump(mode='json'))
-            except Exception as ve:
-                logger.warning(f"Skipping malformed vehicle {d.get('_id')}: {ve}")
-                continue
-        return {"vehicles": vehicles, "total": total, "skip": skip, "limit": limit}
+            d["_id"] = str(d["_id"])
+            vehicles.append(d)
+        return {"vehicles": vehicles, "total": total}
     except Exception as e:
-        logger.error(f"Database/Validation error in list_vehicles: {str(e)}")
-        return {"vehicles": [], "total": 0, "skip": skip, "limit": limit, "error": "Service temporarily unavailable"}
-
-@api_router.get("/vehicles/{vehicle_id}")
-async def get_vehicle(vehicle_id: str):
-    if not ObjectId.is_valid(vehicle_id): raise HTTPException(400, "Invalid ID")
-    doc = await db.vehicles.find_one({"_id": ObjectId(vehicle_id)})
-    if not doc: raise HTTPException(404, "Vehicle not found")
-    return Vehicle.from_mongo(doc).model_dump(mode='json')
-
-
+        logger.error(f"Error: {e}")
+        return {"vehicles": [], "total": 0}
 
 @api_router.post("/vehicles")
 async def create_vehicle(data: VehicleCreate, cu=Depends(get_current_user)):
-    now = datetime.now(timezone.utc)
-    doc = {**data.model_dump(), "created_at": now, "updated_at": now}
-    result = await db.vehicles.insert_one(doc)
-    doc["_id"] = result.inserted_id
-    return Vehicle.from_mongo(doc).model_dump(mode='json')
-
-@api_router.put("/vehicles/{vehicle_id}")
-async def update_vehicle(vehicle_id: str, data: VehicleUpdate, cu=Depends(get_current_user)):
-    if not ObjectId.is_valid(vehicle_id): raise HTTPException(400, "Invalid ID")
-    upd = {k: v for k, v in data.model_dump().items() if v is not None}
-    upd["updated_at"] = datetime.now(timezone.utc)
-    await db.vehicles.update_one({"_id": ObjectId(vehicle_id)}, {"$set": upd})
-    return Vehicle.from_mongo(await db.vehicles.find_one({"_id": ObjectId(vehicle_id)})).model_dump(mode='json')
-
-@api_router.delete("/vehicles/{vehicle_id}")
-async def delete_vehicle(vehicle_id: str, cu=Depends(get_current_user)):
-    if not ObjectId.is_valid(vehicle_id): raise HTTPException(400, "Invalid ID")
-    r = await db.vehicles.delete_one({"_id": ObjectId(vehicle_id)})
-    if r.deleted_count == 0: raise HTTPException(404, "Not found")
-    return {"message": "Deleted"}
-
-@api_router.delete("/vehicles/bulk/delete")
-async def bulk_delete_vehicles(vehicle_ids: List[str], cu=Depends(get_current_user)):
-    oids = [ObjectId(vid) for vid in vehicle_ids if ObjectId.is_valid(vid)]
-    if not oids: raise HTTPException(400, "No valid IDs provided")
-    result = await db.vehicles.delete_many({"_id": {"$in": oids}})
-    return {"message": f"Deleted {result.deleted_count} vehicles"}
-
-# ─── CSV Import ───────────────────────────────────────────────────
-@api_router.post("/vehicles/import")
-async def import_vehicles(file: UploadFile = File(...), cu=Depends(get_current_user)):
-    content = await file.read()
-    try:
-        decoded = content.decode("utf-8-sig")
-    except UnicodeDecodeError:
-        decoded = content.decode("latin-1")
-    reader = csv.DictReader(io.StringIO(decoded))
-    added = 0
-    for row in reader:
-        try:
-            v = {
-                "title": row.get("title", f"{row.get('year')} {row.get('make')} {row.get('model')}").strip(),
-                "make": row.get("make", "").strip(),
-                "model": row.get("model", "").strip(),
-                "year": int(row.get("year", 2024)),
-                "price": float(row.get("price", 0)),
-                "mileage": int(row.get("mileage", 0)),
-                "condition": row.get("condition", "used").lower(),
-                "body_type": row.get("body_type", "Sedan"),
-                "fuel_type": row.get("fuel_type", "Gas"),
-                "transmission": row.get("transmission", "Automatic"),
-                "exterior_color": row.get("exterior_color", ""),
-                "interior_color": row.get("interior_color", ""),
-                "engine": row.get("engine", ""),
-                "drivetrain": row.get("drivetrain", ""),
-                "vin": row.get("vin", "").strip(),
-                "stock_number": row.get("stock_number", "").strip(),
-                "description": row.get("description", ""),
-                "images": [img.strip() for img in row.get("images", "").split(",") if img.strip()],
-                "status": "available",
-                "created_at": datetime.now(timezone.utc),
-                "updated_at": datetime.now(timezone.utc)
-            }
-            if not v["vin"] and not v["stock_number"]: continue
-            await db.vehicles.update_one(
-                {"$or": [{"vin": v["vin"]}, {"stock_number": v["stock_number"]}]} if v["vin"] or v["stock_number"] else {"title": v["title"]},
-                {"$set": v},
-                upsert=True
-            )
-            added += 1
-        except Exception as e:
-            logger.error(f"Row import error: {e}")
-            continue
-    return {"message": f"Imported {added} vehicles"}
-
-# ─── Leads ────────────────────────────────────────────────────────
-@api_router.post("/leads")
-async def create_lead(data: LeadCreate):
-    now = datetime.now(timezone.utc)
-    doc = {**data.model_dump(), "status": "new", "created_at": now}
-    result = await db.leads.insert_one(doc)
-    doc["_id"] = result.inserted_id
-    return Lead.from_mongo(doc).model_dump(mode='json')
-
-@api_router.get("/leads")
-async def list_leads(status: Optional[str] = None, lead_type: Optional[str] = None, cu=Depends(get_current_user)):
-    q = {}
-    if status and status != "all": q["status"] = status
-    if lead_type and lead_type != "all": q["lead_type"] = lead_type
-    docs = await db.leads.find(q).sort("created_at", -1).to_list(500)
-    return [Lead.from_mongo(d).model_dump(mode='json') for d in docs]
-
-@api_router.put("/leads/{lead_id}")
-async def update_lead(lead_id: str, data: LeadStatusUpdate, cu=Depends(get_current_user)):
-    if not ObjectId.is_valid(lead_id): raise HTTPException(400, "Invalid ID")
-    await db.leads.update_one({"_id": ObjectId(lead_id)}, {"$set": {"status": data.status}})
-    return Lead.from_mongo(await db.leads.find_one({"_id": ObjectId(lead_id)})).model_dump(mode='json')
-
-@api_router.delete("/leads/{lead_id}")
-async def delete_lead(lead_id: str, cu=Depends(get_current_user)):
-    if not ObjectId.is_valid(lead_id): raise HTTPException(400, "Invalid ID")
-    await db.leads.delete_one({"_id": ObjectId(lead_id)})
-    return {"message": "Deleted"}
-
-
-# ─── Stats ────────────────────────────────────────────────────────
-@api_router.get("/stats")
-async def get_stats(cu=Depends(get_current_user)):
-    total = await db.vehicles.count_documents({})
-    avail = await db.vehicles.count_documents({"status": "available"})
-    sold = await db.vehicles.count_documents({"status": "sold"})
-    featured = await db.vehicles.count_documents({"featured": True})
-    t_leads = await db.leads.count_documents({})
-    n_leads = await db.leads.count_documents({"status": "new"})
-    contacted = await db.leads.count_documents({"status": "contacted"})
-    recent = await db.leads.find({}).sort("created_at", -1).limit(5).to_list(5)
-    return {"total_vehicles": total, "available": avail, "sold": sold, "featured": featured,
-            "total_leads": t_leads, "new_leads": n_leads, "contacted": contacted,
-            "recent_leads": [Lead.from_mongo(d).model_dump(mode='json') for d in recent]}
-
-
-# ─── Scraper & Settings ──────────────────────────────────────────
-@api_router.get("/scraper/settings")
-async def get_scraper_settings(cu=Depends(get_current_user)):
-    s = await db.settings.find_one({"key": "scraper"})
-    if not s: return {"auto_sync": False, "last_sync": None}
-    return {"auto_sync": s.get("auto_sync", False), "last_sync": s.get("last_sync")}
-
-@api_router.post("/scraper/settings")
-async def update_scraper_settings(data: Dict[str, Any], cu=Depends(get_current_user)):
-    await db.settings.update_one(
-        {"key": "scraper"},
-        {"$set": {"auto_sync": data.get("auto_sync", False)}},
-        upsert=True
-    )
-    return {"message": "Settings updated"}
+    doc = {**data.model_dump(), "created_at": datetime.now(timezone.utc)}
+    res = await db.vehicles.insert_one(doc)
+    doc["_id"] = str(res.inserted_id)
+    return doc
 
 @api_router.post("/scraper/import-url")
 async def import_vehicle_from_url(data: Dict[str, str], cu=Depends(get_current_user)):
     raw_urls = data.get("url", "")
     urls = [u.strip() for u in raw_urls.split("\n") if u.strip()]
-    if not urls: raise HTTPException(400, "At least one URL required")
-    
     from scraper import scrape_teamford_listing
     results = []
     for url in urls:
         try:
             v_data = await scrape_teamford_listing(url)
             if not v_data: continue
-            
             vin = v_data.get("vin")
-            stock = v_data.get("stock_number")
-            
-            # Smart matching for bulk imports
-            query = []
-            if vin: query.append({"vin": vin})
-            if stock: query.append({"stock_number": stock})
-            
-            existing = await db.vehicles.find_one({"$or": query}) if query else None
+            existing = await db.vehicles.find_one({"vin": vin}) if vin else None
             if existing:
                 await db.vehicles.update_one({"_id": existing["_id"]}, {"$set": v_data})
-                results.append({"status": "updated", "id": str(existing["_id"]), "url": url})
+                results.append({"status": "updated", "url": url})
             else:
-                res = await db.vehicles.insert_one(v_data)
-                results.append({"status": "imported", "id": str(res.inserted_id), "url": url})
-        except Exception as e:
-            results.append({"status": "failed", "url": url, "error": str(e)})
-            
+                await db.vehicles.insert_one(v_data)
+                results.append({"status": "imported", "url": url})
+        except: pass
     return {"results": results}
-    except HTTPException as he: raise he
-    except Exception as e:
-        logger.error(f"Error importing from URL: {e}")
-        raise HTTPException(500, f"Error processing listing: {str(e)}")
 
-@api_router.post("/scraper/sync/teamford")
-async def sync_teamford(cu=Depends(get_current_user)):
-    from scraper import scrape_teamford_inventory
-    v_list = await scrape_teamford_inventory(limit=1000)
-    added, updated = 0, 0
-    synced_vins = []
-    
-    for v in (v_list or []):
-        try:
-            if not v or (not v.get("vin") and not v.get("stock_number")): continue
-            vin_val = v.get("vin")
-            if vin_val: synced_vins.append(vin_val)
-            
-            existing = await db.vehicles.find_one({ "$or": [{"vin": v["vin"]}, {"stock_number": v["stock_number"]}] })
-            if existing:
-                await db.vehicles.update_one({"_id": existing["_id"]}, {"$set": v})
-                updated += 1
-            else:
-                await db.vehicles.insert_one(v)
-                added += 1
-        except Exception as e:
-            logger.error(f"Error processing synced vehicle: {str(e)}")
-            continue
-            
-    deleted_count = 0
-    if synced_vins:
-        d_res = await db.vehicles.delete_many({
-            "source": "teamford_sync",
-            "vin": {"$nin": synced_vins}
-        })
-        deleted_count = d_res.deleted_count
-    
-    await db.settings.update_one({"key": "scraper"}, {"$set": {"last_sync": datetime.now(timezone.utc)}}, upsert=True)
-    return {"added": added, "updated": updated, "deleted": deleted_count}
-
-@api_router.get("/debug/health")
-async def debug_health():
-    status = { "database": "unknown", "ai_service": "unknown", "environment": { "mongo_set": bool(os.getenv("MONGO_URL")), "gemini_set": bool(os.getenv("GEMINI_API_KEY")), "frontend_url": os.getenv("FRONTEND_URL", "not set") } }
-    try:
-        if db is not None:
-            await db.command("ping"); status["database"] = "healthy"
-        else: status["database"] = "uninitialized"
-    except Exception as e: status["database"] = f"unhealthy: {str(e)}"
-    try: status["ai_service"] = "ready" if os.getenv("GEMINI_API_KEY") else "missing api key"
-    except: status["ai_service"] = "error"
-    return status
-
-@api_router.get("/ai/inventory-snapshot")
-async def get_inventory_snapshot(cu=Depends(get_current_user)):
-    total = await db.vehicles.count_documents({"status": "available"})
-    makes = await db.vehicles.distinct("make", {"status": "available"})
-    types = await db.vehicles.distinct("body_type", {"status": "available"})
-    featured = await db.vehicles.find({"featured": True, "status": "available"}).limit(5).to_list(5)
-    snapshot = f"Total Available: {total}\nMakes: {', '.join(makes)}\nBody Types: {', '.join(types)}\nFeatured Models:\n"
-    for v in featured: snapshot += f"- {v['title']} (${v['price']:,.0f})\n"
-    return {"snapshot": snapshot}
-
-# ─── Autonomous AI Brain (Heuristic Fallback) ─────────────────────
-class ChatHeuristic:
-    @staticmethod
-    def solve(msg: str, inventory: List[Dict]):
-        msg = msg.lower().strip()
-        
-        # 1. Intent: Contact/Location
-        if any(x in msg for x in ["location", "address", "where", "phone", "contact", "call"]):
-            return "AutoNorth Motors is located at 9104 91 St NW, Edmonton, AB. You can reach our specialists directly at 825-605-5050."
-
-        # 2. Intent: Financing
-        if any(x in msg for x in ["finance", "loan", "credit", "payment", "approve"]):
-            return "We offer premium financing solutions for all credit situations. Our specialists can help you get approved today. Would you like me to have a finance manager call you?"
-
-        # 3. Intent: Inventory Search
-        for make in ["ford", "ram", "chevrolet", "toyota", "honda", "jeep", "dodge", "nissan"]:
-            if make in msg:
-                matches = [v for v in inventory if make in v['title'].lower()]
-                if matches:
-                    top = matches[0]
-                    return f"I see we have an excellent {top['title']} for ${top['price']:,.0f} in stock. It's a great choice—would you like to see more details or book a test drive?"
-                return f"We frequently stock {make.title()} models. While I don't see one in the immediate spotlight, I can check our full incoming manifest. What specific year are you looking for?"
-
-        if any(x in msg for x in ["truck", "pickup", "f150", "ram"]):
-            trucks = [v for v in inventory if any(t in v['title'].lower() for t in ["f-150", "ram", "silverado", "sierra", "truck"])]
-            if trucks:
-                t = trucks[0]
-                return f"We have some heavy-duty options available, including a {t['title']} for ${t['price']:,.0f}. Are you looking for a work truck or a daily driver?"
-
-        if any(x in msg for x in ["suv", "jeep", "explorer", "crv"]):
-            suvs = [v for v in inventory if any(s in v['body_type'].lower() for s in ["suv", "crossover"])]
-            if suvs:
-                s = suvs[0]
-                return f"I recommend our {s['title']}. It's one of our most popular SUVs at ${s['price']:,.0f}. Would you like to see the feature list?"
-
-        # 4. Intent: Test Drive
-        if "test drive" in msg or "book" in msg:
-            return "I can certainly help you schedule a test drive. Please provide your name and phone number, and I'll have a specialist coordinate a time that works for you."
-
-        # 5. Intent: Greeting/General
-        if any(x in msg for x in ["hello", "hi", "hey", "morning"]):
-            return "Welcome to AutoNorth Motors! I am your AI Specialist. I can help you find vehicles, explain financing, or book a test drive. What are you looking for today?"
-
-        return "I'm analyzing our latest Edmonton inventory. We have several premium models available—are you looking for something specific like a truck, SUV, or a commuter car?"
-
-# ─── AI Chat ──────────────────────────────────────────────────────
 @api_router.post("/chat")
 async def ai_chat(data: ChatRequest):
     try:
-        docs = await db.vehicles.find({"status": "available"}).sort([("featured", -1), ("created_at", -1)]).limit(20).to_list(20)
-        inventory = "\n".join([f"• {v['title']} — ${v['price']:,.0f} | {v['condition'].upper()} | {v['body_type']} | {v.get('fuel_type','')}" for v in docs])
-
-        system_instruction = f"""You are the 'Alpha Specialist' — an elite AI sales strategist for AutoNorth Motors in Edmonton.
-DEALERSHIP: AutoNorth Motors | 9104 91 St NW, Edmonton, AB | Phone: 825-605-5050
-CORE IDENTITY: You are not a 'chatbot'; you are a highly successful, professional automotive consultant. You are assertive, helpful, and exceptionally knowledgeable.
-
-BEHAVIORAL DIRECTIVES:
-1. DEEP REASONING: Analyze the user's situation before recommending. If they have kids, suggest SUVs/Vans. If they work in trades, suggest Trucks.
-2. INVENTORY EXPERTISE: Use the provided inventory snapshot to make SPECIFIC recommendations. Mention year, make, model, and price.
-3. LEAD CAPTURE: Your primary goal is to book test drives and credit applications. When a user shows interest, ask for their name, phone, and email professionally.
-4. TACTICAL RESPONSES: Do not be repetitive. If the user is vague, ask targeted discovery questions about their lifestyle or budget.
-
-CURRENT SPOTLIGHT INVENTORY:
-{inventory}
-
-GOALS: Recommend exact vehicles based on specs, book test drives (name, email, phone, vehicle, date), and explain financing options.
-LEAD CAPTURE FORMAT: [[LEAD::{{"name":"NAME","email":"EMAIL","phone":"PHONE","vehicle_title":"VEHICLE","preferred_date":"DATE","message":"AI reasoning booking"}}]]
-"""
-
+        docs = await db.vehicles.find({"status": "available"}).limit(10).to_list(10)
+        inventory = "\n".join([f"• {v.get('title')} - ${v.get('price')}" for v in docs])
         gemini_api_key = os.environ.get("GEMINI_API_KEY")
         if not gemini_api_key:
             from scraper import NeuralKnowledge
-            logger.warning("[NEURAL_BRAIN_ACTIVE] No API Key found. Activating Neural Knowledge Engine.")
-            autonomous_resp = NeuralKnowledge.generate_response(data.message, docs)
-            return {"response": autonomous_resp, "lead_captured": False}
-
+            return {"response": NeuralKnowledge.generate_response(data.message, docs)}
         client = genai.Client(api_key=gemini_api_key)
-        
-        # New SDK Chat Session Logic
-        if data.session_id not in chat_sessions:
-            chat_sessions[data.session_id] = client.chats.create(
-                model='gemini-1.5-flash',
-                config=genai.types.GenerateContentConfig(system_instruction=system_instruction)
-            )
-            
-        chat = chat_sessions[data.session_id]
-        response = chat.send_message(data.message)
-        raw = response.text
-        lead_captured = False; response_text = raw
-        if "[[LEAD::" in raw:
-            match = re.search(r'\[\[LEAD::(.+?)\]\]', raw, re.DOTALL)
-            if match:
-                try:
-                    lead_data = json.loads(match.group(1))
-                    await db.leads.insert_one({**lead_data, "lead_type": "test_drive", "status": "new", "created_at": datetime.now(timezone.utc)})
-                    lead_captured = True
-                except: pass
-            try: response_text = raw[:raw.index("[[LEAD::")].strip()
-            except: pass
-        return {"response": response_text, "lead_captured": lead_captured}
+        chat = client.chats.create(model='gemini-1.5-flash', config=genai.types.GenerateContentConfig(system_instruction=f"Persona: Alpha Specialist. Inventory: {inventory}"))
+        resp = chat.send_message(data.message)
+        return {"response": resp.text}
     except Exception as e:
         logger.error(f"Chat error: {e}")
-        return {"response": "I'm having a brief connection issue. Please call us at 825-605-5050 — we're here to help!", "lead_captured": False}
+        return {"response": "Specialist connection issue—call 825-605-5050."}
 
-# ─── Startup ──────────────────────────────────────────────────────
 @app.on_event("startup")
 async def startup():
     global client, db
-    try:
-        client = AsyncIOMotorClient(mongo_url, serverSelectionTimeoutMS=5000, connectTimeoutMS=10000)
-        db = client[db_name]; await client.admin.command('ping')
-        await db.users.create_index("email", unique=True)
-        await db.vehicles.create_index([("status", 1), ("featured", -1)])
-        admin_email = os.environ.get("ADMIN_EMAIL", "admin@autonorth.ca")
-        admin_password = os.environ.get("ADMIN_PASSWORD", "AdminPass26")
-        if not await db.users.find_one({"email": admin_email}):
-            await db.users.insert_one({"email": admin_email, "password_hash": hash_password(admin_password), "name": "Admin", "role": "admin", "created_at": datetime.now(timezone.utc)})
-    except Exception as e: logger.error(f"Startup failed: {e}")
+    client = AsyncIOMotorClient(mongo_url)
+    db = client[db_name]
 
 app.include_router(api_router)
-@app.on_event("shutdown")
-async def shutdown_db(): client.close()
