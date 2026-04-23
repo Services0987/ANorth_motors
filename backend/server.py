@@ -494,6 +494,51 @@ async def get_inventory_snapshot(cu=Depends(get_current_user)):
     for v in featured: snapshot += f"- {v['title']} (${v['price']:,.0f})\n"
     return {"snapshot": snapshot}
 
+# ─── Autonomous AI Brain (Heuristic Fallback) ─────────────────────
+class ChatHeuristic:
+    @staticmethod
+    def solve(msg: str, inventory: List[Dict]):
+        msg = msg.lower().strip()
+        
+        # 1. Intent: Contact/Location
+        if any(x in msg for x in ["location", "address", "where", "phone", "contact", "call"]):
+            return "AutoNorth Motors is located at 9104 91 St NW, Edmonton, AB. You can reach our specialists directly at 825-605-5050."
+
+        # 2. Intent: Financing
+        if any(x in msg for x in ["finance", "loan", "credit", "payment", "approve"]):
+            return "We offer premium financing solutions for all credit situations. Our specialists can help you get approved today. Would you like me to have a finance manager call you?"
+
+        # 3. Intent: Inventory Search
+        for make in ["ford", "ram", "chevrolet", "toyota", "honda", "jeep", "dodge", "nissan"]:
+            if make in msg:
+                matches = [v for v in inventory if make in v['title'].lower()]
+                if matches:
+                    top = matches[0]
+                    return f"I see we have an excellent {top['title']} for ${top['price']:,.0f} in stock. It's a great choice—would you like to see more details or book a test drive?"
+                return f"We frequently stock {make.title()} models. While I don't see one in the immediate spotlight, I can check our full incoming manifest. What specific year are you looking for?"
+
+        if any(x in msg for x in ["truck", "pickup", "f150", "ram"]):
+            trucks = [v for v in inventory if any(t in v['title'].lower() for t in ["f-150", "ram", "silverado", "sierra", "truck"])]
+            if trucks:
+                t = trucks[0]
+                return f"We have some heavy-duty options available, including a {t['title']} for ${t['price']:,.0f}. Are you looking for a work truck or a daily driver?"
+
+        if any(x in msg for x in ["suv", "jeep", "explorer", "crv"]):
+            suvs = [v for v in inventory if any(s in v['body_type'].lower() for s in ["suv", "crossover"])]
+            if suvs:
+                s = suvs[0]
+                return f"I recommend our {s['title']}. It's one of our most popular SUVs at ${s['price']:,.0f}. Would you like to see the feature list?"
+
+        # 4. Intent: Test Drive
+        if "test drive" in msg or "book" in msg:
+            return "I can certainly help you schedule a test drive. Please provide your name and phone number, and I'll have a specialist coordinate a time that works for you."
+
+        # 5. Intent: Greeting/General
+        if any(x in msg for x in ["hello", "hi", "hey", "morning"]):
+            return "Welcome to AutoNorth Motors! I am your AI Specialist. I can help you find vehicles, explain financing, or book a test drive. What are you looking for today?"
+
+        return "I'm analyzing our latest Edmonton inventory. We have several premium models available—are you looking for something specific like a truck, SUV, or a commuter car?"
+
 # ─── AI Chat ──────────────────────────────────────────────────────
 @api_router.post("/chat")
 async def ai_chat(data: ChatRequest):
@@ -501,15 +546,17 @@ async def ai_chat(data: ChatRequest):
         docs = await db.vehicles.find({"status": "available"}).sort([("featured", -1), ("created_at", -1)]).limit(20).to_list(20)
         inventory = "\n".join([f"• {v['title']} — ${v['price']:,.0f} | {v['condition'].upper()} | {v['body_type']} | {v.get('fuel_type','')}" for v in docs])
 
-        system_instruction = f"""You are the 'AutoNorth Intelligence' — a sophisticated AI agent for AutoNorth Motors in Edmonton.
+        system_instruction = f"""You are the 'Alpha Specialist' — an elite AI sales strategist for AutoNorth Motors in Edmonton.
 DEALERSHIP: AutoNorth Motors | 9104 91 St NW, Edmonton, AB | Phone: 825-605-5050
-PERSONA: You are highly intelligent, analytical, and professional. You do not just answer questions; you analyze needs.
-BRAIN PROCESS:
-1. THINK: Contextualize the user's intent (Searching, Comparing, Booking, or Financing).
-2. REASON: Cross-reference with available inventory.
-3. EXECUTE: Provide a premium, helpful response.
+CORE IDENTITY: You are not a 'chatbot'; you are a highly successful, professional automotive consultant. You are assertive, helpful, and exceptionally knowledgeable.
 
-INVENTORY FOR REASONING:
+BEHAVIORAL DIRECTIVES:
+1. DEEP REASONING: Analyze the user's situation before recommending. If they have kids, suggest SUVs/Vans. If they work in trades, suggest Trucks.
+2. INVENTORY EXPERTISE: Use the provided inventory snapshot to make SPECIFIC recommendations. Mention year, make, model, and price.
+3. LEAD CAPTURE: Your primary goal is to book test drives and credit applications. When a user shows interest, ask for their name, phone, and email professionally.
+4. TACTICAL RESPONSES: Do not be repetitive. If the user is vague, ask targeted discovery questions about their lifestyle or budget.
+
+CURRENT SPOTLIGHT INVENTORY:
 {inventory}
 
 GOALS: Recommend exact vehicles based on specs, book test drives (name, email, phone, vehicle, date), and explain financing options.
@@ -518,10 +565,8 @@ LEAD CAPTURE FORMAT: [[LEAD::{{"name":"NAME","email":"EMAIL","phone":"PHONE","ve
 
         gemini_api_key = os.environ.get("GEMINI_API_KEY")
         if not gemini_api_key:
-            logger.warning("[AI_RESTRICTION] GEMINI_API_KEY is missing. AI Specialist restricted to safety fallbacks.")
-            msg = data.message.lower().strip()
-            if "truck" in msg: return {"response": "We have some stunning trucks in stock, like the Ford F-150. Would you like to see our full inventory?", "lead_captured": False}
-            return {"response": "Welcome to AutoNorth Motors! How can I help you find your next vehicle in Edmonton today?", "lead_captured": False}
+            logger.warning("[AI_RESTRICTION] API Key missing. Activating Autonomous Heuristic Brain.")
+            return {"response": ChatHeuristic.solve(data.message, docs), "lead_captured": False}
 
         client = genai.Client(api_key=gemini_api_key)
         
