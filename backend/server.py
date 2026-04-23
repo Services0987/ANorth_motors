@@ -124,14 +124,14 @@ class LoginRequest(BaseModel):
     password: str
 
 class VehicleCreate(BaseModel):
-    title: str; make: str; model: str; year: int; price: float
-    mileage: int = 0; condition: str = "used"; body_type: str = "Sedan"
-    fuel_type: str = "Gas"; transmission: str = "Automatic"
-    exterior_color: str = ""; interior_color: str = ""; engine: str = ""
-    drivetrain: str = ""; doors: int = 4; seats: int = 5
-    vin: str = ""; stock_number: str = ""; description: str = ""
+    title: str; make: Optional[str] = ""; model: Optional[str] = ""; year: Optional[int] = 2024; price: Optional[float] = 0
+    mileage: Optional[int] = 0; condition: Optional[str] = "used"; body_type: Optional[str] = "Sedan"
+    fuel_type: Optional[str] = "Gas"; transmission: Optional[str] = "Automatic"
+    exterior_color: Optional[str] = ""; interior_color: Optional[str] = ""; engine: Optional[str] = ""
+    drivetrain: Optional[str] = ""; doors: Optional[int] = 4; seats: Optional[int] = 5
+    vin: Optional[str] = ""; stock_number: Optional[str] = ""; description: Optional[str] = ""
     features: List[str] = []; images: List[str] = []
-    status: str = "available"; featured: bool = False
+    status: str = "available"; featured: bool = False; show_on_home: bool = False
 
 class VehicleUpdate(BaseModel):
     title: Optional[str] = None; make: Optional[str] = None; model: Optional[str] = None
@@ -144,15 +144,17 @@ class VehicleUpdate(BaseModel):
     vin: Optional[str] = None; stock_number: Optional[str] = None
     description: Optional[str] = None; features: Optional[List[str]] = None
     images: Optional[List[str]] = None; status: Optional[str] = None
-    featured: Optional[bool] = None
+    featured: Optional[bool] = None; show_on_home: Optional[bool] = None
 
 class Vehicle(BaseDocument):
-    title: str; make: str; model: str; year: int; price: float
-    mileage: int = 0; condition: str = "used"; body_type: str = "Sedan"
-    fuel_type: str = "Gas"; transmission: str = "Automatic"
-    exterior_color: str = ""; interior_color: str = ""; engine: str = ""
-    drivetrain: str = ""; doors: int = 4; seats: int = 5
-    vin: str = ""; stock_number: str = ""; description: str = ""
+    title: str; make: Optional[str] = ""; model: Optional[str] = ""; year: Optional[int] = 2024; price: Optional[float] = 0
+    mileage: Optional[int] = 0; condition: Optional[str] = "used"; body_type: Optional[str] = "Sedan"
+    fuel_type: Optional[str] = "Gas"; transmission: Optional[str] = "Automatic"
+    exterior_color: Optional[str] = ""; interior_color: Optional[str] = ""; engine: Optional[str] = ""
+    drivetrain: Optional[str] = ""; doors: Optional[int] = 4; seats: Optional[int] = 5
+    vin: Optional[str] = ""; stock_number: Optional[str] = ""; description: Optional[str] = ""
+    features: List[str] = []; images: List[str] = []
+    status: str = "available"; featured: bool = False; show_on_home: bool = False
     features: List[str] = []; images: List[str] = []
     status: str = "available"; featured: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -232,10 +234,12 @@ async def list_vehicles(
     min_price: Optional[float] = None, max_price: Optional[float] = None,
     min_year: Optional[int] = None, max_year: Optional[int] = None,
     status: Optional[str] = "available", featured: Optional[bool] = None,
-    search: Optional[str] = None, limit: int = 50, skip: int = 0
+    show_on_home: Optional[bool] = None, search: Optional[str] = None, 
+    limit: int = 50, skip: int = 0
 ):
     try:
         q = {}
+        if show_on_home is not None: q["show_on_home"] = show_on_home
         if condition: q["condition"] = condition
         if make: q["make"] = {"$regex": make, "$options": "i"}
         if body_type: q["body_type"] = body_type
@@ -415,28 +419,36 @@ async def update_scraper_settings(data: Dict[str, Any], cu=Depends(get_current_u
 
 @api_router.post("/scraper/import-url")
 async def import_vehicle_from_url(data: Dict[str, str], cu=Depends(get_current_user)):
-    url = data.get("url")
-    if not url: raise HTTPException(400, "URL required")
+    raw_urls = data.get("url", "")
+    urls = [u.strip() for u in raw_urls.split("\n") if u.strip()]
+    if not urls: raise HTTPException(400, "At least one URL required")
+    
     from scraper import scrape_teamford_listing
-    try:
-        v_data = await scrape_teamford_listing(url)
-        if not v_data: raise HTTPException(400, "Could not extract data from the provided URL")
-        
-        vin = v_data.get("vin")
-        stock = v_data.get("stock_number")
-        if not vin and not stock: raise HTTPException(400, "Incomplete vehicle data")
-
-        query = []
-        if vin: query.append({"vin": vin})
-        if stock: query.append({"stock_number": stock})
-        
-        existing = await db.vehicles.find_one({"$or": query})
-        if existing:
-            await db.vehicles.update_one({"_id": existing["_id"]}, {"$set": v_data})
-            return {"message": "Vehicle updated", "id": str(existing["_id"])}
-        
-        res = await db.vehicles.insert_one(v_data)
-        return {"message": "Vehicle imported", "id": str(res.inserted_id)}
+    results = []
+    for url in urls:
+        try:
+            v_data = await scrape_teamford_listing(url)
+            if not v_data: continue
+            
+            vin = v_data.get("vin")
+            stock = v_data.get("stock_number")
+            
+            # Smart matching for bulk imports
+            query = []
+            if vin: query.append({"vin": vin})
+            if stock: query.append({"stock_number": stock})
+            
+            existing = await db.vehicles.find_one({"$or": query}) if query else None
+            if existing:
+                await db.vehicles.update_one({"_id": existing["_id"]}, {"$set": v_data})
+                results.append({"status": "updated", "id": str(existing["_id"]), "url": url})
+            else:
+                res = await db.vehicles.insert_one(v_data)
+                results.append({"status": "imported", "id": str(res.inserted_id), "url": url})
+        except Exception as e:
+            results.append({"status": "failed", "url": url, "error": str(e)})
+            
+    return {"results": results}
     except HTTPException as he: raise he
     except Exception as e:
         logger.error(f"Error importing from URL: {e}")
