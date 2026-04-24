@@ -167,12 +167,42 @@ async def list_vehicles(
         logger.error(f"Error: {e}")
         return {"vehicles": [], "total": 0}
 
+@api_router.get("/vehicles/{vehicle_id}")
+async def get_vehicle(vehicle_id: str):
+    if not ObjectId.is_valid(vehicle_id): raise HTTPException(400, "Invalid ID")
+    doc = await db.vehicles.find_one({"_id": ObjectId(vehicle_id)})
+    if not doc: raise HTTPException(404, "Vehicle not found")
+    doc["_id"] = str(doc["_id"])
+    return doc
+
 @api_router.post("/vehicles")
 async def create_vehicle(data: VehicleCreate, cu=Depends(get_current_user)):
     doc = {**data.model_dump(), "created_at": datetime.now(timezone.utc)}
     res = await db.vehicles.insert_one(doc)
     doc["_id"] = str(res.inserted_id)
     return doc
+
+@api_router.put("/vehicles/{vehicle_id}")
+async def update_vehicle(vehicle_id: str, data: VehicleUpdate, cu=Depends(get_current_user)):
+    if not ObjectId.is_valid(vehicle_id): raise HTTPException(400, "Invalid ID")
+    upd = {k: v for k, v in data.model_dump().items() if v is not None}
+    await db.vehicles.update_one({"_id": ObjectId(vehicle_id)}, {"$set": upd})
+    doc = await db.vehicles.find_one({"_id": ObjectId(vehicle_id)})
+    doc["_id"] = str(doc["_id"])
+    return doc
+
+@api_router.delete("/vehicles/bulk/delete")
+async def bulk_delete_vehicles(vehicle_ids: List[str], cu=Depends(get_current_user)):
+    oids = [ObjectId(vid) for vid in vehicle_ids if ObjectId.is_valid(vid)]
+    if not oids: raise HTTPException(400, "No valid IDs")
+    await db.vehicles.delete_many({"_id": {"$in": oids}})
+    return {"message": "Deleted"}
+
+@api_router.delete("/vehicles/{vehicle_id}")
+async def delete_vehicle(vehicle_id: str, cu=Depends(get_current_user)):
+    if not ObjectId.is_valid(vehicle_id): raise HTTPException(400, "Invalid ID")
+    await db.vehicles.delete_one({"_id": ObjectId(vehicle_id)})
+    return {"message": "Deleted"}
 
 @api_router.post("/vehicles/import")
 async def import_vehicles(file: UploadFile = File(...), cu=Depends(get_current_user)):
@@ -182,10 +212,9 @@ async def import_vehicles(file: UploadFile = File(...), cu=Depends(get_current_u
     added = 0
     for row in reader:
         try:
-            # FLEXIBLE IMAGE PARSING: Split by multiple spaces, commas, or newlines
             raw_imgs = row.get("images", "")
-            # We use a regex that handles sequences of whitespace or newlines as delimiters
-            imgs = [img.strip() for img in re.split(r'[,\n\s]+', raw_imgs) if img.strip() and img.startswith("http")]
+            # ADVANCED PARSER: Handles spaces, commas, newlines, and multiple links in one cell
+            imgs = [img.strip() for img in re.split(r'[,\s\n]+', raw_imgs) if img.strip() and img.startswith("http")]
             
             v = {
                 "title": row.get("title", f"{row.get('year')} {row.get('make')} {row.get('model')}").strip(),
