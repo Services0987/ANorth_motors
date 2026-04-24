@@ -45,7 +45,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Global error handler to prevent HTML 500s
+# Global error handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Global error: {str(exc)}", exc_info=True)
@@ -126,6 +126,14 @@ async def me(cu=Depends(get_current_user)):
     cu.pop("password_hash", None)
     return cu
 
+@api_router.get("/stats")
+async def get_stats(cu=Depends(get_current_user)):
+    total = await db.vehicles.count_documents({})
+    avail = await db.vehicles.count_documents({"status": "available"})
+    featured = await db.vehicles.count_documents({"featured": True})
+    t_leads = await db.leads.count_documents({})
+    return {"total_vehicles": total, "available": avail, "featured": featured, "total_leads": t_leads}
+
 @api_router.get("/vehicles")
 async def list_vehicles(
     make: Optional[str] = None, body_type: Optional[str] = None,
@@ -162,6 +170,42 @@ async def create_vehicle(data: VehicleCreate, cu=Depends(get_current_user)):
     res = await db.vehicles.insert_one(doc)
     doc["_id"] = str(res.inserted_id)
     return doc
+
+@api_router.post("/vehicles/import")
+async def import_vehicles(file: UploadFile = File(...), cu=Depends(get_current_user)):
+    content = await file.read()
+    decoded = content.decode("utf-8-sig", errors="ignore")
+    reader = csv.DictReader(io.StringIO(decoded))
+    added = 0
+    for row in reader:
+        try:
+            # FLEXIBLE IMAGE PARSING: Split by space, comma, or newline
+            raw_imgs = row.get("images", "")
+            imgs = [img.strip() for img in re.split(r'[,\s\n]+', raw_imgs) if img.strip()]
+            
+            v = {
+                "title": row.get("title", "Untitled Vehicle"),
+                "vin": row.get("vin", "").strip(),
+                "stock_number": row.get("stock_number", "").strip(),
+                "price": float(row.get("price", 0)),
+                "images": imgs,
+                "status": "available",
+                "created_at": datetime.now(timezone.utc)
+            }
+            if not v["vin"] and not v["stock_number"]: continue
+            await db.vehicles.update_one(
+                {"$or": [{"vin": v["vin"]}, {"stock_number": v["stock_number"]}]},
+                {"$set": v},
+                upsert=True
+            )
+            added += 1
+        except Exception as e:
+            logger.error(f"CSV Row error: {e}")
+    return {"message": f"Imported {added} vehicles"}
+
+@api_router.get("/scraper/settings")
+async def get_scraper_settings(cu=Depends(get_current_user)):
+    return {"auto_sync": False, "last_sync": None}
 
 @api_router.post("/scraper/import-url")
 async def import_vehicle_from_url(data: Dict[str, str], cu=Depends(get_current_user)):
