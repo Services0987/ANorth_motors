@@ -109,6 +109,9 @@ class VehicleUpdate(BaseModel):
 class ChatRequest(BaseModel):
     session_id: str; message: str
 
+class LeadStatusUpdate(BaseModel):
+    status: str
+
 # ─── Endpoints ───────────────────────────────────────────────────
 @api_router.post("/auth/login")
 async def login(data: LoginRequest, response: Response):
@@ -131,8 +134,8 @@ async def get_stats(cu=Depends(get_current_user)):
     total = await db.vehicles.count_documents({})
     avail = await db.vehicles.count_documents({"status": "available"})
     featured = await db.vehicles.count_documents({"featured": True})
-    t_leads = await db.leads.count_documents({})
-    return {"total_vehicles": total, "available": avail, "featured": featured, "total_leads": t_leads}
+    t_leads = await db.leads.count_documents({}) if "leads" in (await db.list_collection_names()) else 0
+    return {"total_vehicles": total, "available": avail, "featured": featured, "total_leads": t_leads, "new_leads": 0}
 
 @api_router.get("/vehicles")
 async def list_vehicles(
@@ -179,15 +182,22 @@ async def import_vehicles(file: UploadFile = File(...), cu=Depends(get_current_u
     added = 0
     for row in reader:
         try:
-            # FLEXIBLE IMAGE PARSING: Split by space, comma, or newline
+            # FLEXIBLE IMAGE PARSING: Split by multiple spaces, commas, or newlines
             raw_imgs = row.get("images", "")
-            imgs = [img.strip() for img in re.split(r'[,\s\n]+', raw_imgs) if img.strip()]
+            # We use a regex that handles sequences of whitespace or newlines as delimiters
+            imgs = [img.strip() for img in re.split(r'[,\n\s]+', raw_imgs) if img.strip() and img.startswith("http")]
             
             v = {
-                "title": row.get("title", "Untitled Vehicle"),
+                "title": row.get("title", f"{row.get('year')} {row.get('make')} {row.get('model')}").strip(),
+                "make": row.get("make", "").strip(),
+                "model": row.get("model", "").strip(),
+                "year": int(row.get("year", 2024)),
+                "price": float(row.get("price", 0)),
+                "mileage": int(row.get("mileage", 0)),
+                "condition": row.get("condition", "used").lower(),
+                "body_type": row.get("body_type", "Sedan"),
                 "vin": row.get("vin", "").strip(),
                 "stock_number": row.get("stock_number", "").strip(),
-                "price": float(row.get("price", 0)),
                 "images": imgs,
                 "status": "available",
                 "created_at": datetime.now(timezone.utc)
@@ -202,6 +212,13 @@ async def import_vehicles(file: UploadFile = File(...), cu=Depends(get_current_u
         except Exception as e:
             logger.error(f"CSV Row error: {e}")
     return {"message": f"Imported {added} vehicles"}
+
+@api_router.get("/leads")
+async def list_leads(cu=Depends(get_current_user)):
+    if "leads" not in (await db.list_collection_names()): return []
+    docs = await db.leads.find({}).sort("created_at", -1).to_list(100)
+    for d in docs: d["_id"] = str(d["_id"])
+    return docs
 
 @api_router.get("/scraper/settings")
 async def get_scraper_settings(cu=Depends(get_current_user)):
