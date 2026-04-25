@@ -2,6 +2,11 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Phone, Mail, MapPin, Facebook, Instagram, Twitter } from 'lucide-react';
 
+const SAFE_ICON = (Icon, props = {}) => {
+  if (!Icon || (typeof Icon !== 'function' && typeof Icon !== 'object')) return null;
+  return <Icon {...props} />;
+};
+
 export default function Footer() {
   return (
     <footer className="bg-[#020202] border-t border-white/5 pt-20 pb-8">
@@ -23,7 +28,7 @@ export default function Footer() {
             <div className="flex gap-4">
               {[Facebook, Instagram, Twitter].map((Icon, i) => (
                 <a key={i} href="#" className="w-9 h-9 border border-white/10 flex items-center justify-center text-white/40 hover:text-[#D4AF37] hover:border-[#D4AF37]/40 transition-all duration-200">
-                  <Icon size={15} />
+                  {SAFE_ICON(Icon, { size: 15 })}
                 </a>
               ))}
             </div>
@@ -65,15 +70,15 @@ export default function Footer() {
             <h4 className="font-heading text-xs tracking-[0.2em] uppercase text-white/50 mb-6">Contact</h4>
             <ul className="space-y-4">
               <li className="flex items-start gap-3">
-                <MapPin size={15} className="text-[#D4AF37] mt-0.5 flex-shrink-0" />
+                {SAFE_ICON(MapPin, { size: 15, className: "text-[#D4AF37] mt-0.5 flex-shrink-0" })}
                 <span className="text-white/40 text-sm font-body">9104 91 St NW<br />Edmonton, AB T6C 3P6</span>
               </li>
               <li className="flex items-center gap-3">
-                <Phone size={15} className="text-[#D4AF37] flex-shrink-0" />
+                {SAFE_ICON(Phone, { size: 15, className: "text-[#D4AF37] flex-shrink-0" })}
                 <a href="tel:+18256055050" className="text-white/40 hover:text-white text-sm font-body transition-colors">825-605-5050</a>
               </li>
               <li className="flex items-center gap-3">
-                <Mail size={15} className="text-[#D4AF37] flex-shrink-0" />
+                {SAFE_ICON(Mail, { size: 15, className: "text-[#D4AF37] flex-shrink-0" })}
                 <a href="mailto:autonorthab@gmail.com" className="text-white/40 hover:text-white text-sm font-body transition-colors">autonorthab@gmail.com</a>
               </li>
             </ul>

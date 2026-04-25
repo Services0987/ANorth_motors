@@ -18,10 +18,13 @@ export default function AdminLogin() {
   const { login, user } = useAuth();
   const navigate = useNavigate();
 
-  if (user) {
-    navigate('/admin/dashboard', { replace: true });
-    return null;
-  }
+  React.useEffect(() => {
+    if (user) {
+      navigate('/admin/dashboard', { replace: true });
+    }
+  }, [user, navigate]);
+
+  if (user) return null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();

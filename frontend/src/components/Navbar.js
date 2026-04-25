@@ -4,6 +4,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, Phone } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
+const SAFE_ICON = (Icon, props = {}) => {
+  if (!Icon || (typeof Icon !== 'function' && typeof Icon !== 'object')) return null;
+  return <Icon {...props} />;
+};
+
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -62,7 +67,7 @@ export default function Navbar() {
 
           <div className="hidden md:flex items-center gap-4">
             <a href="tel:+18256055050" className="flex items-center gap-2 text-white/50 hover:text-white transition-colors text-xs font-body tracking-wider">
-              <Phone size={14} />
+              {SAFE_ICON(Phone, { size: 14 })}
               <span>825-605-5050</span>
             </a>
             {user ? (
@@ -85,7 +90,7 @@ export default function Navbar() {
             onClick={() => setMobileOpen(!mobileOpen)}
             data-testid="nav-mobile-toggle"
           >
-            {mobileOpen ? <X size={24} /> : <Menu size={24} />}
+            {mobileOpen ? SAFE_ICON(X, { size: 24 }) : SAFE_ICON(Menu, { size: 24 })}
           </button>
         </div>
       </div>

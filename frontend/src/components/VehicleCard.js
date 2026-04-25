@@ -5,6 +5,11 @@ import { Gauge, Fuel, Star } from 'lucide-react';
 
 const PLACEHOLDER = 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600&q=60';
 
+const SAFE_ICON = (Icon, props = {}) => {
+  if (!Icon || (typeof Icon !== 'function' && typeof Icon !== 'object')) return null;
+  return <Icon {...props} />;
+};
+
 export default function VehicleCard({ vehicle, index = 0 }) {
   const [hovered, setHovered] = useState(false);
   const [glare, setGlare] = useState({ x: 50, y: 50 });
@@ -136,7 +141,7 @@ export default function VehicleCard({ vehicle, index = 0 }) {
               </motion.span>
               {vehicle.featured && (
                 <span className="px-3 py-1 text-[9px] font-heading tracking-[0.15em] uppercase bg-white/10 backdrop-blur-md text-white border border-white/20 flex items-center gap-1.5 shadow-xl">
-                  <Star size={8} fill="currentColor" className="text-[#D4AF37]" /> Exclusive
+                  {SAFE_ICON(Star, { size: 8, fill: "currentColor", className: "text-[#D4AF37]" })} Exclusive
                 </span>
               )}
             </div>
@@ -192,12 +197,12 @@ export default function VehicleCard({ vehicle, index = 0 }) {
 
             <div className="flex items-center gap-5 text-white/30 text-[9px] uppercase font-heading tracking-[0.2em]">
               <div className="flex items-center gap-2 group/stat">
-                {Gauge && <Gauge size={13} className="text-[#D4AF37]/60 group-hover/stat:text-[#D4AF37] transition-colors" />}
+                {SAFE_ICON(Gauge, { size: 13, className: "text-[#D4AF37]/60 group-hover/stat:text-[#D4AF37] transition-colors" })}
                 <span className="group-hover/stat:text-white/50 transition-colors">{vehicle.mileage?.toLocaleString()} KM</span>
               </div>
               <div className="w-[1px] h-3 bg-white/10" />
               <div className="flex items-center gap-2 group/stat">
-                {Fuel && <Fuel size={13} className="text-[#D4AF37]/60 group-hover/stat:text-[#D4AF37] transition-colors" />}
+                {SAFE_ICON(Fuel, { size: 13, className: "text-[#D4AF37]/60 group-hover/stat:text-[#D4AF37] transition-colors" })}
                 <span className="group-hover/stat:text-white/50 transition-colors">{vehicle.fuel_type}</span>
               </div>
             </div>

@@ -71,6 +71,11 @@ function SelfDrawingLines() {
   );
 }
 
+const SAFE_ICON = (Icon, props = {}) => {
+  if (!Icon || (typeof Icon !== 'function' && typeof Icon !== 'object')) return null;
+  return <Icon {...props} />;
+};
+
 export default function Home() {
   const [featured, setFeatured] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -334,7 +339,7 @@ export default function Home() {
                   data-testid={`category-${cat.label.toLowerCase().replace(/\s+/g, '-')}`}
                 >
                   <div className="w-12 h-12 border border-[#D4AF37]/20 flex items-center justify-center mb-4 group-hover:border-[#D4AF37]/50 group-hover:bg-[#D4AF37]/5 transition-all">
-                    <cat.icon size={22} className="text-[#D4AF37]" strokeWidth={1.5} />
+                    {SAFE_ICON(cat.icon, { size: 22, className: "text-[#D4AF37]", strokeWidth: 1.5 })}
                   </div>
                   <p className="font-heading text-white text-sm font-medium mb-1 group-hover:text-[#D4AF37] transition-colors">{cat.label}</p>
                   <p className="text-white/30 text-xs font-body">{cat.desc}</p>
@@ -368,7 +373,7 @@ export default function Home() {
                     className="glass-card p-6 hover:border-[#D4AF37]/25 transition-all duration-300 group"
                     whileHover={{ y: -4 }}>
                     <div className="w-10 h-10 bg-[#D4AF37]/8 border border-[#D4AF37]/20 flex items-center justify-center mb-4 group-hover:bg-[#D4AF37]/15 transition-colors">
-                      <item.icon size={18} className="text-[#D4AF37]" strokeWidth={1.5} />
+                      {SAFE_ICON(item.icon, { size: 18, className: "text-[#D4AF37]", strokeWidth: 1.5 })}
                     </div>
                     <h3 className="font-heading text-white text-base font-semibold mb-2">{item.title}</h3>
                     <p className="text-white/40 text-sm font-body leading-relaxed">{item.desc}</p>

@@ -16,6 +16,11 @@ const QUICK_PROMPTS = [
   "Tell me about your warranty"
 ];
 
+const SAFE_ICON = (Icon, props = {}) => {
+  if (!Icon || (typeof Icon !== 'function' && typeof Icon !== 'object')) return null;
+  return <Icon {...props} />;
+};
+
 export default function ChatBot() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
@@ -98,7 +103,7 @@ export default function ChatBot() {
         whileTap={{ scale: 0.95 }}
         data-testid="chatbot-toggle"
       >
-        {open ? <X size={20} /> : <MessageSquare size={20} />}
+        {open ? SAFE_ICON(X, { size: 20 }) : SAFE_ICON(MessageSquare, { size: 20 })}
         {!open && !leadCaptured && (
           <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-[#050505] animate-pulse" />
         )}
@@ -124,7 +129,7 @@ export default function ChatBot() {
             <div className="px-5 py-4 border-b border-white/[0.06] flex items-center justify-between bg-black/50 flex-shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-[#D4AF37] flex items-center justify-center relative overflow-hidden">
-                  <BrainCircuit size={18} className="text-black relative z-10" />
+                  {SAFE_ICON(BrainCircuit, { size: 18, className: "text-black relative z-10" })}
                   <motion.div
                     className="absolute inset-0 bg-white/20"
                     animate={{ x: ['-100%', '200%'] }}
@@ -143,10 +148,10 @@ export default function ChatBot() {
               </div>
               <div className="flex items-center gap-3">
                  <button onClick={() => setMinimized(!minimized)} className="text-white/20 hover:text-white/70 transition-colors">
-                   <ChevronDown size={16} className={`transition-transform ${minimized ? 'rotate-180' : ''}`} />
+                   {SAFE_ICON(ChevronDown, { size: 16, className: `transition-transform ${minimized ? 'rotate-180' : ''}` })}
                  </button>
-                 <a href="tel:+18256055050" className="text-white/30 hover:text-white transition-colors" title="Call Us"><Phone size={16} /></a>
-                 <button onClick={() => setOpen(false)} className="text-white/20 hover:text-white/70 transition-colors"><X size={18} /></button>
+                  <a href="tel:+18256055050" className="text-white/30 hover:text-white transition-colors" title="Call Us">{SAFE_ICON(Phone, { size: 16 })}</a>
+                  <button onClick={() => setOpen(false)} className="text-white/20 hover:text-white/70 transition-colors">{SAFE_ICON(X, { size: 18 })}</button>
               </div>
             </div>
 
@@ -158,7 +163,7 @@ export default function ChatBot() {
                     <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                       <div className={`flex items-start gap-2.5 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
                         <div className={`w-7 h-7 flex-shrink-0 flex items-center justify-center ${msg.role === 'user' ? 'bg-white/10' : 'bg-[#D4AF37]'}`}>
-                          {msg.role === 'user' ? <User size={12} className="text-white/50" /> : <Bot size={12} className="text-black" />}
+                          {msg.role === 'user' ? SAFE_ICON(User, { size: 12, className: "text-white/50" }) : SAFE_ICON(Bot, { size: 12, className: "text-black" })}
                         </div>
                         <div className={`px-4 py-3 text-sm font-body leading-relaxed ${
                           msg.role === 'user' 
@@ -175,7 +180,7 @@ export default function ChatBot() {
                   {thinking && (
                     <div className="flex justify-start">
                       <div className="flex items-center gap-2 px-4 py-3 bg-white/[0.03] border border-white/[0.05]">
-                        <Loader size={12} className="animate-spin text-[#D4AF37]" />
+                        {SAFE_ICON(Loader, { size: 12, className: "animate-spin text-[#D4AF37]" })}
                         <span className="text-white/30 text-xs font-body">Thinking...</span>
                       </div>
                     </div>
@@ -199,7 +204,7 @@ export default function ChatBot() {
                 {leadCaptured && (
                   <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                     className="mx-5 mb-3 px-4 py-2.5 bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2">
-                    <CheckCircle size={14} className="text-emerald-400" />
+                    {SAFE_ICON(CheckCircle, { size: 14, className: "text-emerald-400" })}
                     <span className="text-emerald-400 text-[10px] font-heading uppercase tracking-widest">Lead Captured! We'll call you soon.</span>
                   </motion.div>
                 )}
@@ -212,7 +217,7 @@ export default function ChatBot() {
                       placeholder="Ask about any vehicle..." data-testid="chatbot-input" />
                     <button onClick={sendMessage} disabled={!input.trim() || thinking}
                       className="w-10 h-10 bg-[#D4AF37] hover:bg-[#F3E5AB] text-black flex items-center justify-center transition-all disabled:opacity-30">
-                      <Send size={14} />
+                      {SAFE_ICON(Send, { size: 14 })}
                     </button>
                   </div>
                 </div>

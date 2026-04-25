@@ -10,6 +10,11 @@ import VehicleCard from '../components/VehicleCard';
 
 const API = (process.env.REACT_APP_BACKEND_URL || '') + '/api';
 
+const SAFE_ICON = (Icon, props = {}) => {
+  if (!Icon || (typeof Icon !== 'function' && typeof Icon !== 'object')) return null;
+  return <Icon {...props} />;
+};
+
 const MAKES      = ['All', 'Ford', 'Toyota', 'Honda', 'Chevrolet', 'BMW', 'Mercedes', 'Audi', 'Hyundai', 'Kia', 'Dodge', 'Jeep', 'RAM', 'GMC', 'Nissan', 'Mazda', 'Volvo'];
 const BODY_TYPES = ['All', 'Truck', 'SUV', 'Sedan', 'Coupe', 'Hatchback', 'Wagon', 'Minivan', 'Cargo Van'];
 const FUEL_TYPES = ['All', 'Gas', 'Diesel', 'Hybrid', 'Electric'];
@@ -148,7 +153,7 @@ function FilterSelect({ label, value, options, onChange, testId }) {
             <option key={opt} value={opt === 'All' ? '' : opt} className="bg-[#0A0A0A]">{opt}</option>
           ))}
         </select>
-        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
+        {SAFE_ICON(ChevronDown, { size: 14, className: "absolute right-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" })}
       </div>
     </div>
   );
@@ -189,7 +194,7 @@ function Pagination({ page, totalPages, onPage }) {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-14 flex justify-center items-center gap-2 flex-wrap">
-      <button onClick={() => onPage(page - 1)} disabled={page <= 1} className={`w-10 h-10 flex items-center justify-center border transition-all ${page <= 1 ? 'border-white/5 text-white/10 cursor-not-allowed' : 'border-white/15 text-white/50 hover:border-[#D4AF37] hover:text-[#D4AF37]'}`}><ChevronLeft size={15} /></button>
+      <button onClick={() => onPage(page - 1)} disabled={page <= 1} className={`w-10 h-10 flex items-center justify-center border transition-all ${page <= 1 ? 'border-white/5 text-white/10 cursor-not-allowed' : 'border-white/15 text-white/50 hover:border-[#D4AF37] hover:text-[#D4AF37]'}`}>{SAFE_ICON(ChevronLeft, { size: 15 })}</button>
       {pages.map((p, i) =>
         p === '…' ? (
           <span key={`ellipsis-${i}`} className="w-10 h-10 flex items-center justify-center text-white/25 text-sm">…</span>
@@ -197,7 +202,7 @@ function Pagination({ page, totalPages, onPage }) {
           <motion.button key={p} onClick={() => onPage(p)} whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.95 }} className={`w-10 h-10 flex items-center justify-center border text-sm font-heading transition-all duration-200 ${p === page ? 'border-[#D4AF37] bg-[#D4AF37]/10 text-[#D4AF37]' : 'border-white/10 text-white/40 hover:border-white/30 hover:text-white'}`}>{p}</motion.button>
         )
       )}
-      <button onClick={() => onPage(page + 1)} disabled={page >= totalPages} className={`w-10 h-10 flex items-center justify-center border transition-all ${page >= totalPages ? 'border-white/5 text-white/10 cursor-not-allowed' : 'border-white/15 text-white/50 hover:border-[#D4AF37] hover:text-[#D4AF37]'}`}><ChevronRight size={15} /></button>
+      <button onClick={() => onPage(page + 1)} disabled={page >= totalPages} className={`w-10 h-10 flex items-center justify-center border transition-all ${page >= totalPages ? 'border-white/5 text-white/10 cursor-not-allowed' : 'border-white/15 text-white/50 hover:border-[#D4AF37] hover:text-[#D4AF37]'}`}>{SAFE_ICON(ChevronRight, { size: 15 })}</button>
     </motion.div>
   );
 }
@@ -397,7 +402,7 @@ export default function Inventory() {
         <div className="sticky top-20 z-30 bg-[#050505]/95 backdrop-blur-xl border-y border-white/[0.08] px-6 md:px-12 py-4 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
           <div className="max-w-7xl mx-auto flex flex-wrap gap-3 items-center">
             <div className="flex-1 min-w-60 relative group">
-              <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-[#D4AF37] transition-colors" />
+              {SAFE_ICON(Search, { size: 15, className: "absolute left-4 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-[#D4AF37] transition-colors" })}
               <input
                 className="w-full bg-[#111] border border-white/10 focus:border-[#D4AF37]/50 rounded-none pl-12 pr-4 py-3 text-sm text-white placeholder:text-white/30 font-body transition-all outline-none shadow-inner"
                 placeholder="Search make, model, or keyword..."
@@ -416,7 +421,7 @@ export default function Inventory() {
               }`}
               data-testid="inventory-filter-toggle"
             >
-              <SlidersHorizontal size={14} />
+              {SAFE_ICON(SlidersHorizontal, { size: 14 })}
               Filters {activeFilters > 0 && `(${activeFilters})`}
             </button>
 
@@ -426,7 +431,7 @@ export default function Inventory() {
                 className="flex items-center gap-1.5 px-4 text-white/40 hover:text-white text-[10px] tracking-widest uppercase font-heading transition-colors"
                 data-testid="clear-filters-btn"
               >
-                <X size={14} /> Reset
+                {SAFE_ICON(X, { size: 14 })} Reset
               </button>
             )}
           </div>
@@ -473,7 +478,7 @@ export default function Inventory() {
             ) : vehicles.length === 0 ? (
               <motion.div key="empty" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center py-32 border border-white/5 bg-white/[0.02]">
                 <div className="w-20 h-20 mx-auto mb-6 flex items-center justify-center rounded-full bg-white/5 border border-white/10">
-                  <Search size={32} className="text-[#D4AF37]" />
+                  {SAFE_ICON(Search, { size: 32, className: "text-[#D4AF37]" })}
                 </div>
                 <h3 className="font-heading text-white text-3xl font-light mb-3">No models found</h3>
                 <p className="text-white/40 font-body text-base mb-8 max-w-md mx-auto">We couldn't find any vehicles matching your exact criteria. Uncover more by broadening your search.</p>
