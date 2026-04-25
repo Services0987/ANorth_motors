@@ -53,16 +53,29 @@ export default function VehicleCard({ vehicle, index = 0 }) {
   };
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !/Mobi|Android/i.test(navigator.userAgent)) return;
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') return;
+    if (!/Mobi|Android/i.test(navigator.userAgent)) return;
+    
     const handleOrientation = (e) => {
+      if (!e.beta || !e.gamma) return;
       // Normalize beta (forward/back) and gamma (left/right)
       const nx = (e.gamma + 20) / 40; 
       const ny = (e.beta - 45) / 40;
       mx.set(nx - 0.5);
       my.set(ny - 0.5);
     };
-    window.addEventListener('deviceorientation', handleOrientation);
-    return () => window.removeEventListener('deviceorientation', handleOrientation);
+    
+    try {
+      window.addEventListener('deviceorientation', handleOrientation);
+    } catch (err) {
+      console.warn("Motion-Sync disabled: Orientation API not supported", err);
+    }
+    
+    return () => {
+      try {
+        window.removeEventListener('deviceorientation', handleOrientation);
+      } catch (err) {}
+    };
   }, [mx, my]);
 
   return (
