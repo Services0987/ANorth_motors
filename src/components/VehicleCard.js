@@ -52,6 +52,19 @@ export default function VehicleCard({ vehicle, index = 0 }) {
     setActiveImg((prev) => (prev + 1) % Math.min(images.length, 5));
   };
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || !/Mobi|Android/i.test(navigator.userAgent)) return;
+    const handleOrientation = (e) => {
+      // Normalize beta (forward/back) and gamma (left/right)
+      const nx = (e.gamma + 20) / 40; 
+      const ny = (e.beta - 45) / 40;
+      mx.set(nx - 0.5);
+      my.set(ny - 0.5);
+    };
+    window.addEventListener('deviceorientation', handleOrientation);
+    return () => window.removeEventListener('deviceorientation', handleOrientation);
+  }, [mx, my]);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 40 }}
