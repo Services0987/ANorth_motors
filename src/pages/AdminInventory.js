@@ -117,6 +117,19 @@ export default function AdminInventory() {
     } catch (err) { console.error(err); } finally { setSaving(false); }
   };
 
+  const toggleQuickField = async (id, field, value) => {
+    try {
+      // Update local state instantly
+      setVehicles(prev => prev.map(v => (v._id === id || v.id === id) ? { ...v, [field]: value } : v));
+      // Persist to DB
+      await axios.put(`${API}/vehicles/${id}`, { [field]: value }, { withCredentials: true });
+    } catch (err) { 
+      console.error(err); 
+      // Revert on error
+      fetchVehicles();
+    }
+  };
+
   const handleDelete = async (id) => {
     try { await axios.delete(`${API}/vehicles/${id}`, { withCredentials: true }); setDeleteConfirm(null); fetchVehicles(); }
     catch (err) { console.error(err); }
@@ -313,9 +326,21 @@ export default function AdminInventory() {
                   <td className="px-4 py-3"><span className={`px-2.5 py-1 text-[10px] font-heading uppercase ${v.condition === 'new' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-[#D4AF37]/10 text-[#D4AF37]'}`}>{v.condition}</span></td>
                   <td className="px-4 py-3"><div className={`text-[10px] px-2 py-1 inline-block border uppercase ${v.status === 'available' ? 'border-emerald-500/20 text-emerald-400' : 'border-red-500/20 text-red-400'}`}>{v.status}</div></td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      {SAFE_ICON(Star, { size: 14, className: v.featured ? 'text-[#D4AF37]' : 'text-white/10' })}
-                      {SAFE_ICON(Globe, { size: 14, className: v.show_on_home ? 'text-emerald-400' : 'text-white/10' })}
+                    <div className="flex gap-3">
+                      <button 
+                        onClick={() => toggleQuickField(v._id || v.id, 'featured', !v.featured)}
+                        className={`transition-all hover:scale-125 ${v.featured ? 'text-[#D4AF37]' : 'text-white/10 hover:text-white/30'}`}
+                        title="Toggle Featured"
+                      >
+                        {SAFE_ICON(Star, { size: 16, fill: v.featured ? 'currentColor' : 'none' })}
+                      </button>
+                      <button 
+                        onClick={() => toggleQuickField(v._id || v.id, 'show_on_home', !v.show_on_home)}
+                        className={`transition-all hover:scale-125 ${v.show_on_home ? 'text-emerald-400' : 'text-white/10 hover:text-white/30'}`}
+                        title="Toggle Show on Home"
+                      >
+                        {SAFE_ICON(Globe, { size: 16 })}
+                      </button>
                     </div>
                   </td>
                   <td className="px-4 py-3">
