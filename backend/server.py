@@ -266,6 +266,14 @@ async def import_vehicles(file: UploadFile = File(...), cu=Depends(get_current_u
             body = get_val(row, ["body_type", "body", "style", "type"])
             cond = get_val(row, ["condition", "status"])
             desc = get_val(row, ["description", "notes", "comments", "details"])
+            
+            # New fields from screenshot
+            fuel = get_val(row, ["fuel_type", "fuel", "gas_type"])
+            trans = get_val(row, ["transmission", "trans", "gearbox"])
+            ext_color = get_val(row, ["exterior_color", "color", "ext_color", "exterior"])
+            int_color = get_val(row, ["interior_color", "int_color", "interior"])
+            eng = get_val(row, ["engine", "motor", "engine_size"])
+            drive = get_val(row, ["drivetrain", "drive", "awd_fwd_rwd"])
 
             imgs = [img.strip() for img in re.split(r'[\s\n]+|,\s*(?=http)', images_val) if img.strip() and img.startswith("http")]
             
@@ -278,6 +286,12 @@ async def import_vehicles(file: UploadFile = File(...), cu=Depends(get_current_u
                 "mileage": int(re.sub(r'[^\d]', '', mileage_val)) if mileage_val else 0,
                 "condition": cond.lower() if cond else "used",
                 "body_type": body if body else "Sedan",
+                "fuel_type": fuel,
+                "transmission": trans,
+                "exterior_color": ext_color,
+                "interior_color": int_color,
+                "engine": eng,
+                "drivetrain": drive,
                 "vin": use_vin,
                 "stock_number": use_stock,
                 "description": desc,
