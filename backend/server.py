@@ -136,6 +136,23 @@ async def me(cu=Depends(get_current_user)):
     cu.pop("password_hash", None)
     return cu
 
+@api_router.put("/auth/profile")
+async def update_profile(request: Request, cu=Depends(get_current_user)):
+    try:
+        data = await request.json()
+        upd = {}
+        if "email" in data: upd["email"] = data["email"].lower().strip()
+        if "password" in data and data["password"]:
+            upd["password_hash"] = hash_password(data["password"])
+        
+        if not upd: return {"message": "No changes"}
+        
+        await db.users.update_one({"_id": ObjectId(cu["_id"])}, {"$set": upd})
+        return {"message": "Profile updated successfully"}
+    except Exception as e:
+        logger.error(f"Profile Update Error: {e}")
+        raise HTTPException(500, "Failed to update profile")
+
 @api_router.get("/stats")
 async def get_stats(cu=Depends(get_current_user)):
     total = await db.vehicles.count_documents({})

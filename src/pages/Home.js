@@ -111,41 +111,8 @@ export default function Home() {
   return (
     <>
       <Helmet>
-        <title>AutoNorth Motors | Best Used Cars & Trucks Edmonton, Alberta</title>
-        <meta name="description" content="Shop 500+ premium used cars and trucks in Edmonton, Alberta. AutoNorth Motors offers the best deals, 0% financing options, and Canada-wide shipping. Top-rated dealership serving Edmonton since 2012." />
-        <meta name="keywords" content="used cars edmonton, edmonton car dealerships, used trucks edmonton, ford f150 edmonton, used suv alberta, buy car online canada, autonorth motors edmonton" />
-        <link rel="canonical" href="https://www.autonorth.ca" />
-        <script type="application/ld+json">{JSON.stringify({
-          "@context": "https://schema.org",
-          "@type": "AutoDealer",
-          "name": "AutoNorth Motors",
-          "url": "https://www.autonorth.ca",
-          "logo": "https://www.autonorth.ca/logo.png",
-          "image": "https://www.autonorth.ca/og-image.jpg",
-          "telephone": "+18256055050",
-          "priceRange": "$$$",
-          "address": { 
-            "@type": "PostalAddress", 
-            "streetAddress": "9104 91 St NW", 
-            "addressLocality": "Edmonton", 
-            "addressRegion": "AB", 
-            "postalCode": "T6C 3P6", 
-            "addressCountry": "CA" 
-          },
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": 53.526,
-            "longitude": -113.468
-          },
-          "openingHoursSpecification": [
-            { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"], "opens": "09:00", "closes": "20:00" },
-            { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Saturday", "Sunday"], "opens": "10:00", "closes": "18:00" }
-          ],
-          "sameAs": [
-            "https://www.facebook.com/AutoNorthMotors",
-            "https://www.instagram.com/AutoNorthMotors"
-          ]
-        })}</script>
+        <title>AutoNorth Motors | Premium Dealership</title>
+        <meta name="description" content="Discover Edmonton's finest selection of premium vehicles. AutoNorth Motors - Where quality meets the road." />
       </Helmet>
 
       <div className="bg-[#050505] min-h-screen font-body selection:bg-[#D4AF37]/30" data-testid="home-page">

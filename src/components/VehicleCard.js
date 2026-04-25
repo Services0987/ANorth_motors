@@ -52,32 +52,6 @@ export default function VehicleCard({ vehicle, index = 0 }) {
     setActiveImg((prev) => (prev + 1) % Math.min(images.length, 5));
   };
 
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof navigator === 'undefined') return;
-    if (!/Mobi|Android/i.test(navigator.userAgent)) return;
-    
-    const handleOrientation = (e) => {
-      if (!e.beta || !e.gamma) return;
-      // Normalize beta (forward/back) and gamma (left/right)
-      const nx = (e.gamma + 20) / 40; 
-      const ny = (e.beta - 45) / 40;
-      mx.set(nx - 0.5);
-      my.set(ny - 0.5);
-    };
-    
-    try {
-      window.addEventListener('deviceorientation', handleOrientation);
-    } catch (err) {
-      console.warn("Motion-Sync disabled: Orientation API not supported", err);
-    }
-    
-    return () => {
-      try {
-        window.removeEventListener('deviceorientation', handleOrientation);
-      } catch (err) {}
-    };
-  }, [mx, my]);
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 40 }}

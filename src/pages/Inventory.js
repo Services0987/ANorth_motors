@@ -170,8 +170,6 @@ function BazaarCard({ vehicle, index }) {
       onMouseMove={handleMouse}
       onMouseLeave={() => { handleLeave(); setHovered(false); }}
       onMouseEnter={() => setHovered(true)}
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
       data-testid={`vehicle-card-${vehicle._id || vehicle.id}`}
       initial={{ opacity: 0, y: 40 }}
       animate={{ opacity: 1, y: 0 }}
