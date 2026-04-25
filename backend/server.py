@@ -153,6 +153,18 @@ async def update_profile(request: Request, cu=Depends(get_current_user)):
         logger.error(f"Profile Update Error: {e}")
         raise HTTPException(500, "Failed to update profile")
 
+@api_router.get("/settings")
+async def get_settings(cu=Depends(get_current_user)):
+    s = await db.settings.find_one({"type": "general"}) or {}
+    if s: s.pop("_id", None)
+    return s
+
+@api_router.put("/settings")
+async def update_settings(request: Request, cu=Depends(get_current_user)):
+    data = await request.json()
+    await db.settings.update_one({"type": "general"}, {"$set": data}, upsert=True)
+    return {"message": "Settings updated"}
+
 @api_router.get("/stats")
 async def get_stats(cu=Depends(get_current_user)):
     total = await db.vehicles.count_documents({})
@@ -391,21 +403,64 @@ async def sync_teamford_scraper(cu=Depends(get_current_user)):
         logger.error(f"Team Ford sync error: {e}")
         raise HTTPException(500, "Failed to sync with Team Ford")
 
+async def get_ai_response(message: str, inventory_docs: list):
+    """Universal AI Connector with Local Intelligence Fallback"""
+    # Fetch settings from DB
+    s = await db.settings.find_one({"type": "general"}) or {}
+    provider = s.get("ai_provider", os.environ.get("AI_PROVIDER", "local")).lower()
+    api_key = s.get("ai_api_key", os.environ.get("AI_API_KEY"))
+    
+    # ── Local Intelligence Fallback (Works without API) ──
+    inventory_summary = "\n".join([f"• {v.get('year')} {v.get('make')} {v.get('model')} - ${v.get('price'):,.0f} ({v.get('mileage'):,.0f}km)" for v in inventory_docs[:15]])
+    
+    if provider == "local" or not api_key:
+        query = message.lower()
+        matches = []
+        for v in inventory_docs:
+            if v.get('make', '').lower() in query or v.get('model', '').lower() in query or v.get('body_type', '').lower() in query:
+                matches.append(f"{v.get('year')} {v.get('make')} {v.get('model')} (${v.get('price'):,.0f})")
+        
+        if matches:
+            return f"I found these matches in our inventory: {', '.join(matches[:3])}. Would you like to see more details or book a test drive?"
+        return "I can help you find the perfect vehicle from our 500+ car inventory. Are you looking for a truck, SUV, or sedan today?"
+
+    try:
+        system_prompt = f"Persona: AutoNorth Specialist. Tone: Professional, direct. Inventory Context: {inventory_summary}. Total Inventory: {len(inventory_docs)} vehicles."
+        
+        # ── Provider: Gemini ──
+        if provider == "gemini":
+            client = genai.Client(api_key=api_key)
+            resp = client.models.generate_content(model='gemini-1.5-flash', config=genai.types.GenerateContentConfig(system_instruction=system_prompt), contents=message)
+            return resp.text
+
+        # ── Provider: Claude (Anthropic) ──
+        elif provider == "claude":
+            async with httpx.AsyncClient() as client:
+                resp = await client.post("https://api.anthropic.com/v1/messages", 
+                    headers={"x-api-key": api_key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
+                    json={"model": "claude-3-haiku-20240307", "max_tokens": 512, "system": system_prompt, "messages": [{"role": "user", "content": message}]})
+                return resp.json()["content"][0]["text"]
+
+        # ── Provider: OpenRouter ──
+        elif provider == "openrouter":
+            async with httpx.AsyncClient() as client:
+                resp = await client.post("https://openrouter.ai/api/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {api_key}"},
+                    json={"model": "google/gemini-flash-1.5", "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}]})
+                return resp.json()["choices"][0]["message"]["content"]
+
+    except Exception as e:
+        logger.error(f"AI Provider Error ({provider}): {e}")
+        return f"I'm scanning our current inventory... we have {len(inventory_docs)} vehicles available. What specific model or price range are you looking for?"
+
 @api_router.post("/chat")
 async def ai_chat(data: ChatRequest):
     try:
-        docs = await db.vehicles.find({"status": "available"}).limit(10).to_list(10)
-        inventory = "\n".join([f"• {v.get('title')} - ${v.get('price')}" for v in docs])
-        gemini_api_key = os.environ.get("GEMINI_API_KEY")
-        if not gemini_api_key:
-            from scraper import NeuralKnowledge
-            return {"response": NeuralKnowledge.generate_response(data.message, docs)}
-        client = genai.Client(api_key=gemini_api_key)
-        chat = client.chats.create(model='gemini-1.5-flash', config=genai.types.GenerateContentConfig(system_instruction=f"Persona: Alpha Specialist. Inventory: {inventory}"))
-        resp = chat.send_message(data.message)
-        return {"response": resp.text}
+        docs = await db.vehicles.find({"status": "available"}).sort("created_at", -1).to_list(100)
+        response_text = await get_ai_response(data.message, docs)
+        return {"response": response_text}
     except Exception as e:
-        logger.error(f"Chat error: {e}")
+        logger.error(f"Chat Endpoint Error: {e}")
         return {"response": "Specialist connection issue—call 825-605-5050."}
 
 @app.on_event("startup")
