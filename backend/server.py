@@ -112,6 +112,13 @@ class ChatRequest(BaseModel):
 class LeadStatusUpdate(BaseModel):
     status: str
 
+class LeadCreate(BaseModel):
+    name: str
+    email: str
+    phone: Optional[str] = None
+    message: Optional[str] = None
+    vehicle_id: Optional[str] = None
+
 # ─── Endpoints ───────────────────────────────────────────────────
 @api_router.post("/auth/login")
 async def login(data: LoginRequest, response: Response):
@@ -133,9 +140,19 @@ async def me(cu=Depends(get_current_user)):
 async def get_stats(cu=Depends(get_current_user)):
     total = await db.vehicles.count_documents({})
     avail = await db.vehicles.count_documents({"status": "available"})
+    sold = await db.vehicles.count_documents({"status": "sold"})
     featured = await db.vehicles.count_documents({"featured": True})
     t_leads = await db.leads.count_documents({}) if "leads" in (await db.list_collection_names()) else 0
-    return {"total_vehicles": total, "available": avail, "featured": featured, "total_leads": t_leads, "new_leads": 0}
+    thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+    recent_leads = await db.leads.count_documents({"created_at": {"$gte": thirty_days_ago}}) if "leads" in (await db.list_collection_names()) else 0
+    return {
+        "total_vehicles": total,
+        "available": avail,
+        "sold": sold,
+        "featured": featured,
+        "total_leads": t_leads,
+        "recent_leads": recent_leads
+    }
 
 @api_router.get("/vehicles")
 async def list_vehicles(
@@ -179,8 +196,9 @@ async def get_vehicle(vehicle_id: str):
 async def create_vehicle(data: VehicleCreate, cu=Depends(get_current_user)):
     doc = {**data.model_dump(), "created_at": datetime.now(timezone.utc)}
     res = await db.vehicles.insert_one(doc)
-    doc["_id"] = str(res.inserted_id)
-    return doc
+    inserted_vehicle = await db.vehicles.find_one({"_id": res.inserted_id})
+    inserted_vehicle["_id"] = str(inserted_vehicle["_id"])
+    return inserted_vehicle
 
 @api_router.put("/vehicles/{vehicle_id}")
 async def update_vehicle(vehicle_id: str, data: VehicleUpdate, cu=Depends(get_current_user)):
@@ -249,6 +267,13 @@ async def list_leads(cu=Depends(get_current_user)):
     for d in docs: d["_id"] = str(d["_id"])
     return docs
 
+@api_router.post("/leads")
+async def create_lead(data: LeadCreate):
+    lead_doc = {**data.model_dump(), "created_at": datetime.now(timezone.utc), "status": "new"}
+    res = await db.leads.insert_one(lead_doc)
+    lead_doc["_id"] = str(res.inserted_id)
+    return lead_doc
+
 @api_router.get("/scraper/settings")
 async def get_scraper_settings(cu=Depends(get_current_user)):
     return {"auto_sync": False, "last_sync": None}
@@ -273,6 +298,16 @@ async def import_vehicle_from_url(data: Dict[str, str], cu=Depends(get_current_u
                 results.append({"status": "imported", "url": url})
         except: pass
     return {"results": results}
+
+@api_router.post("/scraper/sync/teamford")
+async def sync_teamford_scraper(cu=Depends(get_current_user)):
+    from scraper import sync_teamford_listings
+    try:
+        sync_result = await sync_teamford_listings()
+        return {"message": "Team Ford sync complete", "imported": sync_result.get("imported", 0), "updated": sync_result.get("updated", 0)}
+    except Exception as e:
+        logger.error(f"Team Ford sync error: {e}")
+        raise HTTPException(500, "Failed to sync with Team Ford")
 
 @api_router.post("/chat")
 async def ai_chat(data: ChatRequest):

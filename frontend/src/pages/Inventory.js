@@ -157,12 +157,15 @@ function FilterSelect({ label, value, options, onChange, testId }) {
 /* ─── Bazaar Card ─── */
 function BazaarCard({ vehicle, index }) {
   const { ref, rotateX, rotateY, handleMouse, handleLeave } = use3DTilt(8);
+  const [hovered, setHovered] = useState(false);
   return (
     <motion.div
       ref={ref}
       style={{ rotateX, rotateY, transformStyle: 'preserve-3d', perspective: '800px' }}
       onMouseMove={handleMouse}
-      onMouseLeave={handleLeave}
+      onMouseLeave={() => { handleLeave(); setHovered(false); }}
+      onMouseEnter={() => setHovered(true)}
+      data-testid={`vehicle-card-${vehicle._id || vehicle.id}`}
       initial={{ opacity: 0, y: 40 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, delay: Math.min(index * 0.06, 0.5), ease: [0.16, 1, 0.3, 1] }}
@@ -206,7 +209,7 @@ export default function Inventory() {
   const [loading, setLoading]   = useState(true);
   const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
-  const limit = 8;
+  const limit = 20;
 
   const [filters, setFilters] = useState({
     search:    '',

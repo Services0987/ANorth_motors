@@ -170,7 +170,164 @@ async def scrape_teamford_inventory(limit: int = 2000) -> List[Dict[str, Any]]:
                         "exterior_color": h.get("exterior_colour") or h.get("exterior_color"),
                         "interior_color": h.get("interior_colour") or h.get("interior_color"),
                         "engine": h.get("engine_description") or h.get("engine"),
-                        "drivetrain": h.get("drive_type_name") or h.get("drivetrain"),
+                async def scrape_teamford_listing(url: str) -> Optional[Dict[str, Any]]:
+    """
+    Scrapes a single Team Ford vehicle listing page or uses Algolia API to fetch by URL.
+    """
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Referer": "https://www.teamford.ca/"
+        }
+        
+        # Extract slug from URL
+        slug = url.rstrip('/').split('/')[-1]
+        
+        # Try Algolia API first for more reliable data
+        algolia_headers = {
+            "x-algolia-api-key": ALGOLIA_API_KEY,
+            "x-algolia-application-id": ALGOLIA_APP_ID,
+            "Content-Type": "application/json",
+        }
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            # Search by slug in Algolia
+            payload = {
+                "requests": [{
+                    "indexName": "inventory",
+                    "params": f"query={slug}&hitsPerPage=1&filters=craft_site_ids%3A34"
+                }]
+            }
+            
+            resp = await client.post(ALGOLIA_URL, json=payload, headers=algolia_headers)
+            if resp.status_code == 200:
+                data = resp.json()
+                hits = data.get("results", [{}])[0].get("hits", [])
+                if hits:
+                    h = hits[0]
+                    return _parse_teamford_vehicle(h)
+            
+            # Fallback: scrape the URL directly
+            resp = await client.get(url, headers=headers)
+            resp.raise_for_status()
+            
+            # Basic parsing - in real implementation would use BeautifulSoup
+            html = resp.text
+            import re
+            title_match = re.search(r'<title>(.*?)</title>', html, re.IGNORECASE)
+            title = title_match.group(1) if title_match else "Unknown Vehicle"
+            
+            return {
+                "title": title,
+                "make": "",
+                "model": "",
+                "year": 2024,
+                "price": 0,
+                "mileage": 0,
+                "condition": "used",
+                "body_type": "Sedan",
+                "fuel_type": "Gas",
+                "transmission": "Automatic",
+                "drivetrain": "",
+                "exterior_color": "",
+                "interior_color": "",
+                "engine": "",
+                "vin": "",
+                "stock_number": "",
+                "description": f"Imported from Team Ford: {title}",
+                "features": [],
+                "images": [],
+                "status": "available",
+                "source": "teamford_url",
+                "source_url": url
+            }
+    except Exception as e:
+        logger.error(f"Failed to scrape listing {url}: {e}")
+        return None
+
+
+def _parse_teamford_vehicle(h: Dict) -> Dict[str, Any]:
+    """Helper to parse a single vehicle from Algolia hit."""
+    def sanitize(text):
+        if not text: return ""
+        return re.sub(r'(?i)team\s*ford', 'AutoNorth', str(text))
+    
+    price = float(h.get("pricing", {}).get("sell_price", 0))
+    if not price: price = float(h.get("list_price", 0))
+    
+    images = [img.get("url") for img in h.get("images", []) if img.get("url")]
+    
+    return {
+        "vin": h.get("vin"),
+        "stock_number": h.get("stock_number"),
+        "title": sanitize(f"{h.get('year')} {h.get('make')} {h.get('model')} {h.get('trim', '')}".strip()),
+        "make": h.get("make"),
+        "model": h.get("model"),
+        "year": int(h.get("year", 2024)),
+        "price": price,
+        "mileage": int(h.get("odometer", 0)),
+        "condition": h.get("stock_type", "used").lower(),
+        "body_type": h.get("body_style") or h.get("body_type_category"),
+        "fuel_type": h.get("fuel_type_category") or h.get("fuel_type", "Gas"),
+        "transmission": h.get("transmission_description") or h.get("transmission", "Automatic"),
+        "drivetrain": h.get("drive_type_name") or h.get("drivetrain"),
+        "exterior_color": h.get("exterior_colour") or h.get("exterior_color"),
+        "interior_color": h.get("interior_colour") or h.get("interior_color"),
+        "engine": h.get("engine_description") or h.get("engine"),
+        "description": sanitize(h.get("comments", f"Premium {h.get('make')} {h.get('model')} available at AutoNorth Motors.")),
+        "features": [sanitize(f.get("name")) for f in h.get("features", []) if f.get("name")],
+        "images": images,
+        "status": "available",
+        "source": "teamford",
+        "featured": h.get("is_featured", False),
+        "is_on_special": h.get("is_on_special", False),
+        "source_url": f"https://www.teamford.ca/vehicles/{h.get('slug')}" if h.get('slug') else ""
+    }
+
+
+async def sync_teamford_listings() -> Dict[str, int]:
+    """
+    Sync all Team Ford listings to local database.
+    Returns dict with 'imported' and 'updated' counts.
+    """
+    try:
+        vehicles = await scrape_teamford_inventory(limit=2000)
+        imported = 0
+        updated = 0
+        
+        from server import db
+        
+        for v in vehicles:
+            vin = v.get("vin")
+            stock = v.get("stock_number")
+            
+            if not vin and not stock:
+                continue
+                
+            # Check if vehicle already exists
+            existing = None
+            if vin:
+                existing = await db.vehicles.find_one({"vin": vin})
+            if not existing and stock:
+                existing = await db.vehicles.find_one({"stock_number": stock})
+            
+            if existing:
+                # Update existing
+                await db.vehicles.update_one(
+                    {"_id": existing["_id"]},
+                    {"$set": {**v, "updated_at": datetime.now(timezone.utc)}}
+                )
+                updated += 1
+            else:
+                # Insert new
+                v["created_at"] = datetime.now(timezone.utc)
+                await db.vehicles.insert_one(v)
+                imported += 1
+        
+        return {"imported": imported, "updated": updated}
+    except Exception as e:
+        logger.error(f"Sync failed: {e}")
+        return {"imported": 0, "updated": 0}
                         "description": sanitize(h.get("comments", f"Certified premium {h.get('make')} {h.get('model')} available at AutoNorth Motors.")),
                         "features": [sanitize(f.get("name")) for f in h.get("features", []) if f.get("name")],
                         "images": images,

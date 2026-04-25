@@ -19,7 +19,8 @@ import Showroom from './components/Showroom';
 function ScrollToTop() {
   const { pathname } = useLocation();
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    window.history.scrollRestoration = 'manual';
+    window.scrollTo(0, 0);
   }, [pathname]);
   return null;
 }

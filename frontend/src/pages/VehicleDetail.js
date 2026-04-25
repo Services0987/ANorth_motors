@@ -51,9 +51,15 @@ export default function VehicleDetail() {
     setSending(true);
     try {
       await axios.post(`${API}/leads`, {
-        lead_type: activeTab, name: form.name, email: form.email, phone: form.phone,
-        message: form.message, vehicle_id: vehicle?.id, vehicle_title: vehicle?.title,
-        preferred_date: form.preferred_date || undefined, preferred_time: form.preferred_time || undefined,
+        lead_type: activeTab,
+        name: form.name,
+        email: form.email,
+        phone: form.phone,
+        message: form.message,
+        vehicle_id: vehicle?.id || vehicle?._id,
+        vehicle_title: vehicle?.title,
+        preferred_date: form.preferred_date || undefined,
+        preferred_time: form.preferred_time || undefined,
         down_payment: form.down_payment ? parseFloat(form.down_payment) : undefined,
       });
       setSubmitted(true);
@@ -69,23 +75,36 @@ export default function VehicleDetail() {
   if (!vehicle) return null;
 
   const specs = [
-    ['Year', vehicle.year], ['Make', vehicle.make], ['Model', vehicle.model],
+    ['Year', vehicle.year],
+    ['Make', vehicle.make],
+    ['Model', vehicle.model],
     ['Condition', vehicle.condition === 'new' ? 'Brand New' : 'Pre-Owned'],
-    ['Mileage', vehicle.mileage === 0 ? '0 km' : `${vehicle.mileage?.toLocaleString()} km`],
-    ['Transmission', vehicle.transmission], ['Fuel Type', vehicle.fuel_type],
-    ['Drivetrain', vehicle.drivetrain], ['Engine', vehicle.engine],
+    ['Mileage', vehicle.mileage == null ? 'N/A' : vehicle.mileage === 0 ? '0 km' : `${vehicle.mileage.toLocaleString()} km`],
+    ['Transmission', vehicle.transmission],
+    ['Fuel Type', vehicle.fuel_type],
+    ['Drivetrain', vehicle.drivetrain],
+    ['Engine', vehicle.engine],
     ['Exterior', vehicle.exterior_color], ['Interior', vehicle.interior_color],
     ['Doors', vehicle.doors], ['Seats', vehicle.seats],
     ['Stock #', vehicle.stock_number], ['VIN', vehicle.vin || 'Available on request'],
-  ].filter(([, v]) => v);
+  ].filter(([, v]) => v != null);
 
   const schemaData = {
-    "@context": "https://schema.org", "@type": "Vehicle",
-    "name": vehicle.title, "description": vehicle.description,
-    "vehicleModelDate": String(vehicle.year), "fuelType": vehicle.fuel_type,
+    "@context": "https://schema.org",
+    "@type": "Vehicle",
+    "name": vehicle.title,
+    "description": vehicle.description,
+    "vehicleModelDate": String(vehicle.year),
+    "fuelType": vehicle.fuel_type,
     "mileageFromOdometer": { "@type": "QuantitativeValue", "value": vehicle.mileage, "unitCode": "KMT" },
     "vehicleTransmission": vehicle.transmission,
-    "offers": { "@type": "Offer", "price": vehicle.price, "priceCurrency": "CAD", "availability": vehicle.status === 'available' ? "https://schema.org/InStock" : "https://schema.org/SoldOut", "seller": { "@type": "AutoDealer", "name": "AutoNorth Motors" } }
+    "offers": {
+      "@type": "Offer",
+      "price": vehicle.price,
+      "priceCurrency": "CAD",
+      "availability": vehicle.status === 'available' ? "https://schema.org/InStock" : "https://schema.org/SoldOut",
+      "seller": { "@type": "AutoDealer", "name": "AutoNorth Motors" }
+    }
   };
 
   return (
@@ -154,7 +173,7 @@ export default function VehicleDetail() {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
-                      transition={{ 
+                      transition={{
                         opacity: { duration: 0.35 },
                         layout: { duration: 0.6, ease: [0.16, 1, 0.3, 1] }
                       }}
@@ -236,7 +255,7 @@ export default function VehicleDetail() {
                   <div className="flex flex-wrap gap-1.5 mb-3">
                     {vehicle.body_type && <span className="text-[10px] border border-white/10 text-white/35 px-2 py-0.5 font-body tracking-wide">{vehicle.body_type}</span>}
                     {vehicle.fuel_type && <span className="text-[10px] border border-white/10 text-white/35 px-2 py-0.5 font-body tracking-wide">{vehicle.fuel_type}</span>}
-                    {vehicle.drivetrain && <span className="text-[10px] border border-white/10 text-white/35 px-2 py-0.5 font-body tracking-wide">{vehicle.drivetrain}</span>}
+                    <span className="text-[10px] border border-white/10 text-white/35 px-2 py-0.5 font-body tracking-wide">{vehicle.drivetrain || '—'}</span>
                   </div>
                   <h1 className="font-heading text-2xl md:text-3xl font-semibold text-white leading-tight mb-4" data-testid="vehicle-title">{vehicle.title}</h1>
                   <div className="mb-6">
@@ -251,7 +270,7 @@ export default function VehicleDetail() {
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3 pb-5 border-b border-white/[0.05]">
-                    {[[vehicle.year, 'Year'], [vehicle.mileage === 0 ? '0 km' : `${vehicle.mileage?.toLocaleString()} km`, 'Mileage'], [vehicle.transmission, 'Transmission'], [vehicle.drivetrain || '—', 'Drivetrain']].map(([v, l]) => (
+                    {[['Year', vehicle.year], ['Mileage', vehicle.mileage === 0 ? '0 km' : `${vehicle.mileage?.toLocaleString()} km`], ['Transmission', vehicle.transmission], ['Drivetrain', vehicle.drivetrain || '—']].map(([v, l]) => (
                       <div key={l}>
                         <p className="text-white font-heading text-sm font-medium">{v}</p>
                         <p className="text-white/25 text-xs font-body">{l}</p>

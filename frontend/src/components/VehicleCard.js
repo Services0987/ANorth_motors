@@ -73,7 +73,7 @@ export default function VehicleCard({ vehicle, index = 0 }) {
           transition: 'border-color 0.4s cubic-bezier(0.16,1,0.3,1), box-shadow 0.4s cubic-bezier(0.16,1,0.3,1)',
         }}
       >
-        <Link to={`/vehicle/${vehicle.id}`} className="block relative group">
+        <Link to={`/vehicle/${vehicle._id || vehicle.id}`} className="block relative group">
           {/* Image with depth parallax */}
           <div className="relative overflow-hidden" style={{ paddingTop: '64%' }}>
             <AnimatePresence mode="wait">
