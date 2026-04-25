@@ -248,8 +248,8 @@ export default function Inventory() {
       setVehicles(data.vehicles || []);
       setTotal(data.total || 0);
       
-      // Target scroll to the collection header for better UX
-      if (collectionRef.current) {
+      // Only scroll to the collection if we are changing pages (not on initial load)
+      if (collectionRef.current && page > 1) {
         const offset = 100; // Account for sticky navbar
         const elementPosition = collectionRef.current.getBoundingClientRect().top;
         const offsetPosition = elementPosition + window.pageYOffset - offset;
