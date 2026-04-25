@@ -170,6 +170,8 @@ function BazaarCard({ vehicle, index }) {
       onMouseMove={handleMouse}
       onMouseLeave={() => { handleLeave(); setHovered(false); }}
       onMouseEnter={() => setHovered(true)}
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
       data-testid={`vehicle-card-${vehicle._id || vehicle.id}`}
       initial={{ opacity: 0, y: 40 }}
       animate={{ opacity: 1, y: 0 }}
@@ -309,8 +311,8 @@ export default function Inventory() {
 
           <motion.div
             style={{ y: heroY }}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
+            initial={{ opacity: 0, scale: 0.9, y: 30 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
             className="relative z-10 w-full flex flex-col items-center justify-center"
           >

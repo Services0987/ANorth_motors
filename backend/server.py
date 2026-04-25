@@ -157,6 +157,7 @@ async def get_stats(cu=Depends(get_current_user)):
 @api_router.get("/vehicles")
 async def list_vehicles(
     make: Optional[str] = None, body_type: Optional[str] = None,
+    condition: Optional[str] = None, fuel_type: Optional[str] = None,
     min_price: Optional[float] = None, max_price: Optional[float] = None,
     status: Optional[str] = "available", featured: Optional[bool] = None,
     show_on_home: Optional[bool] = None, search: Optional[str] = None, 
@@ -167,12 +168,20 @@ async def list_vehicles(
         if show_on_home is not None: q["show_on_home"] = show_on_home
         if make: q["make"] = {"$regex": make, "$options": "i"}
         if body_type: q["body_type"] = body_type
+        if condition: q["condition"] = condition
+        if fuel_type: q["fuel_type"] = fuel_type
         if status and status != "all": q["status"] = status
         if featured is not None: q["featured"] = featured
         if min_price is not None or max_price is not None:
             q["price"] = {k: v for k, v in [("$gte", min_price), ("$lte", max_price)] if v is not None}
         if search:
-            q["$or"] = [{"title": {"$regex": search, "$options": "i"}}, {"make": {"$regex": search, "$options": "i"}}]
+            q["$or"] = [
+                {"title": {"$regex": search, "$options": "i"}}, 
+                {"make": {"$regex": search, "$options": "i"}},
+                {"model": {"$regex": search, "$options": "i"}},
+                {"vin": {"$regex": search, "$options": "i"}},
+                {"stock_number": {"$regex": search, "$options": "i"}}
+            ]
         total = await db.vehicles.count_documents(q)
         docs = await db.vehicles.find(q).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
         vehicles = []
