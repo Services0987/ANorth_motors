@@ -225,56 +225,82 @@ async def delete_vehicle(vehicle_id: str, cu=Depends(get_current_user)):
 async def import_vehicles(file: UploadFile = File(...), cu=Depends(get_current_user)):
     content = await file.read()
     decoded = content.decode("utf-8-sig", errors="ignore")
-    # Use a more robust CSV reader configuration
     reader = csv.DictReader(io.StringIO(decoded), skipinitialspace=True)
     added = 0
+    
+    # Normalize keys for fuzzy mapping
+    def get_val(row, aliases):
+        for alias in aliases:
+            # Check for exact match, lowercase match, and stripped match
+            for key in row.keys():
+                k = str(key).lower().strip().replace(" ", "_").replace("#", "")
+                if k == alias.lower().replace(" ", "_").replace("#", ""):
+                    return str(row[key]).strip()
+        return ""
+
     for row in reader:
         try:
-            # Clean all keys and values in the row to handle invisible characters
-            row = {str(k).strip(): str(v).strip() for k, v in row.items() if k is not None}
+            # Fuzzy Map Fields
+            vin = get_val(row, ["vin", "vehicle identification number", "vin#"])
+            stock = get_val(row, ["stock_number", "stock", "stk", "stk#", "stock#", "inventory_id"])
             
-            raw_imgs = row.get("images", "")
-            imgs = [img.strip() for img in re.split(r'[\s\n]+|,\s*(?=http)', raw_imgs) if img.strip() and img.startswith("http")]
+            # Skip placeholders that cause collisions
+            id_blacklist = ["", "n/a", "none", "pending", "unknown", "null"]
+            clean_vin = vin.lower() if vin else ""
+            clean_stock = stock.lower() if stock else ""
             
-            # Extract identifiers
-            vin = row.get("vin", "").strip()
-            stock = row.get("stock_number", row.get("stock", "")).strip()
-            
-            # Skip if absolutely no identification is possible
-            if not vin and not stock:
-                logger.warning(f"Skipping row with no VIN or Stock: {row.get('title')}")
+            use_vin = vin if clean_vin not in id_blacklist else ""
+            use_stock = stock if clean_stock not in id_blacklist else ""
+
+            if not use_vin and not use_stock:
                 continue
 
+            # Map the rest of the data
+            title = get_val(row, ["title", "headline", "name"])
+            make = get_val(row, ["make", "brand", "manufacturer"])
+            model = get_val(row, ["model", "series"])
+            year_val = get_val(row, ["year", "model_year"])
+            price_val = get_val(row, ["price", "msrp", "retail_price", "sale_price"])
+            mileage_val = get_val(row, ["mileage", "miles", "kms", "odometer"])
+            images_val = get_val(row, ["images", "photos", "image_urls", "urls"])
+            body = get_val(row, ["body_type", "body", "style", "type"])
+            cond = get_val(row, ["condition", "status"])
+            desc = get_val(row, ["description", "notes", "comments", "details"])
+
+            imgs = [img.strip() for img in re.split(r'[\s\n]+|,\s*(?=http)', images_val) if img.strip() and img.startswith("http")]
+            
             v = {
-                "title": row.get("title", f"{row.get('year')} {row.get('make')} {row.get('model')}").strip(),
-                "make": row.get("make", "").strip(),
-                "model": row.get("model", "").strip(),
-                "year": int(row.get("year", 2024)) if row.get("year") and str(row.get("year")).isdigit() else 2024,
-                "price": float(row.get("price", 0)) if row.get("price") else 0.0,
-                "mileage": int(row.get("mileage", 0)) if row.get("mileage") else 0,
-                "condition": row.get("condition", "used").lower(),
-                "body_type": row.get("body_type", "Sedan"),
-                "vin": vin,
-                "stock_number": stock,
+                "title": title if title else f"{year_val} {make} {model}".strip(),
+                "make": make,
+                "model": model,
+                "year": int(year_val) if year_val.isdigit() else 2024,
+                "price": float(re.sub(r'[^\d.]', '', price_val)) if price_val else 0.0,
+                "mileage": int(re.sub(r'[^\d]', '', mileage_val)) if mileage_val else 0,
+                "condition": cond.lower() if cond else "used",
+                "body_type": body if body else "Sedan",
+                "vin": use_vin,
+                "stock_number": use_stock,
+                "description": desc,
                 "images": imgs,
                 "status": "available",
                 "created_at": datetime.now(timezone.utc)
             }
 
-            # SMART UPSERT: Only match on NON-EMPTY fields to prevent collision
+            # SMART UPSERT
             query = {}
-            if vin and stock:
-                query = {"$or": [{"vin": vin}, {"stock_number": stock}]}
-            elif vin:
-                query = {"vin": vin}
+            if use_vin and use_stock:
+                query = {"$or": [{"vin": use_vin}, {"stock_number": use_stock}]}
+            elif use_vin:
+                query = {"vin": use_vin}
             else:
-                query = {"stock_number": stock}
+                query = {"stock_number": use_stock}
 
             await db.vehicles.update_one(query, {"$set": v}, upsert=True)
             added += 1
         except Exception as e:
             logger.error(f"CSV Row error: {e}")
-    return {"message": f"Imported {added} vehicles successfully"}
+            
+    return {"message": f"Successfully imported {added} vehicles"}
 
 @api_router.get("/leads")
 async def list_leads(cu=Depends(get_current_user)):
