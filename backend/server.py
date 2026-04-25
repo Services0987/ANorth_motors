@@ -230,8 +230,9 @@ async def import_vehicles(file: UploadFile = File(...), cu=Depends(get_current_u
     for row in reader:
         try:
             raw_imgs = row.get("images", "")
-            # ADVANCED PARSER: Handles spaces, commas, newlines, and multiple links in one cell
-            imgs = [img.strip() for img in re.split(r'[,\s\n]+', raw_imgs) if img.strip() and img.startswith("http")]
+            # ADVANCED PARSER: Protects commas inside Cloudinary/transformation URLs
+            # Only splits by comma if it's followed by http (indicating a new link) or by whitespace/newlines
+            imgs = [img.strip() for img in re.split(r'[\s\n]+|,\s*(?=http)', raw_imgs) if img.strip() and img.startswith("http")]
             
             v = {
                 "title": row.get("title", f"{row.get('year')} {row.get('make')} {row.get('model')}").strip(),
