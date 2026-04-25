@@ -226,6 +226,8 @@ export default function Inventory() {
     max_price: '',
   });
 
+  const collectionRef = useRef(null);
+
   const fetchVehicles = useCallback(async () => {
     setLoading(true);
     try {
@@ -243,7 +245,14 @@ export default function Inventory() {
       const { data } = await axios.get(`${API}/vehicles?${params}`);
       setVehicles(data.vehicles || []);
       setTotal(data.total || 0);
-      // Removed automatic scroll to top to prevent jumpy experience
+      
+      // Target scroll to the collection header for better UX
+      if (collectionRef.current) {
+        const offset = 100; // Account for sticky navbar
+        const elementPosition = collectionRef.current.getBoundingClientRect().top;
+        const offsetPosition = elementPosition + window.pageYOffset - offset;
+        window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+      }
     } catch (err) { console.error(err); } finally { setLoading(false); }
   }, [filters, page]);
 
@@ -387,7 +396,7 @@ export default function Inventory() {
         </motion.div>
 
         {/* COLLECTION HEADER */}
-        <div className="py-16 px-6 md:px-12 max-w-7xl mx-auto border-t border-white/[0.04] bg-[#050505] relative z-20">
+        <div ref={collectionRef} className="py-16 px-6 md:px-12 max-w-7xl mx-auto border-t border-white/[0.04] bg-[#050505] relative z-20">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
             <h2 className="font-heading text-3xl md:text-5xl font-light text-white tracking-tight mb-2">
               The <span className="gradient-text font-bold">Collection</span>
