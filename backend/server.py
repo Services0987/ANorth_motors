@@ -405,53 +405,73 @@ async def sync_teamford_scraper(cu=Depends(get_current_user)):
 
 async def get_ai_response(message: str, inventory_docs: list):
     """Universal AI Connector with Local Intelligence Fallback"""
-    # Fetch settings from DB
     s = await db.settings.find_one({"type": "general"}) or {}
     provider = s.get("ai_provider", os.environ.get("AI_PROVIDER", "local")).lower()
     api_key = s.get("ai_api_key", os.environ.get("AI_API_KEY"))
+    custom_model = s.get("ai_model")
     
     # ── Local Intelligence Fallback (Works without API) ──
-    inventory_summary = "\n".join([f"• {v.get('year')} {v.get('make')} {v.get('model')} - ${v.get('price'):,.0f} ({v.get('mileage'):,.0f}km)" for v in inventory_docs[:15]])
+    inventory_summary = "\n".join([f"• {v.get('year')} {v.get('make')} {v.get('model')} - ${v.get('price'):,.0f}" for v in inventory_docs[:15]])
     
     if provider == "local" or not api_key:
         query = message.lower()
+        # Price detection: "under 20000" or "$15k"
+        price_match = re.search(r'(?:under|below|less than|max|up to)\s*\$?(\d+(?:k|000)?)', query)
+        max_price = 1000000
+        if price_match:
+            p_val = price_match.group(1).replace('k', '000')
+            max_price = float(p_val)
+
         matches = []
         for v in inventory_docs:
-            if v.get('make', '').lower() in query or v.get('model', '').lower() in query or v.get('body_type', '').lower() in query:
-                matches.append(f"{v.get('year')} {v.get('make')} {v.get('model')} (${v.get('price'):,.0f})")
+            if v.get('price', 0) <= max_price:
+                if v.get('make', '').lower() in query or v.get('model', '').lower() in query or v.get('body_type', '').lower() in query:
+                    matches.append(f"{v.get('year')} {v.get('make')} {v.get('model')} (${v.get('price'):,.0f})")
         
         if matches:
-            return f"I found these matches in our inventory: {', '.join(matches[:3])}. Would you like to see more details or book a test drive?"
-        return "I can help you find the perfect vehicle from our 500+ car inventory. Are you looking for a truck, SUV, or sedan today?"
+            return f"I found {len(matches)} vehicles matching your request! Top picks: {', '.join(matches[:3])}. Would you like to see photos or book a test drive?"
+        return f"We have {len(inventory_docs)} premium vehicles available. Are you looking for a specific make (Ford, Toyota, etc.) or a price range like 'under $30k'?"
 
     try:
-        system_prompt = f"Persona: AutoNorth Specialist. Tone: Professional, direct. Inventory Context: {inventory_summary}. Total Inventory: {len(inventory_docs)} vehicles."
+        system_prompt = f"Persona: AutoNorth Specialist. Tone: Professional, direct. Context: {inventory_summary}. Total: {len(inventory_docs)} vehicles."
         
         # ── Provider: Gemini ──
         if provider == "gemini":
             client = genai.Client(api_key=api_key)
-            resp = client.models.generate_content(model='gemini-1.5-flash', config=genai.types.GenerateContentConfig(system_instruction=system_prompt), contents=message)
+            model_name = custom_model or 'gemini-1.5-flash'
+            resp = client.models.generate_content(model=model_name, config=genai.types.GenerateContentConfig(system_instruction=system_prompt), contents=message)
             return resp.text
 
         # ── Provider: Claude (Anthropic) ──
         elif provider == "claude":
             async with httpx.AsyncClient() as client:
+                model_name = custom_model or 'claude-3-haiku-20240307'
                 resp = await client.post("https://api.anthropic.com/v1/messages", 
                     headers={"x-api-key": api_key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
-                    json={"model": "claude-3-haiku-20240307", "max_tokens": 512, "system": system_prompt, "messages": [{"role": "user", "content": message}]})
+                    json={"model": model_name, "max_tokens": 512, "system": system_prompt, "messages": [{"role": "user", "content": message}]}, timeout=30.0)
                 return resp.json()["content"][0]["text"]
 
         # ── Provider: OpenRouter ──
         elif provider == "openrouter":
             async with httpx.AsyncClient() as client:
+                model_name = custom_model or 'google/gemini-flash-1.5'
                 resp = await client.post("https://openrouter.ai/api/v1/chat/completions",
-                    headers={"Authorization": f"Bearer {api_key}"},
-                    json={"model": "google/gemini-flash-1.5", "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}]})
-                return resp.json()["choices"][0]["message"]["content"]
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "HTTP-Referer": "https://www.autonorth.ca", # Required by OpenRouter
+                        "X-Title": "AutoNorth Motors Specialist", # Required by OpenRouter
+                    },
+                    json={"model": model_name, "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}]}, timeout=30.0)
+                r_json = resp.json()
+                if "choices" in r_json:
+                    return r_json["choices"][0]["message"]["content"]
+                else:
+                    logger.error(f"OpenRouter Fail: {r_json}")
+                    raise Exception(r_json.get("error", {}).get("message", "Unknown OpenRouter Error"))
 
     except Exception as e:
         logger.error(f"AI Provider Error ({provider}): {e}")
-        return f"I'm scanning our current inventory... we have {len(inventory_docs)} vehicles available. What specific model or price range are you looking for?"
+        return f"I'm scanning our current inventory... we have {len(inventory_docs)} vehicles available. I can help you find a Ford, SUV, or a specific price range. What are you looking for today?"
 
 @api_router.post("/chat")
 async def ai_chat(data: ChatRequest):

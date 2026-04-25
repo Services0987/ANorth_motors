@@ -35,7 +35,7 @@ export default function AdminLayout({ children, title }) {
   // Security & AI State
   const [showSecurityModal, setShowSecurityModal] = useState(false);
   const [securityForm, setSecurityForm] = useState({ email: user?.email || '', password: '', confirm: '' });
-  const [aiForm, setAiForm] = useState({ ai_provider: 'local', ai_api_key: '' });
+  const [aiForm, setAiForm] = useState({ ai_provider: 'local', ai_api_key: '', ai_model: '' });
   const [securitySaving, setSecuritySaving] = useState(false);
   const [securityError, setSecurityError] = useState('');
   const [securitySuccess, setSecuritySuccess] = useState(false);
@@ -45,7 +45,11 @@ export default function AdminLayout({ children, title }) {
   const fetchSettings = React.useCallback(async () => {
     try {
       const { data } = await axios.get(`${API}/settings`, { withCredentials: true });
-      if (data) setAiForm({ ai_provider: data.ai_provider || 'local', ai_api_key: data.ai_api_key || '' });
+      if (data) setAiForm({ 
+        ai_provider: data.ai_provider || 'local', 
+        ai_api_key: data.ai_api_key || '',
+        ai_model: data.ai_model || '' 
+      });
     } catch (err) { console.error(err); }
   }, []);
 
@@ -215,14 +219,24 @@ export default function AdminLayout({ children, title }) {
                       />
                     </Field>
                     {aiForm.ai_provider !== 'local' && (
-                      <Field label={`${aiForm.ai_provider.toUpperCase()} API Key`}>
-                        <Input 
-                          type="password" 
-                          value={aiForm.ai_api_key} 
-                          onChange={(e) => setAiForm({...aiForm, ai_api_key: e.target.value})} 
-                          placeholder="Paste API Key here..." 
-                        />
-                      </Field>
+                      <div className="space-y-4">
+                        <Field label={`${aiForm.ai_provider.toUpperCase()} API Key`}>
+                          <Input 
+                            type="password" 
+                            value={aiForm.ai_api_key} 
+                            onChange={(e) => setAiForm({...aiForm, ai_api_key: e.target.value})} 
+                            placeholder="Paste API Key here..." 
+                          />
+                        </Field>
+                        <Field label="Specific Model (Optional)">
+                          <Input 
+                            type="text" 
+                            value={aiForm.ai_model} 
+                            onChange={(e) => setAiForm({...aiForm, ai_model: e.target.value})} 
+                            placeholder={aiForm.ai_provider === 'openrouter' ? 'google/gemini-flash-1.5-free' : 'e.g. gpt-4, claude-3...'} 
+                          />
+                        </Field>
+                      </div>
                     )}
                     <p className="text-[9px] text-white/15 font-body leading-relaxed italic">
                       * Local mode uses internal inventory logic. Cloud modes require an external API key.
