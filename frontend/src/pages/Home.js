@@ -190,7 +190,7 @@ export default function Home() {
 
               <motion.div variants={fadeUp} className="flex flex-wrap gap-4 mb-16">
                 <Link to="/inventory" className="btn-gold px-8 py-4 text-xs tracking-[0.15em] flex items-center gap-3" data-testid="hero-browse-btn">
-                  Browse Inventory <ArrowRight size={15} />
+                  Browse Inventory {SAFE_ICON(ArrowRight, { size: 15 })}
                 </Link>
                 <Link to="/financing" className="btn-outline px-8 py-4 text-xs tracking-[0.15em]" data-testid="hero-financing-btn">
                   Get Pre-Approved
@@ -212,7 +212,7 @@ export default function Home() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2 }}
             className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
             <span className="text-white/20 text-[10px] font-body tracking-[0.3em] uppercase">Scroll</span>
-            <ChevronDown size={16} className="text-white/20 animate-bounce" />
+            {SAFE_ICON(ChevronDown, { size: 16, className: "text-white/20 animate-bounce" })}
           </motion.div>
         </section>
 
@@ -242,7 +242,7 @@ export default function Home() {
                 </motion.h2>
                 <motion.div variants={fadeUp}>
                   <Link to="/inventory" className="text-white/30 hover:text-[#D4AF37] text-sm font-body tracking-widest uppercase flex items-center gap-2 transition-colors">
-                    All Inventory <ArrowRight size={14} />
+                    All Inventory {SAFE_ICON(ArrowRight, { size: 14 })}
                   </Link>
                 </motion.div>
               </div>
@@ -315,7 +315,7 @@ export default function Home() {
             <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.6 }}
               className="text-center mt-12">
               <Link to="/inventory" className="btn-gold px-10 py-4 text-sm tracking-[0.15em] inline-flex items-center gap-3">
-                View Full Collection <ArrowRight size={16} />
+                View Full Collection {SAFE_ICON(ArrowRight, { size: 16 })}
               </Link>
             </motion.div>
           </div>
@@ -362,7 +362,7 @@ export default function Home() {
                   We built AutoNorth on one principle: treat every customer the way we'd want to be treated. No games, no hidden fees, no pressure. Just expert guidance and the best prices in Edmonton.
                 </p>
                 <Link to="/inventory" className="btn-gold px-8 py-4 text-xs tracking-[0.15em] inline-flex items-center gap-3">
-                  Explore Our Inventory <ArrowRight size={15} />
+                  Explore Our Inventory {SAFE_ICON(ArrowRight, { size: 15 })}
                 </Link>
               </motion.div>
 
@@ -481,7 +481,7 @@ export default function Home() {
                   <input className="input-dark px-4 py-3.5 text-sm font-body" placeholder="Your Name" value={leadForm.name} onChange={(e) => setLeadForm({ ...leadForm, name: e.target.value })} required data-testid="lead-form-name" />
                   <input type="email" className="input-dark px-4 py-3.5 text-sm font-body" placeholder="Email Address" value={leadForm.email} onChange={(e) => setLeadForm({ ...leadForm, email: e.target.value })} required data-testid="lead-form-email" />
                   <button type="submit" className="btn-gold py-3.5 text-xs tracking-[0.15em] flex items-center justify-center gap-2" data-testid="lead-form-submit">
-                    Get Matched <ArrowRight size={15} />
+                    Get Matched {SAFE_ICON(ArrowRight, { size: 15 })}
                   </button>
                 </form>
               ) : (

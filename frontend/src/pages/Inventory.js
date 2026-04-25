@@ -381,7 +381,7 @@ export default function Inventory() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2.2 }} className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-20">
             <span className="text-white/20 text-[9px] tracking-[0.4em] uppercase font-body">Scroll to Browse</span>
             <motion.div animate={{ y: [0, 8, 0] }} transition={{ duration: 1.4, repeat: Infinity }}>
-              <ChevronDown size={18} className="text-white/15" />
+              {SAFE_ICON(ChevronDown, { size: 18, className: "text-white/15" })}
             </motion.div>
           </motion.div>
         </motion.div>

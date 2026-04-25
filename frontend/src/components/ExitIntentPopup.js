@@ -3,6 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Gift, Phone, Check } from 'lucide-react';
 import axios from 'axios';
 
+const SAFE_ICON = (Icon, props = {}) => {
+  if (!Icon || (typeof Icon !== 'function' && typeof Icon !== 'object')) return null;
+  return <Icon {...props} />;
+};
+
 const API = (process.env.REACT_APP_BACKEND_URL || '') + '/api';
 
 export default function ExitIntentPopup() {
@@ -88,14 +93,14 @@ export default function ExitIntentPopup() {
               className="absolute top-4 right-4 text-white/40 hover:text-white transition-colors z-10"
               data-testid="exit-popup-close"
             >
-              <X size={20} />
+              {SAFE_ICON(X, { size: 20 })}
             </button>
 
             {!submitted ? (
               <>
                 <div className="mb-6 relative z-10">
                   <div className="flex items-center gap-2 mb-3">
-                    <Gift size={20} className="text-[#D4AF37]" />
+                    {SAFE_ICON(Gift, { size: 20, className: "text-[#D4AF37]" })}
                     <span className="text-xs tracking-[0.2em] uppercase text-[#D4AF37] font-heading">Exclusive Offer</span>
                   </div>
                   <h2 className="font-heading text-2xl font-light text-white mt-2 leading-tight">
@@ -139,7 +144,7 @@ export default function ExitIntentPopup() {
                     className="btn-gold w-full py-3 text-sm flex items-center justify-center gap-2"
                     data-testid="exit-popup-submit"
                   >
-                    <Phone size={14} />
+                    {SAFE_ICON(Phone, { size: 14 })}
                     {loading ? 'Sending...' : 'Get My Exclusive Offer'}
                   </button>
                   <button type="button" onClick={handleClose} className="w-full text-white/30 text-xs font-body hover:text-white/50 transition-colors">
@@ -150,7 +155,7 @@ export default function ExitIntentPopup() {
             ) : (
               <div className="text-center py-8">
                 <div className="w-16 h-16 bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center mx-auto mb-4">
-                  <Check size={24} className="text-[#D4AF37]" />
+                  {SAFE_ICON(Check, { size: 24, className: "text-[#D4AF37]" })}
                 </div>
                 <h3 className="font-heading text-xl text-white mb-2">You're All Set!</h3>
                 <p className="text-white/50 text-sm font-body">Our specialist will contact you shortly with your personalized deal.</p>

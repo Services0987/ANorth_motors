@@ -6,6 +6,11 @@ import { Helmet } from 'react-helmet-async';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
+const SAFE_ICON = (Icon, props = {}) => {
+  if (!Icon || (typeof Icon !== 'function' && typeof Icon !== 'object')) return null;
+  return <Icon {...props} />;
+};
+
 const API = (process.env.REACT_APP_BACKEND_URL || '') + '/api';
 
 const SHOWROOM_IMAGE = 'https://images.pexels.com/photos/1592384/pexels-photo-1592384.jpeg?auto=compress&cs=tinysrgb&w=800&q=80';
@@ -63,7 +68,7 @@ export default function Contact() {
               ].map((item) => (
                 <div key={item.label} className="flex items-start gap-4">
                   <div className="w-10 h-10 bg-[#D4AF37]/10 border border-[#D4AF37]/20 flex items-center justify-center flex-shrink-0">
-                    <item.icon size={16} className="text-[#D4AF37]" />
+                    {SAFE_ICON(item.icon, { size: 16, className: "text-[#D4AF37]" })}
                   </div>
                   <div>
                     <p className="text-white/35 text-xs font-body tracking-wider uppercase mb-1">{item.label}</p>
@@ -78,7 +83,7 @@ export default function Contact() {
 
               <div className="flex items-start gap-4">
                 <div className="w-10 h-10 bg-[#D4AF37]/10 border border-[#D4AF37]/20 flex items-center justify-center flex-shrink-0">
-                  <Clock size={16} className="text-[#D4AF37]" />
+                  {SAFE_ICON(Clock, { size: 16, className: "text-[#D4AF37]" })}
                 </div>
                 <div>
                   <p className="text-white/35 text-xs font-body tracking-wider uppercase mb-2">Hours</p>
@@ -100,7 +105,7 @@ export default function Contact() {
               {submitted ? (
                 <div className="text-center py-12">
                   <div className="w-14 h-14 bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center mx-auto mb-4">
-                    <Check size={22} className="text-[#D4AF37]" />
+                    {SAFE_ICON(Check, { size: 22, className: "text-[#D4AF37]" })}
                   </div>
                   <h3 className="font-heading text-xl text-white mb-2">Message Sent!</h3>
                   <p className="text-white/40 text-sm font-body">Our team will get back to you within 2 hours.</p>

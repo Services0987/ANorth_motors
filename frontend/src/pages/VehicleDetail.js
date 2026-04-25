@@ -7,7 +7,13 @@ import axios from 'axios';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
+const SAFE_ICON = (Icon, props = {}) => {
+  if (!Icon || (typeof Icon !== 'function' && typeof Icon !== 'object')) return null;
+  return <Icon {...props} />;
+};
+
 const API = (process.env.REACT_APP_BACKEND_URL || '') + '/api';
+
 const PLACEHOLDER = 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=800&q=60';
 const TABS = ['contact', 'test_drive', 'financing'];
 const TAB_LABELS = { contact: 'Enquire', test_drive: 'Test Drive', financing: 'Financing' };
@@ -121,7 +127,7 @@ export default function VehicleDetail() {
         <div className="pt-24 max-w-7xl mx-auto px-6 md:px-12 pb-24">
           <motion.button onClick={() => navigate(-1)} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
             className="flex items-center gap-2 text-white/35 hover:text-white text-sm font-body transition-colors mb-8">
-            <ArrowLeft size={15} /> Back to Inventory
+            {SAFE_ICON(ArrowLeft, { size: 15 })} Back to Inventory
           </motion.button>
 
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-10">
@@ -181,8 +187,8 @@ export default function VehicleDetail() {
                   </AnimatePresence>
                   {images.length > 1 && (
                     <>
-                      <button onClick={() => setImgIdx((i) => (i - 1 + images.length) % images.length)} className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/70 backdrop-blur flex items-center justify-center text-white hover:bg-[#D4AF37] hover:text-black transition-all z-10"><ChevronLeft size={18} /></button>
-                      <button onClick={() => setImgIdx((i) => (i + 1) % images.length)} className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/70 backdrop-blur flex items-center justify-center text-white hover:bg-[#D4AF37] hover:text-black transition-all z-10"><ChevronRight size={18} /></button>
+                      <button onClick={() => setImgIdx((i) => (i - 1 + images.length) % images.length)} className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/70 backdrop-blur flex items-center justify-center text-white hover:bg-[#D4AF37] hover:text-black transition-all z-10">{SAFE_ICON(ChevronLeft, { size: 18 })}</button>
+                      <button onClick={() => setImgIdx((i) => (i + 1) % images.length)} className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/70 backdrop-blur flex items-center justify-center text-white hover:bg-[#D4AF37] hover:text-black transition-all z-10">{SAFE_ICON(ChevronRight, { size: 18 })}</button>
                     </>
                   )}
                   <div className="absolute top-3 left-3 flex gap-1.5 z-20">
@@ -278,7 +284,7 @@ export default function VehicleDetail() {
                     ))}
                   </div>
                   <a href="tel:+18256055050" className="btn-outline w-full py-3 text-xs flex items-center justify-center gap-2 mt-4" data-testid="vehicle-call-btn">
-                    <Phone size={14} /> Call 825-605-5050
+                    {SAFE_ICON(Phone, { size: 14 })} Call 825-605-5050
                   </a>
                 </div>
 
@@ -291,7 +297,7 @@ export default function VehicleDetail() {
                         <button key={tab} onClick={() => { setActiveTab(tab); setSubmitted(false); }}
                           className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[10px] font-heading tracking-[0.12em] uppercase transition-all border-b-2 ${activeTab === tab ? 'text-[#D4AF37] border-[#D4AF37]' : 'text-white/25 border-transparent hover:text-white/50'}`}
                           data-testid={`lead-tab-${tab}`}>
-                          <Icon size={11} /> {TAB_LABELS[tab]}
+                          {SAFE_ICON(Icon, { size: 11 })} {TAB_LABELS[tab]}
                         </button>
                       );
                     })}
@@ -300,7 +306,7 @@ export default function VehicleDetail() {
                   {submitted ? (
                     <div className="text-center py-8">
                       <div className="w-12 h-12 bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center mx-auto mb-3">
-                        <Check size={18} className="text-[#D4AF37]" />
+                        {SAFE_ICON(Check, { size: 18, className: "text-[#D4AF37]" })}
                       </div>
                       <p className="font-heading text-white text-base mb-1">Request Sent!</p>
                       <p className="text-white/35 text-xs font-body">We'll be in touch within 2 hours.</p>
