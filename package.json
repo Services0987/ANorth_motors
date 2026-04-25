@@ -5,7 +5,11 @@
     "frontend"
   ],
   "scripts": {
-    "build": "npm run build --workspace=frontend",
-    "install": "npm install --workspace=frontend"
+    "build": "npm run build --workspace=frontend"
+  },
+  "engines": {
+    "node": "20.x"
   }
 }
+
+
