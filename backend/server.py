@@ -225,40 +225,56 @@ async def delete_vehicle(vehicle_id: str, cu=Depends(get_current_user)):
 async def import_vehicles(file: UploadFile = File(...), cu=Depends(get_current_user)):
     content = await file.read()
     decoded = content.decode("utf-8-sig", errors="ignore")
-    reader = csv.DictReader(io.StringIO(decoded))
+    # Use a more robust CSV reader configuration
+    reader = csv.DictReader(io.StringIO(decoded), skipinitialspace=True)
     added = 0
     for row in reader:
         try:
+            # Clean all keys and values in the row to handle invisible characters
+            row = {str(k).strip(): str(v).strip() for k, v in row.items() if k is not None}
+            
             raw_imgs = row.get("images", "")
-            # ADVANCED PARSER: Protects commas inside Cloudinary/transformation URLs
-            # Only splits by comma if it's followed by http (indicating a new link) or by whitespace/newlines
             imgs = [img.strip() for img in re.split(r'[\s\n]+|,\s*(?=http)', raw_imgs) if img.strip() and img.startswith("http")]
             
+            # Extract identifiers
+            vin = row.get("vin", "").strip()
+            stock = row.get("stock_number", row.get("stock", "")).strip()
+            
+            # Skip if absolutely no identification is possible
+            if not vin and not stock:
+                logger.warning(f"Skipping row with no VIN or Stock: {row.get('title')}")
+                continue
+
             v = {
                 "title": row.get("title", f"{row.get('year')} {row.get('make')} {row.get('model')}").strip(),
                 "make": row.get("make", "").strip(),
                 "model": row.get("model", "").strip(),
-                "year": int(row.get("year", 2024)),
-                "price": float(row.get("price", 0)),
-                "mileage": int(row.get("mileage", 0)),
+                "year": int(row.get("year", 2024)) if row.get("year") and str(row.get("year")).isdigit() else 2024,
+                "price": float(row.get("price", 0)) if row.get("price") else 0.0,
+                "mileage": int(row.get("mileage", 0)) if row.get("mileage") else 0,
                 "condition": row.get("condition", "used").lower(),
                 "body_type": row.get("body_type", "Sedan"),
-                "vin": row.get("vin", "").strip(),
-                "stock_number": row.get("stock_number", "").strip(),
+                "vin": vin,
+                "stock_number": stock,
                 "images": imgs,
                 "status": "available",
                 "created_at": datetime.now(timezone.utc)
             }
-            if not v["vin"] and not v["stock_number"]: continue
-            await db.vehicles.update_one(
-                {"$or": [{"vin": v["vin"]}, {"stock_number": v["stock_number"]}]},
-                {"$set": v},
-                upsert=True
-            )
+
+            # SMART UPSERT: Only match on NON-EMPTY fields to prevent collision
+            query = {}
+            if vin and stock:
+                query = {"$or": [{"vin": vin}, {"stock_number": stock}]}
+            elif vin:
+                query = {"vin": vin}
+            else:
+                query = {"stock_number": stock}
+
+            await db.vehicles.update_one(query, {"$set": v}, upsert=True)
             added += 1
         except Exception as e:
             logger.error(f"CSV Row error: {e}")
-    return {"message": f"Imported {added} vehicles"}
+    return {"message": f"Imported {added} vehicles successfully"}
 
 @api_router.get("/leads")
 async def list_leads(cu=Depends(get_current_user)):
