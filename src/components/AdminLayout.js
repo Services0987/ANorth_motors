@@ -1,3 +1,5 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Car, Users, LogOut, Menu, X, ChevronRight, Settings, Pencil, CheckCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
