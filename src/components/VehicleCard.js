@@ -203,7 +203,7 @@ export default function VehicleCard({ vehicle, index = 0 }) {
               <div className="w-[1px] h-3 bg-white/10" />
               <div className="flex items-center gap-2 group/stat">
                 {SAFE_ICON(Fuel, { size: 13, className: "text-[#D4AF37]/60 group-hover/stat:text-[#D4AF37] transition-colors" })}
-                <span className="group-hover/stat:text-white/50 transition-colors">{vehicle.fuel_type}</span>
+                <span className="group-hover/stat:text-white/50 transition-colors">{vehicle.fuel_type || vehicle.fuel || 'Gas'}</span>
               </div>
             </div>
           </div>
