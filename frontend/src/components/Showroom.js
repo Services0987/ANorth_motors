@@ -165,17 +165,24 @@ export default function Showroom() {
         </div>
       )}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-white/50 pointer-events-none z-40 mix-blend-difference" />
-
-      <Canvas shadows camera={{ position: [0, 0, 25], fov: 60 }} onPointerDown={() => { if (!locked) setLocked(true); }}>
-        <fog attach="fog" args={['#050505', 10, 50]} />
-        <ambientLight intensity={0.2} />
-        <directionalLight position={[10, 20, 10]} intensity={1.5} castShadow shadow-mapSize={[2048, 2048]} />
-        <Environment preset="night" />
-        <ShowroomHall />
-        <Player />
-        <PointerLockControls onLock={() => setLocked(true)} onUnlock={() => setLocked(false)} />
-        <BakeShadows />
-      </Canvas>
+      
+      {typeof Canvas !== 'undefined' ? (
+        <Canvas shadows camera={{ position: [0, 0, 25], fov: 60 }} onPointerDown={() => { if (!locked) setLocked(true); }}>
+          <fog attach="fog" args={['#050505', 10, 50]} />
+          <ambientLight intensity={0.2} />
+          <directionalLight position={[10, 20, 10]} intensity={1.5} castShadow shadow-mapSize={[2048, 2048]} />
+          <Environment preset="night" />
+          <ShowroomHall />
+          <Player />
+          <PointerLockControls onLock={() => setLocked(true)} onUnlock={() => setLocked(false)} />
+          <BakeShadows />
+        </Canvas>
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center text-white/20 font-heading text-xs uppercase tracking-widest">
+          3D Engine Initializing...
+        </div>
+      )}
     </div>
   );
 }
+
