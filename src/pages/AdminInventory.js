@@ -61,7 +61,14 @@ export default function AdminInventory() {
   const [newImage, setNewImage] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
-  const [addMode, setAddMode] = useState('manual'); // 'manual' or 'url'
+  const [addMode, setAddMode] = useState('manual');
+  
+  // Security State
+  const [showSecurityModal, setShowSecurityModal] = useState(false);
+  const [securityForm, setSecurityForm] = useState({ email: user?.email || '', password: '', confirm: '' });
+  const [securitySaving, setSecuritySaving] = useState(false);
+  const [securityError, setSecurityError] = useState('');
+  const [securitySuccess, setSecuritySuccess] = useState(false);
   
   // Scraper State
   const [scraperUrl, setScraperUrl] = useState('');
@@ -133,6 +140,24 @@ export default function AdminInventory() {
   const handleDelete = async (id) => {
     try { await axios.delete(`${API}/vehicles/${id}`, { withCredentials: true }); setDeleteConfirm(null); fetchVehicles(); }
     catch (err) { console.error(err); }
+  };
+
+  const handleProfileSave = async (e) => {
+    e.preventDefault();
+    if (securityForm.password && securityForm.password !== securityForm.confirm) {
+      return setSecurityError("Passwords do not match");
+    }
+    setSecuritySaving(true); setSecurityError(''); setSecuritySuccess(false);
+    try {
+      await axios.put(`${API}/auth/profile`, { 
+        email: securityForm.email, 
+        password: securityForm.password || undefined 
+      }, { withCredentials: true });
+      setSecuritySuccess(true);
+      setTimeout(() => { setShowSecurityModal(false); setSecuritySuccess(false); }, 2000);
+    } catch (err) { 
+      setSecurityError(err.response?.data?.message || "Failed to update profile");
+    } finally { setSecuritySaving(false); }
   };
 
   const handleBulkDelete = async () => {
@@ -298,6 +323,13 @@ export default function AdminInventory() {
             <label htmlFor="csv-upload" className="btn-outline px-6 py-3 text-xs flex items-center gap-2 cursor-pointer">
               {SAFE_ICON(Upload, { size: 14 })} CSV
             </label>
+            <button 
+              onClick={() => setShowSecurityModal(true)}
+              className="w-10 h-10 flex items-center justify-center border border-white/10 text-white/40 hover:text-white hover:border-white/20 transition-all rounded-sm"
+              title="Security Settings"
+            >
+              {SAFE_ICON(Pencil, { size: 16 })}
+            </button>
           </div>
         </div>
 
@@ -495,6 +527,47 @@ export default function AdminInventory() {
               <button type="button" onClick={handleSave} disabled={saving} className="btn-gold flex-1 py-4 text-xs font-bold uppercase">{saving ? 'Processing...' : 'Finalize Listing'}</button>
             </div>
           </div>
+        </div>
+      )}
+      {/* Security Modal */}
+      {showSecurityModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowSecurityModal(false)} />
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="relative bg-[#0A0A0A] border border-white/10 w-full max-w-md p-8">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h2 className="font-heading text-xl font-semibold text-white">Security Settings</h2>
+                <p className="text-white/35 text-xs font-body mt-1">Update your admin login credentials</p>
+              </div>
+              <button onClick={() => setShowSecurityModal(false)} className="text-white/20 hover:text-white transition-colors">{SAFE_ICON(X, { size: 20 })}</button>
+            </div>
+
+            <form onSubmit={handleProfileSave} className="space-y-6">
+              {securityError && <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-body">{securityError}</div>}
+              {securitySuccess && <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-body">Profile updated successfully!</div>}
+              
+              <Field label="Admin Email">
+                <Input type="email" value={securityForm.email} onChange={(e) => setSecurityForm({...securityForm, email: e.target.value})} placeholder="admin@autonorth.ca" required />
+              </Field>
+
+              <div className="space-y-4 pt-4 border-t border-white/[0.05]">
+                <p className="text-[10px] text-white/20 uppercase tracking-widest">Change Password (Optional)</p>
+                <Field label="New Password">
+                  <Input type="password" value={securityForm.password} onChange={(e) => setSecurityForm({...securityForm, password: e.target.value})} placeholder="••••••••" />
+                </Field>
+                <Field label="Confirm New Password">
+                  <Input type="password" value={securityForm.confirm} onChange={(e) => setSecurityForm({...securityForm, confirm: e.target.value})} placeholder="••••••••" />
+                </Field>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button type="button" onClick={() => setShowSecurityModal(false)} className="flex-1 px-6 py-3 border border-white/10 text-white/40 text-[10px] uppercase tracking-widest hover:bg-white/5 transition-all">Cancel</button>
+                <button type="submit" disabled={securitySaving} className="flex-2 btn-gold px-8 py-3 text-[10px] uppercase tracking-widest">
+                  {securitySaving ? 'Saving...' : 'Update Credentials'}
+                </button>
+              </div>
+            </form>
+          </motion.div>
         </div>
       )}
     </AdminLayout>
