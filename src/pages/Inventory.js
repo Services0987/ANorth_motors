@@ -243,7 +243,7 @@ export default function Inventory() {
       const { data } = await axios.get(`${API}/vehicles?${params}`);
       setVehicles(data.vehicles || []);
       setTotal(data.total || 0);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // Removed automatic scroll to top to prevent jumpy experience
     } catch (err) { console.error(err); } finally { setLoading(false); }
   }, [filters, page]);
 

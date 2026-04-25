@@ -90,7 +90,7 @@ export default function Home() {
     setLoading(true);
     const fetchVehicles = async () => {
       try {
-        const res = await axios.get(`${API}/vehicles?featured=true&limit=4`);
+        const res = await axios.get(`${API}/vehicles?show_on_home=true&limit=8`);
         setFeatured(res.data?.vehicles || []);
       } catch (err) {
         console.error("Home: Failed to fetch vehicles", err);
