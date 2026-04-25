@@ -196,9 +196,8 @@ async def get_vehicle(vehicle_id: str):
 async def create_vehicle(data: VehicleCreate, cu=Depends(get_current_user)):
     doc = {**data.model_dump(), "created_at": datetime.now(timezone.utc)}
     res = await db.vehicles.insert_one(doc)
-    inserted_vehicle = await db.vehicles.find_one({"_id": res.inserted_id})
-    inserted_vehicle["_id"] = str(inserted_vehicle["_id"])
-    return inserted_vehicle
+    doc["_id"] = str(res.inserted_id)
+    return doc
 
 @api_router.put("/vehicles/{vehicle_id}")
 async def update_vehicle(vehicle_id: str, data: VehicleUpdate, cu=Depends(get_current_user)):

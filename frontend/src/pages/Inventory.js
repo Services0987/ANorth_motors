@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence, useScroll, useTransform, useMotionValue, useSpring } from 'framer-motion';
-import { Search, SlidersHorizontal, X, ChevronDown, ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
+import { Search, SlidersHorizontal, X, ChevronDown, ChevronLeft, ChevronRight, ArrowRight, Loader2 as Loader } from 'lucide-react';
 import axios from 'axios';
 import { Helmet } from 'react-helmet-async';
 import Navbar from '../components/Navbar';
@@ -480,6 +480,7 @@ export default function Inventory() {
                 <div className="w-20 h-20 mx-auto mb-6 flex items-center justify-center rounded-full bg-white/5 border border-white/10">
                   {SAFE_ICON(Search, { size: 32, className: "text-[#D4AF37]" })}
                 </div>
+                {SAFE_ICON(Loader, { className: "w-4 h-4 animate-spin text-[#D4AF37]" })}
                 <h3 className="font-heading text-white text-3xl font-light mb-3">No models found</h3>
                 <p className="text-white/40 font-body text-base mb-8 max-w-md mx-auto">We couldn't find any vehicles matching your exact criteria. Uncover more by broadening your search.</p>
                 <button onClick={clearFilters} className="btn-gold px-8 py-4 text-xs tracking-widest font-heading font-medium" data-testid="no-results-clear-btn">
