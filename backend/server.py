@@ -404,18 +404,15 @@ async def sync_teamford_scraper(cu=Depends(get_current_user)):
         raise HTTPException(500, "Failed to sync with Team Ford")
 
 async def get_ai_response(message: str, inventory_docs: list):
-    """Universal AI Connector with Local Intelligence Fallback"""
+    """Universal AI Connector with Local Intelligence & Smart Fallback"""
     s = await db.settings.find_one({"type": "general"}) or {}
     provider = s.get("ai_provider", os.environ.get("AI_PROVIDER", "local")).lower()
     api_key = s.get("ai_api_key", os.environ.get("AI_API_KEY"))
     custom_model = s.get("ai_model")
     
-    # ── Local Intelligence Fallback (Works without API) ──
-    inventory_summary = "\n".join([f"• {v.get('year')} {v.get('make')} {v.get('model')} - ${v.get('price'):,.0f}" for v in inventory_docs[:15]])
-    
-    if provider == "local" or not api_key:
-        query = message.lower()
-        # Price detection: "under 20000" or "$15k"
+    # ── Local Brain Logic (Extracted for Fallback) ──
+    async def local_fallback(msg, docs):
+        query = msg.lower()
         price_match = re.search(r'(?:under|below|less than|max|up to)\s*\$?(\d+(?:k|000)?)', query)
         max_price = 1000000
         if price_match:
@@ -423,17 +420,22 @@ async def get_ai_response(message: str, inventory_docs: list):
             max_price = float(p_val)
 
         matches = []
-        for v in inventory_docs:
+        for v in docs:
             if v.get('price', 0) <= max_price:
                 if v.get('make', '').lower() in query or v.get('model', '').lower() in query or v.get('body_type', '').lower() in query:
                     matches.append(f"{v.get('year')} {v.get('make')} {v.get('model')} (${v.get('price'):,.0f})")
         
         if matches:
-            return f"I found {len(matches)} vehicles matching your request! Top picks: {', '.join(matches[:3])}. Would you like to see photos or book a test drive?"
-        return f"We have {len(inventory_docs)} premium vehicles available. Are you looking for a specific make (Ford, Toyota, etc.) or a price range like 'under $30k'?"
+            return f"I found {len(matches)} vehicles matching your request! Top picks: {', '.join(matches[:3])}. Would you like more details?"
+        return f"We have {len(docs)} premium vehicles available. Are you looking for a specific make or a price range like 'under $25k'?"
+
+    # Force Local if requested or no API
+    if provider == "local" or not api_key:
+        return await local_fallback(message, inventory_docs)
 
     try:
-        system_prompt = f"Persona: AutoNorth Specialist. Tone: Professional, direct. Context: {inventory_summary}. Total: {len(inventory_docs)} vehicles."
+        inventory_summary = "\n".join([f"• {v.get('year')} {v.get('make')} {v.get('model')} - ${v.get('price'):,.0f}" for v in inventory_docs[:15]])
+        system_prompt = f"Persona: AutoNorth Specialist. Context: {inventory_summary}. Total: {len(inventory_docs)}."
         
         # ── Provider: Gemini ──
         if provider == "gemini":
@@ -458,20 +460,22 @@ async def get_ai_response(message: str, inventory_docs: list):
                 resp = await client.post("https://openrouter.ai/api/v1/chat/completions",
                     headers={
                         "Authorization": f"Bearer {api_key}",
-                        "HTTP-Referer": "https://www.autonorth.ca", # Required by OpenRouter
-                        "X-Title": "AutoNorth Motors Specialist", # Required by OpenRouter
+                        "HTTP-Referer": "https://www.autonorth.ca",
+                        "X-Title": "AutoNorth Motors",
                     },
                     json={"model": model_name, "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}]}, timeout=30.0)
                 r_json = resp.json()
                 if "choices" in r_json:
                     return r_json["choices"][0]["message"]["content"]
                 else:
-                    logger.error(f"OpenRouter Fail: {r_json}")
-                    raise Exception(r_json.get("error", {}).get("message", "Unknown OpenRouter Error"))
+                    err_msg = r_json.get("error", {}).get("message", "API Error")
+                    await db.settings.update_one({"type": "general"}, {"$set": {"last_error": err_msg}})
+                    raise Exception(err_msg)
 
     except Exception as e:
         logger.error(f"AI Provider Error ({provider}): {e}")
-        return f"I'm scanning our current inventory... we have {len(inventory_docs)} vehicles available. I can help you find a Ford, SUV, or a specific price range. What are you looking for today?"
+        # SMART FALLBACK: If API fails, use Local Brain instead of an error message
+        return await local_fallback(message, inventory_docs)
 
 @api_router.post("/chat")
 async def ai_chat(data: ChatRequest):
