@@ -410,6 +410,12 @@ async def get_ai_response(message: str, inventory_docs: list):
     api_key = s.get("ai_api_key", os.environ.get("AI_API_KEY"))
     custom_model = s.get("ai_model")
     
+    def safe_price(v):
+        try:
+            p = v.get('price')
+            return float(p) if p and str(p).replace('.','').isdigit() else 0.0
+        except: return 0.0
+
     # ── Local Brain Logic (Extracted for Fallback) ──
     async def local_fallback(msg, docs):
         query = msg.lower()
@@ -421,9 +427,10 @@ async def get_ai_response(message: str, inventory_docs: list):
 
         matches = []
         for v in docs:
-            if v.get('price', 0) <= max_price:
+            p = safe_price(v)
+            if p <= max_price:
                 if v.get('make', '').lower() in query or v.get('model', '').lower() in query or v.get('body_type', '').lower() in query:
-                    matches.append(f"{v.get('year')} {v.get('make')} {v.get('model')} (${v.get('price'):,.0f})")
+                    matches.append(f"{v.get('year')} {v.get('make')} {v.get('model')} (${p:,.0f})")
         
         if matches:
             return f"I found {len(matches)} vehicles matching your request! Top picks: {', '.join(matches[:3])}. Would you like more details?"
@@ -434,7 +441,7 @@ async def get_ai_response(message: str, inventory_docs: list):
         return await local_fallback(message, inventory_docs)
 
     try:
-        inventory_summary = "\n".join([f"• {v.get('year')} {v.get('make')} {v.get('model')} - ${v.get('price'):,.0f}" for v in inventory_docs[:15]])
+        inventory_summary = "\n".join([f"• {v.get('year')} {v.get('make')} {v.get('model')} - ${safe_price(v):,.0f}" for v in inventory_docs[:15]])
         system_prompt = f"Persona: AutoNorth Specialist. Context: {inventory_summary}. Total: {len(inventory_docs)}."
         
         # ── Provider: Gemini ──
@@ -456,7 +463,7 @@ async def get_ai_response(message: str, inventory_docs: list):
         # ── Provider: OpenRouter ──
         elif provider == "openrouter":
             async with httpx.AsyncClient() as client:
-                model_name = custom_model or 'google/gemini-flash-1.5'
+                model_name = custom_model or 'google/gemini-2.0-flash-lite-preview-02-05:free'
                 resp = await client.post("https://openrouter.ai/api/v1/chat/completions",
                     headers={
                         "Authorization": f"Bearer {api_key}",
@@ -474,7 +481,6 @@ async def get_ai_response(message: str, inventory_docs: list):
 
     except Exception as e:
         logger.error(f"AI Provider Error ({provider}): {e}")
-        # SMART FALLBACK: If API fails, use Local Brain instead of an error message
         return await local_fallback(message, inventory_docs)
 
 @api_router.post("/chat")
