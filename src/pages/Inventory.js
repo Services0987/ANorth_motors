@@ -301,30 +301,108 @@ export default function Inventory() {
               <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-transparent to-black" />
             </div>
 
-            <div className="relative z-10 w-full max-w-[1000px] flex flex-col items-center justify-center py-10 px-6">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8, filter: 'blur(20px)' }}
-                animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-                transition={{ duration: 2, ease: [0.16, 1, 0.3, 1] }}
-                className="w-full relative group"
-              >
-                {/* Logo Glow Layer */}
-                <motion.div 
-                  className="absolute inset-0 blur-3xl opacity-20 bg-[#D4AF37] rounded-full"
-                  animate={{ opacity: [0.1, 0.3, 0.1] }}
-                  transition={{ duration: 4, repeat: Infinity }}
-                />
-                <img 
-                  src="/autonorth_cinematic_logo_1777279777559.png" 
-                  alt="AutoNorth" 
-                  className="w-full h-auto drop-shadow-[0_0_50px_rgba(212,175,55,0.3)]"
-                />
-              </motion.div>
+            <div className="relative z-10 w-full flex flex-col items-center justify-center py-10 px-6">
+              {/* ━━ THE MECHANICAL MASTERPIECE BRAND ━━ */}
+              <div className="flex flex-col items-center gap-2">
+                
+                {/* WORD: AUTO */}
+                <div className="flex items-center justify-center gap-1 md:gap-4 mb-4">
+                  {['A', 'U', 'T'].map((l, i) => (
+                    <motion.span
+                      key={`auto-${l}`}
+                      initial={{ opacity: 0, y: 50, filter: 'blur(10px)' }}
+                      animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                      transition={{ duration: 1, delay: i * 0.2, ease: [0.16, 1, 0.3, 1] }}
+                      className="text-white font-heading font-extrabold text-[clamp(3rem,12vw,9rem)] leading-none drop-shadow-2xl"
+                      style={{
+                        background: 'linear-gradient(180deg, #fff 0%, #aaa 50%, #444 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        textShadow: '0 10px 30px rgba(0,0,0,0.5)',
+                        letterSpacing: '-0.02em'
+                      }}
+                    >
+                      {l}
+                    </motion.span>
+                  ))}
+                  
+                  {/* SPINNING O (WHEEL) */}
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.5, rotate: -180 }}
+                    animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                    transition={{ duration: 1.5, delay: 0.8, ease: [0.34, 1.56, 0.64, 1] }}
+                    className="relative"
+                  >
+                    <motion.img 
+                      src="/luxury_3d_wheel_asset_1777281371369.png"
+                      className="w-[clamp(3rem,12vw,9rem)] h-auto drop-shadow-[0_0_30px_rgba(212,175,55,0.4)]"
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+                    />
+                  </motion.div>
+                </div>
+
+                {/* WORD: NORTH */}
+                <div className="flex items-center justify-center gap-1 md:gap-4">
+                  {['N'].map((l, i) => (
+                    <motion.span
+                      key={`north-${l}`}
+                      initial={{ opacity: 0, y: 50, filter: 'blur(10px)' }}
+                      animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                      transition={{ duration: 1, delay: 1.2, ease: [0.16, 1, 0.3, 1] }}
+                      className="text-white font-heading font-extrabold text-[clamp(3rem,12vw,9rem)] leading-none drop-shadow-2xl"
+                      style={{
+                        background: 'linear-gradient(180deg, #fff 0%, #aaa 50%, #444 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        textShadow: '0 10px 30px rgba(0,0,0,0.5)',
+                        letterSpacing: '-0.02em'
+                      }}
+                    >
+                      {l}
+                    </motion.span>
+                  ))}
+
+                  {/* SPINNING O (WHEEL 2) */}
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.5, rotate: -180 }}
+                    animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                    transition={{ duration: 1.5, delay: 1.4, ease: [0.34, 1.56, 0.64, 1] }}
+                    className="relative"
+                  >
+                    <motion.img 
+                      src="/luxury_3d_wheel_asset_1777281371369.png"
+                      className="w-[clamp(3rem,12vw,9rem)] h-auto drop-shadow-[0_0_30px_rgba(212,175,55,0.4)]"
+                      animate={{ rotate: -360 }}
+                      transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+                    />
+                  </motion.div>
+
+                  {['R', 'T', 'H'].map((l, i) => (
+                    <motion.span
+                      key={`north-${l}`}
+                      initial={{ opacity: 0, y: 50, filter: 'blur(10px)' }}
+                      animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                      transition={{ duration: 1, delay: 1.6 + i * 0.2, ease: [0.16, 1, 0.3, 1] }}
+                      className="text-white font-heading font-extrabold text-[clamp(3rem,12vw,9rem)] leading-none drop-shadow-2xl"
+                      style={{
+                        background: 'linear-gradient(180deg, #fff 0%, #aaa 50%, #444 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        textShadow: '0 10px 30px rgba(0,0,0,0.5)',
+                        letterSpacing: '-0.02em'
+                      }}
+                    >
+                      {l}
+                    </motion.span>
+                  ))}
+                </div>
+              </div>
 
               <motion.p
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                transition={{ duration: 1, delay: 1.5 }}
+                transition={{ duration: 1, delay: 2.5 }}
                 className="text-white/40 font-body text-[10px] md:text-sm tracking-[0.4em] uppercase mt-12 text-center"
               >
                 Curated Excellence. Unmatched Quality.

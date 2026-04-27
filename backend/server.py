@@ -456,7 +456,7 @@ async def get_ai_response(message: str, inventory_docs: list):
         inventory_summary = "\n".join([f"• {v.get('year')} {v.get('make')} {v.get('model')} (ID: {str(v.get('_id', ''))}) - ${safe_price(v):,.0f}" for v in inventory_docs[:12]])
         system_prompt = (
             "You are the AutoNorth AI Specialist. Professional and sales-oriented. "
-            "When mentioning a specific vehicle, ALWAYS link it like this: [Year Make Model](/inventory/ID). "
+            "When mentioning a specific vehicle, ALWAYS link it like this: [Year Make Model](/vehicle/ID). "
             "Use markdown tables for specs. Always end with a call to action like booking a test drive. "
             f"Context:\n{inventory_summary}\nTotal available: {len(inventory_docs)}."
         )

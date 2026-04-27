@@ -171,7 +171,14 @@ export default function ChatBot() {
                                     return (
                                       <span key={cidx} className={`${cidx === 0 ? "font-bold text-[#D4AF37]" : "text-white/60"} truncate`}>
                                         {linkMatch ? (
-                                          <a href={linkMatch[2]} className="text-[#D4AF37] underline underline-offset-2 decoration-[#D4AF37]/30 hover:decoration-[#D4AF37]">{linkMatch[1]}</a>
+                                          <a 
+                                            href={linkMatch[2]} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="text-[#D4AF37] underline underline-offset-2 decoration-[#D4AF37]/30 hover:decoration-[#D4AF37]"
+                                          >
+                                            {linkMatch[1]}
+                                          </a>
                                         ) : cell.trim()}
                                       </span>
                                     );
