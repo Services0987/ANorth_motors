@@ -24,10 +24,37 @@ const SAFE_ICON = (Icon, props = {}) => {
 
 export default function ChatBot() {
   const [open, setOpen] = useState(false);
+  const [messages, setMessages] = useState(() => {
+    // Session Persistence: Load from localStorage
+    const saved = localStorage.getItem('autonorth_chat_session');
+    if (saved) {
+      try {
+        const { msgs, timestamp } = JSON.parse(saved);
+        // Expiry check: 20 minutes
+        if (Date.now() - timestamp < 20 * 60 * 1000) {
+          return msgs;
+        }
+      } catch (e) { console.error("Session restore failed", e); }
+    }
+    return [{ role: 'assistant', content: 'Welcome to AutoNorth. I am your AI Specialist. How can I help you find your dream car today?' }];
+  });
+
   const [input, setInput] = useState('');
-  const [messages, setMessages] = useState([
-    { role: 'assistant', content: "Hello! I'm your AutoNorth AI Vehicle Specialist. I have complete knowledge of our entire inventory. What vehicle are you looking for today?" }
-  ]);
+  const [loading, setLoading] = useState(false);
+  const messagesEndRef = useRef(null);
+
+  // Save session whenever messages change
+  useEffect(() => {
+    localStorage.setItem('autonorth_chat_session', JSON.stringify({
+      msgs: messages,
+      timestamp: Date.now()
+    }));
+    scrollToBottom();
+  }, [messages]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
   const [thinking, setThinking] = useState(false);
   const [sessionId, setSessionId] = useState(null);
   const [inventory, setInventory] = useState([]);
@@ -173,8 +200,7 @@ export default function ChatBot() {
                                         {linkMatch ? (
                                           <a 
                                             href={linkMatch[2]} 
-                                            target="_blank" 
-                                            rel="noopener noreferrer"
+                                            onClick={() => setMinimized(true)}
                                             className="text-[#D4AF37] underline underline-offset-2 decoration-[#D4AF37]/30 hover:decoration-[#D4AF37]"
                                           >
                                             {linkMatch[1]}
@@ -198,7 +224,7 @@ export default function ChatBot() {
                                 <p key={idx} className="mb-2 last:mb-0 text-white/80 break-words">
                                   {parts.map((part, pidx) => {
                                     const match = part.match(/\[(.*?)\]\((.*?)\)/);
-                                    if (match) return <a key={pidx} href={match[2]} className="text-[#D4AF37] font-bold border-b border-[#D4AF37]/30 hover:border-[#D4AF37] hover:bg-[#D4AF37]/5 px-1 transition-all rounded-sm">{match[1]}</a>;
+                                    if (match) return <a key={pidx} href={match[2]} onClick={() => setMinimized(true)} className="text-[#D4AF37] font-bold border-b border-[#D4AF37]/30 hover:border-[#D4AF37] hover:bg-[#D4AF37]/5 px-1 transition-all rounded-sm">{match[1]}</a>;
                                     return part;
                                   })}
                                 </p>

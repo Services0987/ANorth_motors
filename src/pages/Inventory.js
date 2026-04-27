@@ -292,13 +292,13 @@ export default function Inventory() {
         <motion.div style={{ opacity: heroOpacity }} className="relative h-screen flex flex-col items-center justify-center text-center px-6 overflow-hidden bg-black">
             <div className="absolute inset-0 z-0">
               <motion.img 
-                src="/luxury_showroom_hero_bg_1777279800612.png" 
-                className="w-full h-full object-cover opacity-60"
+                src="/clean_luxury_showroom_no_text_1777282813141.png" 
+                className="w-full h-full object-cover opacity-70"
                 initial={{ scale: 1.1 }}
                 animate={{ scale: 1 }}
-                transition={{ duration: 10, ease: "linear", repeat: Infinity, repeatType: "reverse" }}
+                transition={{ duration: 15, ease: "linear", repeat: Infinity, repeatType: "reverse" }}
               />
-              <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-transparent to-black" />
+              <div className="absolute inset-0 bg-gradient-to-b from-black/90 via-transparent to-black" />
             </div>
 
             <div className="relative z-10 w-full flex flex-col items-center justify-center py-10 px-6">
@@ -334,10 +334,10 @@ export default function Inventory() {
                     className="relative"
                   >
                     <motion.img 
-                      src="/luxury_3d_wheel_asset_1777281371369.png"
-                      className="w-[clamp(3rem,12vw,9rem)] h-auto drop-shadow-[0_0_30px_rgba(212,175,55,0.4)]"
+                      src="/full_luxury_wheel_with_tyre_1777282790829.png"
+                      className="w-[clamp(3rem,12vw,9rem)] h-auto drop-shadow-[0_0_40px_rgba(212,175,55,0.5)] rounded-full overflow-hidden"
                       animate={{ rotate: 360 }}
-                      transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+                      transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
                     />
                   </motion.div>
                 </div>
@@ -371,10 +371,10 @@ export default function Inventory() {
                     className="relative"
                   >
                     <motion.img 
-                      src="/luxury_3d_wheel_asset_1777281371369.png"
-                      className="w-[clamp(3rem,12vw,9rem)] h-auto drop-shadow-[0_0_30px_rgba(212,175,55,0.4)]"
+                      src="/full_luxury_wheel_with_tyre_1777282790829.png"
+                      className="w-[clamp(3rem,12vw,9rem)] h-auto drop-shadow-[0_0_40px_rgba(212,175,55,0.5)] rounded-full overflow-hidden"
                       animate={{ rotate: -360 }}
-                      transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+                      transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
                     />
                   </motion.div>
 
