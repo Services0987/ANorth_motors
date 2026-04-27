@@ -148,8 +148,8 @@ export default function AdminLeads() {
 
           <span className="text-white/30 text-xs font-body ml-auto">{filtered.length} lead{filtered.length !== 1 ? 's' : ''}</span>
         </div>        {/* Table + Detail Panel */}
-        <div className="flex flex-col lg:flex-row gap-6 items-start relative">
-          <div className={`bg-[#0A0A0A] border border-white/[0.05] overflow-x-auto flex-grow w-full min-w-0 ${selectedLead ? 'hidden lg:block' : ''}`}>
+        <div className="flex flex-col lg:flex-row gap-6 items-start relative max-w-full overflow-hidden">
+          <div className={`bg-[#0A0A0A] border border-white/[0.05] overflow-x-auto flex-1 min-w-0 ${selectedLead ? 'hidden lg:block' : ''}`}>
             <table className="w-full text-sm font-body">
               <thead>
                 <tr className="border-b border-white/[0.05]">
