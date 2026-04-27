@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { X, Trash2, Phone, Mail, Car, Calendar, ChevronDown, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-import AdminLayout from '../components/AdminLayout';
+import AdminLayout, { SafeLink } from '../components/AdminLayout';
 
 const SAFE_ICON = (Icon, props = {}) => {
   if (!Icon || (typeof Icon !== 'function' && typeof Icon !== 'object')) return null;
@@ -62,6 +62,7 @@ export default function AdminLeads() {
   useEffect(() => { fetchLeads(); }, [fetchLeads]);
 
   const updateStatus = async (id, status) => {
+    if (!id) return;
     try {
       await axios.put(`${API}/leads/${id}`, { status }, { withCredentials: true });
       setLeads((prev) => prev.map((l) => l.id === id ? { ...l, status } : l));
@@ -70,6 +71,7 @@ export default function AdminLeads() {
   };
 
   const handleDelete = async (id) => {
+    if (!id) return;
     try {
       await axios.delete(`${API}/leads/${id}`, { withCredentials: true });
       setLeads((prev) => prev.filter((l) => l.id !== id));
@@ -199,14 +201,14 @@ export default function AdminLeads() {
                           )}
                         </div>
                         {lead.vehicle_id && (
-                          <Link 
+                          <SafeLink 
                             to={`/vehicle/${lead.vehicle_id}`}
                             className="p-1.5 bg-white/5 border border-white/10 text-white/40 hover:text-[#D4AF37] hover:border-[#D4AF37]/40 transition-all rounded-sm"
                             title="View Vehicle Page"
                             onClick={(e) => e.stopPropagation()}
                           >
                             {SAFE_ICON(Car, { size: 12 })}
-                          </Link>
+                          </SafeLink>
                         )}
                       </div>
                     </td>

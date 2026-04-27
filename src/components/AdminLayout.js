@@ -19,8 +19,8 @@ const navItems = [
   { to: '/admin/security', icon: ShieldAlert, label: 'Security' },
 ];
 
-const SafeLink = ({ to, children, ...props }) => {
-  if (typeof Link !== 'undefined') return <Link to={to} {...props}>{children}</Link>;
+export const SafeLink = ({ to, children, ...props }) => {
+  if (typeof Link !== 'undefined' && Link) return <Link to={to} {...props}>{children}</Link>;
   return <a href={to} {...props}>{children}</a>;
 };
 
