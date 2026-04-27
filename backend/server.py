@@ -641,10 +641,12 @@ async def get_ai_response(message: str, inventory_docs: list):
     try:
         inventory_summary = "\n".join([f"• {v.get('year')} {v.get('make')} {v.get('model')} (ID: {str(v.get('_id', ''))}) - ${safe_price(v):,.0f}" for v in inventory_docs[:12]])
         system_prompt = (
-            "You are the AutoNorth AI Specialist. Professional and sales-oriented. "
+            "You are the AutoNorth AI Specialist. Professional, helpful, and highly sales-oriented. "
+            "Your goal is to help visitors find their perfect vehicle AND collect their contact info (Name/Phone) for our sales team. "
+            "If a user expresses interest in a vehicle, price, or test drive, ALWAYS ask for their name and phone number to 'lock in the priority' or 'schedule a viewing'. "
             "When mentioning a specific vehicle, ALWAYS link it like this: [Year Make Model](/vehicle/ID). "
-            "Use markdown tables for specs. Always end with a call to action like booking a test drive. "
-            f"Context:\n{inventory_summary}\nTotal available: {len(inventory_docs)}."
+            "Use markdown tables for specs. Always end with a strong, helpful call to action. "
+            f"Current Inventory Context:\n{inventory_summary}\nTotal vehicles available: {len(inventory_docs)}."
         )
         
         # ── Gemini ──
@@ -704,9 +706,37 @@ async def debug_info():
 @api_router.post("/chat")
 async def ai_chat(data: ChatRequest):
     try:
+        # ── 1. Fetch Context ──
         docs = await db.vehicles.find({"status": "available"}).sort("created_at", -1).to_list(100)
+        
+        # ── 2. Get Intelligence Response ──
         response_text = await get_ai_response(data.message, docs)
-        return {"response": response_text}
+        
+        # ── 3. AUTOMATIC LEAD EXTRACTION (The 'Killer' Feature) ──
+        # Scan for phone numbers and emails directly in the chat message
+        phone_match = re.search(r'(\d{3}[-\.\s]??\d{3}[-\.\s]??\d{4}|\(\d{3}\)\s*\d{3}[-\.\s]??\d{4})', data.message)
+        email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', data.message)
+        
+        lead_captured = False
+        if phone_match or email_match:
+            phone = phone_match.group(0) if phone_match else None
+            email = email_match.group(0) if email_match else None
+            
+            # Save the lead automatically
+            lead_doc = {
+                "name": "Chat Visitor",
+                "email": email,
+                "phone": phone,
+                "lead_type": "chat_capture",
+                "message": f"Automatically captured from AI Chat: {data.message}",
+                "status": "new",
+                "created_at": datetime.now(timezone.utc)
+            }
+            await db.leads.insert_one(lead_doc)
+            lead_captured = True
+            logger.info(f"AI Lead Captured: {email or phone}")
+
+        return {"response": response_text, "lead_captured": lead_captured}
     except Exception as e:
         logger.error(f"Chat Endpoint Error: {e}")
         return {"response": "Specialist connection issue—call 825-605-5050."}

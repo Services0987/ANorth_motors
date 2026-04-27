@@ -107,9 +107,12 @@ export default function ChatBot() {
         message: userMsg,
         session_id: sessionId || `session_${Math.random().toString(36).substr(2, 9)}`
       });
-      setSessionId(data.session_id);
       setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
-      if (data.lead_captured) setLeadCaptured(true);
+      if (data.lead_captured) {
+        setLeadCaptured(true);
+        // Add a system message for confirmation
+        setMessages(prev => [...prev, { role: 'system', content: "Contact info secured. A specialist has been notified." }]);
+      }
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Connection issue — please call us at 825-605-5050 or use the contact form.' }]);
     } finally {
