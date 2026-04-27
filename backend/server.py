@@ -404,83 +404,87 @@ async def sync_teamford_scraper(cu=Depends(get_current_user)):
         raise HTTPException(500, "Failed to sync with Team Ford")
 
 async def get_ai_response(message: str, inventory_docs: list):
-    """Universal AI Connector with Local Intelligence & Smart Fallback"""
+    """Indestructible AI Engine with Global Health Monitoring"""
+    # ── 1. Secure Settings Loader (Safe from None/Empty) ──
     s = await db.settings.find_one({"type": "general"}) or {}
-    provider = s.get("ai_provider", os.environ.get("AI_PROVIDER", "local")).lower()
-    api_key = s.get("ai_api_key", os.environ.get("AI_API_KEY"))
+    provider_raw = s.get("ai_provider") or os.environ.get("AI_PROVIDER") or "local"
+    provider = str(provider_raw).lower()
+    api_key = s.get("ai_api_key") or os.environ.get("AI_API_KEY")
     custom_model = s.get("ai_model")
     
     def safe_price(v):
         try:
-            p = v.get('price')
-            return float(p) if p and str(p).replace('.','').isdigit() else 0.0
+            p = v.get('price', 0)
+            if p is None: return 0.0
+            return float(str(p).replace('$', '').replace(',', ''))
         except: return 0.0
 
-    # ── Local Brain Logic (Extracted for Fallback) ──
+    # ── 2. The 'Local Brain' (Works Offline / Fallback) ──
     async def local_fallback(msg, docs):
-        query = msg.lower()
-        price_match = re.search(r'(?:under|below|less than|max|up to)\s*\$?(\d+(?:k|000)?)', query)
+        query = str(msg or "").lower()
+        price_match = re.search(r'(?:under|below|less than|max|up to|around|within)\s*\$?(\d+(?:k|000)?)', query)
         max_price = 1000000
         if price_match:
             p_val = price_match.group(1).replace('k', '000')
-            max_price = float(p_val)
+            try: max_price = float(p_val)
+            except: pass
 
         matches = []
         for v in docs:
             p = safe_price(v)
             if p <= max_price:
-                if v.get('make', '').lower() in query or v.get('model', '').lower() in query or v.get('body_type', '').lower() in query:
+                # Fuzzy keyword matching
+                keywords = [v.get('make'), v.get('model'), v.get('body_type'), v.get('title')]
+                if any(str(k or "").lower() in query for k in keywords):
                     matches.append(f"{v.get('year')} {v.get('make')} {v.get('model')} (${p:,.0f})")
         
+        # Log health as 'local'
+        await db.settings.update_one({"type": "general"}, {"$set": {"ai_health": "local", "last_active": datetime.now(timezone.utc)}})
+        
         if matches:
-            return f"I found {len(matches)} vehicles matching your request! Top picks: {', '.join(matches[:3])}. Would you like more details?"
-        return f"We have {len(docs)} premium vehicles available. Are you looking for a specific make or a price range like 'under $25k'?"
+            return f"Specialist here! I found {len(matches)} matches. Top picks: {', '.join(matches[:3])}. Would you like more details or a test drive?"
+        return f"We have {len(docs)} vehicles available! What are you looking for? (e.g. Ford, SUV, under $30k)"
 
-    # Force Local if requested or no API
+    # Force Local if requested
     if provider == "local" or not api_key:
         return await local_fallback(message, inventory_docs)
 
+    # ── 3. The 'Global Brain' (Cloud Providers) ──
     try:
         inventory_summary = "\n".join([f"• {v.get('year')} {v.get('make')} {v.get('model')} - ${safe_price(v):,.0f}" for v in inventory_docs[:15]])
         system_prompt = f"Persona: AutoNorth Specialist. Context: {inventory_summary}. Total: {len(inventory_docs)}."
         
-        # ── Provider: Gemini ──
+        # ── Gemini ──
         if provider == "gemini":
             client = genai.Client(api_key=api_key)
-            model_name = custom_model or 'gemini-1.5-flash'
-            resp = client.models.generate_content(model=model_name, config=genai.types.GenerateContentConfig(system_instruction=system_prompt), contents=message)
+            resp = client.models.generate_content(model=custom_model or 'gemini-1.5-flash', config=genai.types.GenerateContentConfig(system_instruction=system_prompt), contents=message)
+            await db.settings.update_one({"type": "general"}, {"$set": {"ai_health": "online", "last_active": datetime.now(timezone.utc)}})
             return resp.text
 
-        # ── Provider: Claude (Anthropic) ──
+        # ── Claude ──
         elif provider == "claude":
             async with httpx.AsyncClient() as client:
-                model_name = custom_model or 'claude-3-haiku-20240307'
                 resp = await client.post("https://api.anthropic.com/v1/messages", 
                     headers={"x-api-key": api_key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
-                    json={"model": model_name, "max_tokens": 512, "system": system_prompt, "messages": [{"role": "user", "content": message}]}, timeout=30.0)
+                    json={"model": custom_model or 'claude-3-haiku-20240307', "max_tokens": 512, "system": system_prompt, "messages": [{"role": "user", "content": message}]}, timeout=15.0)
+                await db.settings.update_one({"type": "general"}, {"$set": {"ai_health": "online", "last_active": datetime.now(timezone.utc)}})
                 return resp.json()["content"][0]["text"]
 
-        # ── Provider: OpenRouter ──
+        # ── OpenRouter ──
         elif provider == "openrouter":
             async with httpx.AsyncClient() as client:
-                model_name = custom_model or 'google/gemini-2.0-flash-lite-preview-02-05:free'
                 resp = await client.post("https://openrouter.ai/api/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {api_key}",
-                        "HTTP-Referer": "https://www.autonorth.ca",
-                        "X-Title": "AutoNorth Motors",
-                    },
-                    json={"model": model_name, "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}]}, timeout=30.0)
+                    headers={"Authorization": f"Bearer {api_key}", "HTTP-Referer": "https://autonorth.ca", "X-Title": "AutoNorth"},
+                    json={"model": custom_model or 'google/gemini-2.0-flash-lite-preview-02-05:free', "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}]}, timeout=15.0)
                 r_json = resp.json()
                 if "choices" in r_json:
+                    await db.settings.update_one({"type": "general"}, {"$set": {"ai_health": "online", "last_active": datetime.now(timezone.utc)}})
                     return r_json["choices"][0]["message"]["content"]
-                else:
-                    err_msg = r_json.get("error", {}).get("message", "API Error")
-                    await db.settings.update_one({"type": "general"}, {"$set": {"last_error": err_msg}})
-                    raise Exception(err_msg)
+                raise Exception(r_json.get("error", {}).get("message", "API Error"))
 
     except Exception as e:
-        logger.error(f"AI Provider Error ({provider}): {e}")
+        logger.error(f"Global AI Fail ({provider}): {e}")
+        await db.settings.update_one({"type": "general"}, {"$set": {"ai_health": "error", "ai_error": str(e), "last_active": datetime.now(timezone.utc)}})
         return await local_fallback(message, inventory_docs)
 
 @api_router.post("/chat")

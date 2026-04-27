@@ -40,16 +40,25 @@ export default function AdminLayout({ children, title }) {
   const [securityError, setSecurityError] = useState('');
   const [securitySuccess, setSecuritySuccess] = useState(false);
 
+  const [aiHealth, setAiHealth] = useState({ status: 'online', error: '', last_active: null });
+
   const API = '/api';
 
   const fetchSettings = React.useCallback(async () => {
     try {
       const { data } = await axios.get(`${API}/settings`, { withCredentials: true });
-      if (data) setAiForm({ 
-        ai_provider: data.ai_provider || 'local', 
-        ai_api_key: data.ai_api_key || '',
-        ai_model: data.ai_model || '' 
-      });
+      if (data) {
+        setAiForm({ 
+          ai_provider: data.ai_provider || 'local', 
+          ai_api_key: data.ai_api_key || '',
+          ai_model: data.ai_model || '' 
+        });
+        setAiHealth({
+          status: data.ai_health || 'online',
+          error: data.ai_error || '',
+          last_active: data.last_active
+        });
+      }
     } catch (err) { console.error(err); }
   }, []);
 
@@ -210,7 +219,28 @@ export default function AdminLayout({ children, title }) {
                   </div>
 
                   <div className="space-y-4 pt-6 border-t border-white/[0.05]">
-                    <p className="text-[10px] text-[#D4AF37] uppercase tracking-widest font-heading font-bold">AI Intelligence Engine</p>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[10px] text-[#D4AF37] uppercase tracking-widest font-heading font-bold">AI Intelligence Engine</p>
+                      <div className="flex items-center gap-2">
+                        <span className={`w-1.5 h-1.5 rounded-full ${aiHealth.status === 'online' ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : aiHealth.status === 'local' ? 'bg-yellow-500' : 'bg-red-500'}`} />
+                        <span className="text-[9px] text-white/40 uppercase tracking-tighter">
+                          {aiHealth.status === 'online' ? 'Global Brain Active' : aiHealth.status === 'local' ? 'Local Intelligence' : 'System Error'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {aiHealth.error && (
+                      <div className="p-3 bg-red-500/5 border border-red-500/10 rounded-sm mb-4">
+                        <div className="flex gap-2">
+                          {SAFE_ICON(Pencil, { size: 12, className: "text-red-400 mt-0.5" })}
+                          <div>
+                            <p className="text-[10px] text-red-400 font-bold uppercase tracking-tight">Provider Error</p>
+                            <p className="text-[9px] text-red-400/60 font-body mt-0.5">{aiHealth.error}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     <Field label="Provider">
                       <Sel 
                         options={['local', 'gemini', 'claude', 'openrouter']} 
@@ -238,9 +268,11 @@ export default function AdminLayout({ children, title }) {
                         </Field>
                       </div>
                     )}
-                    <p className="text-[9px] text-white/15 font-body leading-relaxed italic">
-                      * Local mode uses internal inventory logic. Cloud modes require an external API key.
-                    </p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[9px] text-white/15 font-body italic">
+                        * Pulse: {aiHealth.last_active ? new Date(aiHealth.last_active).toLocaleTimeString() : 'No activity yet'}
+                      </p>
+                    </div>
                   </div>
 
                   <div className="flex gap-3 pt-4">
