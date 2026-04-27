@@ -59,7 +59,15 @@ export default function AdminLayout({ children, title }) {
           setLastLeadId(latest);
           localStorage.setItem('last_lead_id', latest);
           
-          // Audible Alert (Zero cost - using browser synth or audio)
+          // NATIVE OS NOTIFICATION (The 'Killer' Upgrade)
+          if (Notification.permission === "granted") {
+            new Notification("🚨 New AutoNorth Lead!", {
+              body: `Incoming from: ${data[0].name || 'Visitor'}\nType: ${data[0].lead_type}`,
+              icon: '/favicon.ico'
+            });
+          }
+
+          // Audible Alert
           if (window.AudioContext) {
             const ctx = new AudioContext();
             const osc = ctx.createOscillator();
@@ -75,6 +83,13 @@ export default function AdminLayout({ children, title }) {
       }
     } catch (err) { console.error('Lead sync error', err); }
   }, [lastLeadId, notificationsEnabled]);
+
+  // Request Notification Permission on Mount
+  useEffect(() => {
+    if (Notification.permission !== "granted" && Notification.permission !== "denied") {
+      Notification.requestPermission();
+    }
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(checkLeads, 30000);

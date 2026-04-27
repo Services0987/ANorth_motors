@@ -173,6 +173,7 @@ class LeadCreate(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str; session_id: Optional[str] = None
+    vehicle_id: Optional[str] = None; url_context: Optional[str] = None
 
 class LoginRequest(BaseModel):
     email: str; password: str
@@ -720,8 +721,8 @@ async def ai_chat(data: ChatRequest):
         response_text = await get_ai_response(data.message, docs)
         
         # ── 3. AUTOMATIC LEAD EXTRACTION (The 'Killer' Feature) ──
-        # Scan for phone numbers and emails directly in the chat message
-        phone_match = re.search(r'(\d{3}[-\.\s]??\d{3}[-\.\s]??\d{4}|\(\d{3}\)\s*\d{3}[-\.\s]??\d{4})', data.message)
+        # Scan for phone numbers (aggressive 10-digit match) and emails
+        phone_match = re.search(r'(\d{10}|\d{3}[-\.\s]??\d{3}[-\.\s]??\d{4}|\(\d{3}\)\s*\d{3}[-\.\s]??\d{4})', data.message)
         email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', data.message)
         
         lead_captured = False
@@ -729,19 +730,30 @@ async def ai_chat(data: ChatRequest):
             phone = phone_match.group(0) if phone_match else None
             email = email_match.group(0) if email_match else None
             
+            # Fetch vehicle title if context exists
+            v_title = "General Inquiry"
+            if data.vehicle_id:
+                try:
+                    v_doc = await db.vehicles.find_one({"_id": ObjectId(data.vehicle_id)})
+                    if v_doc:
+                        v_title = f"{v_doc.get('year')} {v_doc.get('make')} {v_doc.get('model')}"
+                except: pass
+
             # Save the lead automatically
             lead_doc = {
-                "name": "Chat Visitor",
+                "name": "AI Chat Visitor",
                 "email": email,
                 "phone": phone,
                 "lead_type": "chat_capture",
-                "message": f"Automatically captured from AI Chat: {data.message}",
+                "vehicle_id": data.vehicle_id,
+                "vehicle_title": v_title,
+                "message": f"Captured from AI Chat on {data.url_context or 'main site'}: {data.message}",
                 "status": "new",
                 "created_at": datetime.now(timezone.utc)
             }
             await db.leads.insert_one(lead_doc)
             lead_captured = True
-            logger.info(f"AI Lead Captured: {email or phone}")
+            logger.info(f"AI Lead Captured: {email or phone} for {v_title}")
 
         return {"response": response_text, "lead_captured": lead_captured}
     except Exception as e:

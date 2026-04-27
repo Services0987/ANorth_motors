@@ -167,15 +167,22 @@ export default function ChatBot() {
     setThinking(true);
 
     try {
+      // Detect Vehicle Context from URL
+      const path = window.location.pathname;
+      const vMatch = path.match(/\/vehicle\/([a-f\d]{24})/i);
+      const vId = vMatch ? vMatch[1] : null;
+      
       const { data } = await axios.post(`${API}/chat`, {
         message: userMsg,
-        session_id: sessionId || `session_${Math.random().toString(36).substr(2, 9)}`
+        session_id: sessionId || `session_${Math.random().toString(36).substr(2, 9)}`,
+        vehicle_id: vId,
+        url_context: path
       });
       setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
       if (data.lead_captured) {
         setLeadCaptured(true);
-        // Add a system message for confirmation
-        setMessages(prev => [...prev, { role: 'system', content: "Contact info secured. A specialist has been notified." }]);
+        // SILENT CAPTURE: No system message or popup shown to the user.
+        // The data is now securely in the Admin Dashboard.
       }
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Connection issue — please call us at 825-605-5050 or use the contact form.' }]);
@@ -385,14 +392,7 @@ export default function ChatBot() {
                   </div>
                 )}
 
-                {/* Lead confirmed banner */}
-                {leadCaptured && (
-                  <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                    className="mx-5 mb-3 px-4 py-2.5 bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2">
-                    {SAFE_ICON(CheckCircle, { size: 14, className: "text-emerald-400" })}
-                    <span className="text-emerald-400 text-[10px] font-heading uppercase tracking-widest">Lead Captured! We'll call you soon.</span>
-                  </motion.div>
-                )}
+                {/* SILENT MODE: No lead captured banner shown to user to prevent mistrust */}
 
                 {/* Input */}
                 <div className="p-4 border-t border-white/[0.06] flex-shrink-0">

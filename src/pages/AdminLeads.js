@@ -129,7 +129,7 @@ export default function AdminLeads() {
             <table className="w-full text-sm font-body">
               <thead>
                 <tr className="border-b border-white/[0.05]">
-                  {['Name', 'Type', 'Vehicle Interest', 'Date', 'Status', 'Actions'].map((h) => (
+                  {['Name', 'Type', 'Contact', 'Vehicle Interest', 'Date', 'Status', 'Actions'].map((h) => (
                     <th key={h} className="text-left px-4 py-3 text-[10px] font-heading tracking-[0.15em] uppercase text-white/30 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -156,8 +156,17 @@ export default function AdminLeads() {
                     <td className="px-4 py-3">
                       <span className={`text-xs font-body ${TYPE_COLORS[lead.lead_type] || 'text-white/40'}`}>{TYPE_LABELS[lead.lead_type] || lead.lead_type}</span>
                     </td>
-                    <td className="px-4 py-3 max-w-[160px]">
-                      <p className="text-white/50 text-xs truncate">{lead.vehicle_title || '—'}</p>
+                    <td className="px-4 py-3">
+                      {lead.phone ? (
+                        <div className="flex items-center gap-2 text-white/80 font-body text-xs">
+                          {SAFE_ICON(Phone, { size: 12, className: "text-[#D4AF37]" })}
+                          {lead.phone}
+                        </div>
+                      ) : <span className="text-white/20">—</span>}
+                    </td>
+                    <td className="px-4 py-3 max-w-[200px]">
+                      <p className="text-[#D4AF37] text-xs font-medium truncate">{lead.vehicle_title || '—'}</p>
+                      {lead.vehicle_id && <p className="text-white/10 text-[8px] uppercase tracking-tighter">ID: {lead.vehicle_id.slice(-6)}</p>}
                     </td>
                     <td className="px-4 py-3 text-white/30 text-xs whitespace-nowrap">{formatDate(lead.created_at)}</td>
                     <td className="px-4 py-3">
