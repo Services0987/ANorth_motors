@@ -46,6 +46,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# --- Database Resilience Configuration ---
+# Fallback logic for various environment naming conventions (Vercel/Atlas)
+mongo_url = os.environ.get('MONGO_URL') or os.environ.get('MONGODB_URI') or "mongodb://localhost:27017"
+db_name = os.environ.get('DB_NAME', "autonorth")
+
+# Lazy initialization to prevent module-level crashes
+client = None
+db = None
+
+def get_db():
+    global client, db
+    if db is None:
+        try:
+            logger.info(f"Initializing MongoDB connection to {mongo_url.split('@')[-1] if '@' in mongo_url else 'local'}")
+            client = AsyncIOMotorClient(mongo_url, serverSelectionTimeoutMS=5000)
+            db = client[db_name]
+        except Exception as e:
+            logger.error(f"MongoDB Initialization Failed: {str(e)}")
+            return None
+    return db
+
 # Global error handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -53,9 +74,18 @@ async def global_exception_handler(request: Request, exc: Exception):
     error_msg = str(exc)
     logger.error(f"Global error [{error_type}]: {error_msg}", exc_info=True)
     
-    # Hide sensitive details for non-HTTP errors, but provide context
-    msg = error_msg if isinstance(exc, HTTPException) else f"Internal conflict: {error_type}"
+    # Check if this is a DB-related crash
+    if "NoneType" in error_msg and "vehicles" in error_msg:
+        return JSONResponse(status_code=503, content={"error": "Database Unavailable", "message": "The system is currently unable to connect to the inventory database."})
+    
+    msg = error_msg if isinstance(exc, HTTPException) else f"Platform conflict: {error_type}"
     return JSONResponse(status_code=500, content={"error": "Internal Server Error", "message": msg})
+
+# --- DB Middleware ---
+@app.middleware("http")
+async def db_session_middleware(request: Request, call_next):
+    get_db()
+    return await call_next(request)
 
 def safe_price(v):
     try:
