@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { Gauge, Fuel, Star } from 'lucide-react';
+import { Analytics } from '../utils/analytics';
 
 const PLACEHOLDER = 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600&q=60';
 
@@ -79,7 +80,11 @@ export default function VehicleCard({ vehicle, index = 0 }) {
           transition: 'border-color 0.4s cubic-bezier(0.16,1,0.3,1), box-shadow 0.4s cubic-bezier(0.16,1,0.3,1)',
         }}
       >
-        <Link to={`/vehicle/${vehicle._id || vehicle.id}`} className="block relative group">
+        <Link 
+          to={`/vehicle/${vehicle._id || vehicle.id}`} 
+          className="block relative group"
+          onClick={() => Analytics.clickVehicle(vehicle._id || vehicle.id, vehicle.title)}
+        >
           {/* Image with depth parallax */}
           <div className="relative overflow-hidden" style={{ paddingTop: '64%' }}>
             <AnimatePresence mode="wait">

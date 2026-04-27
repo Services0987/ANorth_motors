@@ -65,6 +65,11 @@ def create_token(user_id, email, kind="access", exp_hours=24):
     return jwt.encode({"sub": user_id, "email": email, "exp": datetime.now(timezone.utc) + exp, "type": kind}, jwt_secret(), algorithm=JWT_ALGORITHM)
 
 async def get_current_user(request: Request):
+    # IP Blacklist Check
+    ip = request.client.host if request.client else "unknown"
+    is_blocked = await db.blacklist.find_one({"ip": ip})
+    if is_blocked: raise HTTPException(403, "Access denied from this IP")
+
     token = request.cookies.get("access_token")
     if not token:
         auth = request.headers.get("Authorization", "")
@@ -74,6 +79,11 @@ async def get_current_user(request: Request):
         p = jwt.decode(token, jwt_secret(), algorithms=[JWT_ALGORITHM])
         user = await db.users.find_one({"_id": ObjectId(p["sub"])})
         if not user: raise HTTPException(401, "User not found")
+        
+        # Check if session is still valid
+        session = await db.sessions.find_one({"token": token, "is_active": True})
+        if not session: raise HTTPException(401, "Session expired or terminated")
+        
         user["_id"] = str(user["_id"])
         return user
     except Exception as e:
@@ -84,53 +94,54 @@ async def get_current_user(request: Request):
 class LoginRequest(BaseModel):
     email: str; password: str
 
-class VehicleCreate(BaseModel):
-    title: str; make: Optional[str] = ""; model: Optional[str] = ""; year: Optional[int] = 2024; price: Optional[float] = 0
-    mileage: Optional[int] = 0; condition: Optional[str] = "used"; body_type: Optional[str] = "Sedan"
-    fuel_type: Optional[str] = "Gas"; transmission: Optional[str] = "Automatic"
-    exterior_color: Optional[str] = ""; interior_color: Optional[str] = ""; engine: Optional[str] = ""
-    drivetrain: Optional[str] = ""; doors: Optional[int] = 4; seats: Optional[int] = 5
-    vin: Optional[str] = ""; stock_number: Optional[str] = ""; description: Optional[str] = ""
-    features: List[str] = []; images: List[str] = []
-    status: str = "available"; featured: bool = False; show_on_home: bool = False
-
-class VehicleUpdate(BaseModel):
-    title: Optional[str] = None; make: Optional[str] = None; model: Optional[str] = None
-    year: Optional[int] = None; price: Optional[float] = None; mileage: Optional[int] = None
-    condition: Optional[str] = None; body_type: Optional[str] = None
-    fuel_type: Optional[str] = None; transmission: Optional[str] = None
-    exterior_color: Optional[str] = None; interior_color: Optional[str] = None
-    engine: Optional[str] = None; drivetrain: Optional[str] = None
-    vin: Optional[str] = None; stock_number: Optional[str] = None
-    description: Optional[str] = None; features: Optional[List[str]] = None
-    images: Optional[List[str]] = None; status: Optional[str] = None
-    featured: Optional[bool] = None; show_on_home: Optional[bool] = None
-
-class ChatRequest(BaseModel):
-    message: str
-    session_id: Optional[str] = None
-    model_config = ConfigDict(extra="ignore")
-
-class LeadStatusUpdate(BaseModel):
-    status: str
-
-class LeadCreate(BaseModel):
-    name: str
-    email: str
-    phone: Optional[str] = None
-    message: Optional[str] = None
+class AnalyticsEvent(BaseModel):
+    event_type: str # 'view', 'click', 'lead_start', 'search'
     vehicle_id: Optional[str] = None
+    metadata: Dict[str, Any] = {}
+
+class IPBlockRequest(BaseModel):
+    ip: str; reason: Optional[str] = ""
 
 # ─── Endpoints ───────────────────────────────────────────────────
 @api_router.post("/auth/login")
-async def login(data: LoginRequest, response: Response):
+async def login(request: Request, data: LoginRequest, response: Response):
     email = data.email.lower().strip()
     user = await db.users.find_one({"email": email})
     if not user or not verify_password(data.password, user["password_hash"]):
         raise HTTPException(401, "Invalid email or password")
+    
     uid = str(user["_id"])
-    response.set_cookie("access_token", create_token(uid, email), httponly=True, secure=True, samesite="lax", max_age=86400, path="/")
+    token = create_token(uid, email)
+    
+    # Track login session
+    ip = request.client.host if request.client else "unknown"
+    ua = request.headers.get("user-agent", "unknown")
+    await db.sessions.insert_one({
+        "user_id": uid, "token": token, "ip": ip, "user_agent": ua,
+        "is_active": True, "created_at": datetime.now(timezone.utc)
+    })
+    
+    response.set_cookie("access_token", token, httponly=True, secure=True, samesite="lax", max_age=86400, path="/")
     return {"id": uid, "email": email, "role": "admin"}
+
+@api_router.post("/auth/logout")
+async def logout(request: Request, response: Response):
+    token = request.cookies.get("access_token")
+    if token:
+        await db.sessions.update_one({"token": token}, {"$set": {"is_active": False}})
+    response.delete_cookie("access_token")
+    return {"message": "Logged out"}
+
+@api_router.get("/auth/sessions")
+async def list_sessions(cu=Depends(get_current_user)):
+    docs = await db.sessions.find({"user_id": cu["_id"], "is_active": True}).sort("created_at", -1).to_list(100)
+    for d in docs: d["_id"] = str(d["_id"]); d.pop("token", None)
+    return docs
+
+@api_router.post("/auth/sessions/terminate")
+async def terminate_session(session_id: str, cu=Depends(get_current_user)):
+    await db.sessions.update_one({"_id": ObjectId(session_id), "user_id": cu["_id"]}, {"$set": {"is_active": False}})
+    return {"message": "Session terminated"}
 
 @api_router.get("/auth/me")
 async def me(cu=Depends(get_current_user)):
@@ -146,9 +157,7 @@ async def update_profile(request: Request, cu=Depends(get_current_user)):
         if "email" in data: upd["email"] = data["email"].lower().strip()
         if "password" in data and data["password"]:
             upd["password_hash"] = hash_password(data["password"])
-        
         if not upd: return {"message": "No changes"}
-        
         await db.users.update_one({"_id": ObjectId(cu["_id"])}, {"$set": upd})
         return {"message": "Profile updated successfully"}
     except Exception as e:
@@ -167,6 +176,47 @@ async def update_settings(request: Request, cu=Depends(get_current_user)):
     await db.settings.update_one({"type": "general"}, {"$set": data}, upsert=True)
     return {"message": "Settings updated"}
 
+@api_router.get("/analytics/summary")
+async def get_analytics_summary(cu=Depends(get_current_user)):
+    # Aggregation for top vehicles
+    top_views = await db.analytics.aggregate([
+        {"$match": {"event_type": "view"}},
+        {"$group": {"_id": "$vehicle_id", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 5}
+    ]).to_list(5)
+    
+    # Lead conversion rate
+    total_views = await db.analytics.count_documents({"event_type": "view"})
+    total_leads = await db.leads.count_documents({})
+    
+    return {
+        "top_vehicles": top_views,
+        "total_views": total_views,
+        "conversion_rate": (total_leads / total_views * 100) if total_views > 0 else 0
+    }
+
+@api_router.post("/analytics/track")
+async def track_event(request: Request, event: AnalyticsEvent):
+    doc = {
+        **event.model_dump(),
+        "ip": request.client.host if request.client else "unknown",
+        "created_at": datetime.now(timezone.utc)
+    }
+    await db.analytics.insert_one(doc)
+    return {"status": "ok"}
+
+@api_router.get("/security/blacklist")
+async def get_blacklist(cu=Depends(get_current_user)):
+    docs = await db.blacklist.find({}).to_list(100)
+    for d in docs: d["_id"] = str(d["_id"])
+    return docs
+
+@api_router.post("/security/blacklist")
+async def block_ip(data: IPBlockRequest, cu=Depends(get_current_user)):
+    await db.blacklist.update_one({"ip": data.ip}, {"$set": {"reason": data.reason, "blocked_at": datetime.now(timezone.utc)}}, upsert=True)
+    return {"message": f"IP {data.ip} blocked"}
+
 @api_router.get("/stats")
 async def get_stats(cu=Depends(get_current_user)):
     total = await db.vehicles.count_documents({})
@@ -176,13 +226,20 @@ async def get_stats(cu=Depends(get_current_user)):
     t_leads = await db.leads.count_documents({}) if "leads" in (await db.list_collection_names()) else 0
     thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
     recent_leads = await db.leads.count_documents({"created_at": {"$gte": thirty_days_ago}}) if "leads" in (await db.list_collection_names()) else 0
+    
+    # Analytics
+    total_clicks = await db.analytics.count_documents({"event_type": "click"})
+    total_views = await db.analytics.count_documents({"event_type": "view"})
+    
     return {
         "total_vehicles": total,
         "available": avail,
         "sold": sold,
         "featured": featured,
         "total_leads": t_leads,
-        "recent_leads": recent_leads
+        "recent_leads": recent_leads,
+        "total_clicks": total_clicks,
+        "total_views": total_views
     }
 
 @api_router.get("/vehicles")

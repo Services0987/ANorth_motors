@@ -39,10 +39,10 @@ export default function AdminDashboard() {
   const statCards = stats ? [
     { label: 'Total Vehicles', value: stats.total_vehicles, icon: Car, color: 'text-[#D4AF37]', bg: 'bg-[#D4AF37]/10', link: '/admin/inventory' },
     { label: 'Available', value: stats.available, icon: CheckCircle, color: 'text-emerald-400', bg: 'bg-emerald-500/10', link: '/admin/inventory' },
-    { label: 'Sold', value: stats.sold, icon: XCircle, color: 'text-white/40', bg: 'bg-white/5', link: '/admin/leads' },
     { label: 'Total Leads', value: stats.total_leads, icon: Users, color: 'text-blue-400', bg: 'bg-blue-500/10', link: '/admin/leads' },
-    { label: 'New Leads (30d)', value: stats.recent_leads, icon: Clock, color: 'text-yellow-400', bg: 'bg-yellow-500/10', link: '/admin/leads' },
-    { label: 'Featured', value: stats.featured, icon: DollarSign, color: 'text-pink-400', bg: 'bg-pink-500/10', link: '/admin/inventory' },
+    { label: 'Total Views', value: stats.total_views || 0, icon: TrendingUp, color: 'text-purple-400', bg: 'bg-purple-500/10', link: '/admin/analytics' },
+    { label: 'Total Clicks', value: stats.total_clicks || 0, icon: DollarSign, color: 'text-pink-400', bg: 'bg-pink-500/10', link: '/admin/analytics' },
+    { label: 'Recent Leads', value: stats.recent_leads, icon: Clock, color: 'text-yellow-400', bg: 'bg-yellow-500/10', link: '/admin/leads' },
   ] : [];
 
   return (

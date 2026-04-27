@@ -6,6 +6,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Check, Phone, MessageSquare, Cale
 import axios from 'axios';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { Analytics } from '../utils/analytics';
 
 const SAFE_ICON = (Icon, props = {}) => {
   if (!Icon || (typeof Icon !== 'function' && typeof Icon !== 'object')) return null;
@@ -36,7 +37,10 @@ export default function VehicleDetail() {
 
   useEffect(() => {
     axios.get(`${API}/vehicles/${id}`)
-      .then(({ data }) => setVehicle(data))
+      .then(({ data }) => {
+        setVehicle(data);
+        Analytics.viewVehicle(data._id || data.id, data.title);
+      })
       .catch(() => navigate('/inventory'))
       .finally(() => setLoading(false));
   }, [id, navigate]);
@@ -294,7 +298,11 @@ export default function VehicleDetail() {
                     {TABS.map((tab) => {
                       const Icon = TAB_ICONS[tab];
                       return (
-                        <button key={tab} onClick={() => { setActiveTab(tab); setSubmitted(false); }}
+                        <button key={tab} onClick={() => { 
+                            setActiveTab(tab); 
+                            setSubmitted(false); 
+                            Analytics.startLead(vehicle._id || vehicle.id, tab);
+                          }}
                           className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[10px] font-heading tracking-[0.12em] uppercase transition-all border-b-2 ${activeTab === tab ? 'text-[#D4AF37] border-[#D4AF37]' : 'text-white/25 border-transparent hover:text-white/50'}`}
                           data-testid={`lead-tab-${tab}`}>
                           {SAFE_ICON(Icon, { size: 11 })} {TAB_LABELS[tab]}

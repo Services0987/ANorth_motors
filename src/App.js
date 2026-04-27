@@ -14,6 +14,8 @@ import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminInventory from './pages/AdminInventory';
 import AdminLeads from './pages/AdminLeads';
+import AdminAnalytics from './pages/AdminAnalytics';
+import AdminSecurity from './pages/AdminSecurity';
 import Showroom from './components/Showroom';
 
 function ScrollToTop() {
@@ -43,6 +45,8 @@ function AppContent() {
         <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
         <Route path="/admin/inventory" element={<ProtectedRoute><AdminInventory /></ProtectedRoute>} />
         <Route path="/admin/leads" element={<ProtectedRoute><AdminLeads /></ProtectedRoute>} />
+        <Route path="/admin/analytics" element={<ProtectedRoute><AdminAnalytics /></ProtectedRoute>} />
+        <Route path="/admin/security" element={<ProtectedRoute><AdminSecurity /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
