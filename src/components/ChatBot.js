@@ -149,14 +149,38 @@ export default function ChatBot() {
                         <div className={`w-7 h-7 flex-shrink-0 flex items-center justify-center ${msg.role === 'user' ? 'bg-white/10' : 'bg-[#D4AF37]'}`}>
                           {msg.role === 'user' ? SAFE_ICON(User, { size: 12, className: "text-white/50" }) : SAFE_ICON(Bot, { size: 12, className: "text-black" })}
                         </div>
-                        <div className={`px-4 py-3 text-sm font-body leading-relaxed ${
+                        <div className={`px-4 py-3 text-sm font-body leading-relaxed overflow-hidden ${
                           msg.role === 'user' 
                             ? 'bg-[#D4AF37]/10 border border-[#D4AF37]/20 text-white' 
                             : 'bg-white/[0.03] border border-white/[0.05] text-white/80'
                         }`} style={{ borderRadius: msg.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px' }}>
-                          {msg.content.split('\n').map((line, idx) => (
-                            <p key={idx} className="mb-1 last:mb-0">{line}</p>
-                          ))}
+                          {msg.content.split('\n').map((line, idx) => {
+                            const trimmed = line.trim();
+                            if (!trimmed) return <div key={idx} className="h-2" />;
+                            
+                            // Markdown Table detection
+                            if (trimmed.startsWith('|') && trimmed.includes('---')) return null;
+                            if (trimmed.startsWith('|')) {
+                              const cells = trimmed.split('|').filter(c => c.trim());
+                              if (cells.length === 0) return null;
+                              return (
+                                <div key={idx} className="flex border-b border-white/5 py-1.5 gap-3 text-[11px]">
+                                  {cells.map((cell, cidx) => (
+                                    <span key={cidx} className={cidx === 0 ? "font-bold text-[#D4AF37] min-w-[80px]" : "flex-1 text-white/60"}>
+                                      {cell.trim()}
+                                    </span>
+                                  ))}
+                                </div>
+                              );
+                            }
+
+                            // Headers and Lists
+                            if (trimmed.startsWith('###')) return <h3 key={idx} className="text-[#D4AF37] font-bold mt-4 mb-2 uppercase text-[10px] tracking-[0.2em]">{trimmed.replace(/###/g, '')}</h3>;
+                            if (trimmed.startsWith('**')) return <p key={idx} className="font-bold text-white mt-2 mb-1">{trimmed.replace(/\*\*/g, '')}</p>;
+                            if (trimmed.startsWith('*') || trimmed.startsWith('-')) return <li key={idx} className="ml-4 list-disc marker:text-[#D4AF37] text-white/70 mb-1">{trimmed.substring(1).trim()}</li>;
+                            
+                            return <p key={idx} className="mb-2 last:mb-0 text-white/80">{line}</p>;
+                          })}
                         </div>
                       </div>
                     </div>

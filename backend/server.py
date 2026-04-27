@@ -453,8 +453,14 @@ async def get_ai_response(message: str, inventory_docs: list):
 
     # ── 3. The 'Global Brain' (Cloud Providers) ──
     try:
-        inventory_summary = "\n".join([f"• {v.get('year')} {v.get('make')} {v.get('model')} - ${safe_price(v):,.0f}" for v in inventory_docs[:15]])
-        system_prompt = f"Persona: AutoNorth Specialist. Context: {inventory_summary}. Total: {len(inventory_docs)}."
+        inventory_summary = "\n".join([f"• {v.get('year')} {v.get('make')} {v.get('model')} - ${safe_price(v):,.0f}" for v in inventory_docs[:12]])
+        system_prompt = (
+            "You are the AutoNorth AI Specialist. Be professional, concise, and sales-oriented. "
+            "If a user asks for a vehicle, recommend 2-3 specific options from the list. "
+            "Use markdown tables for specs. Always end with a call to action like booking a test drive. "
+            f"Current Inventory Context:\n{inventory_summary}\n"
+            f"Total available: {len(inventory_docs)}."
+        )
         
         # ── Gemini ──
         if provider == "gemini":
