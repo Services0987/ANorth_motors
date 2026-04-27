@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { motion } from 'framer-motion';
 import AdminLayout from '../components/AdminLayout';
 import { BarChart3, TrendingUp, MousePointerClick, Target, Eye, Activity } from 'lucide-react';
 
