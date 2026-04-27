@@ -44,10 +44,16 @@ app.add_middleware(
 )
 
 # --- Database Resilience Configuration ---
-# Standardize on MONGODB_URI (Vercel standard) with fallback to MONGO_URL
-# HARDCODED FOR TESTING AS REQUESTED BY USER
-HARDCODED_URL = "mongodb+srv://smmservices0987_db_user:Smm0987@an.beuzkok.mongodb.net/autonorth?retryWrites=true&w=majority&appName=AN"
-mongo_url = HARDCODED_URL # Force use hardcoded for now to bypass Vercel environment issues
+# Priority: MONGODB_URI (Vercel standard) > MONGO_URL > Fallback
+def get_mongo_url():
+    url = os.environ.get('MONGODB_URI') or os.environ.get('MONGO_URL')
+    if not url or url.strip() == "":
+        logger.error("CRITICAL: No MongoDB URI found in environment variables!")
+        # We return None so the Proxy can handle the 503 error gracefully
+        return None
+    return url.strip()
+
+mongo_url = get_mongo_url()
 db_name = os.environ.get('DB_NAME', "autonorth")
 
 # Lazy initialization to prevent module-level crashes
@@ -57,9 +63,11 @@ _db = None
 def get_db():
     global _client, _db
     if _db is None:
+        url = get_mongo_url()
+        if not url: return None
         try:
             logger.info("Initializing MongoDB connection...")
-            _client = AsyncIOMotorClient(mongo_url, serverSelectionTimeoutMS=5000)
+            _client = AsyncIOMotorClient(url, serverSelectionTimeoutMS=5000)
             _db = _client[db_name]
         except Exception as e:
             logger.error(f"MongoDB Initialization Failed: {str(e)}")

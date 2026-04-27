@@ -171,11 +171,11 @@ export default function Showroom() {
           <fog attach="fog" args={['#050505', 10, 50]} />
           <ambientLight intensity={0.2} />
           <directionalLight position={[10, 20, 10]} intensity={1.5} castShadow shadow-mapSize={[2048, 2048]} />
-          <Environment preset="night" />
+          {SAFE_ICON(Environment, { preset: "night" })}
           <ShowroomHall />
           <Player />
-          <PointerLockControls onLock={() => setLocked(true)} onUnlock={() => setLocked(false)} />
-          <BakeShadows />
+          {SAFE_ICON(PointerLockControls, { onLock: () => setLocked(true), onUnlock: () => setLocked(false) })}
+          {SAFE_ICON(BakeShadows)}
         </Canvas>
       ) : (
         <div className="absolute inset-0 flex items-center justify-center text-white/20 font-heading text-xs uppercase tracking-widest">
