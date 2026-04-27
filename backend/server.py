@@ -483,7 +483,7 @@ async def get_ai_response(message: str, inventory_docs: list):
             async with httpx.AsyncClient() as client:
                 resp = await client.post("https://openrouter.ai/api/v1/chat/completions",
                     headers={"Authorization": f"Bearer {api_key}", "HTTP-Referer": "https://autonorth.ca", "X-Title": "AutoNorth"},
-                    json={"model": custom_model or 'google/gemini-2.0-flash-lite-preview-02-05:free', "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}]}, timeout=15.0)
+                    json={"model": custom_model or 'openrouter/auto', "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}]}, timeout=15.0)
                 r_json = resp.json()
                 if "choices" in r_json:
                     await db.settings.update_one({"type": "general"}, {"$set": {"ai_health": "online", "last_active": datetime.now(timezone.utc)}})
