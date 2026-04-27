@@ -142,6 +142,30 @@ async def get_current_user(request: Request):
         raise HTTPException(401, "Invalid or expired token")
 
 # ─── Models ───────────────────────────────────────────────────────
+class VehicleCreate(BaseModel):
+    title: str; make: str; model: str; year: int; price: float; mileage: int
+    condition: str; body_type: str; fuel_type: Optional[str] = "Gas"
+    transmission: Optional[str] = "Automatic"; exterior_color: Optional[str] = ""
+    interior_color: Optional[str] = ""; engine: Optional[str] = ""
+    vin: Optional[str] = ""; stock_number: Optional[str] = ""
+    description: Optional[str] = ""; images: List[str] = []
+    status: Optional[str] = "available"; featured: Optional[bool] = False
+    show_on_home: Optional[bool] = False
+
+class VehicleUpdate(BaseModel):
+    title: Optional[str] = None; make: Optional[str] = None; model: Optional[str] = None
+    year: Optional[int] = None; price: Optional[float] = None; mileage: Optional[int] = None
+    condition: Optional[str] = None; body_type: Optional[str] = None
+    status: Optional[str] = None; featured: Optional[bool] = None; show_on_home: Optional[bool] = None
+    images: Optional[List[str]] = None
+
+class LeadCreate(BaseModel):
+    name: str; email: str; phone: str; lead_type: str; message: Optional[str] = ""
+    vehicle_id: Optional[str] = None; vehicle_name: Optional[str] = None
+
+class ChatRequest(BaseModel):
+    message: str; session_id: Optional[str] = None
+
 class LoginRequest(BaseModel):
     email: str; password: str
 
