@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { X, Trash2, Phone, Mail, Car, Calendar, ChevronDown, Search } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
 import AdminLayout from '../components/AdminLayout';
 
@@ -52,7 +53,8 @@ export default function AdminLeads() {
     setLoading(true);
     try {
       const { data } = await axios.get(`${API}/leads`, { withCredentials: true });
-      setLeads(data || []);
+      const mapped = (data || []).map(l => ({ ...l, id: l.id || l._id }));
+      setLeads(mapped);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   }, []);
