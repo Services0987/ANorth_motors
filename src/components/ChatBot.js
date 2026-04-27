@@ -179,6 +179,30 @@ export default function ChatBot() {
                             if (trimmed.startsWith('**')) return <p key={idx} className="font-bold text-white mt-2 mb-1">{trimmed.replace(/\*\*/g, '')}</p>;
                             if (trimmed.startsWith('*') || trimmed.startsWith('-')) return <li key={idx} className="ml-4 list-disc marker:text-[#D4AF37] text-white/70 mb-1">{trimmed.substring(1).trim()}</li>;
                             
+                            // Interactive Vehicle Links
+                            if (line.includes('[') && line.includes('](')) {
+                              const parts = line.split(/(\[.*?\]\(.*?\))/g);
+                              return (
+                                <p key={idx} className="mb-2 last:mb-0 text-white/80">
+                                  {parts.map((part, pidx) => {
+                                    const match = part.match(/\[(.*?)\]\((.*?)\)/);
+                                    if (match) {
+                                      return (
+                                        <a 
+                                          key={pidx} 
+                                          href={match[2]} 
+                                          className="text-[#D4AF37] font-bold border-b border-[#D4AF37]/30 hover:border-[#D4AF37] hover:bg-[#D4AF37]/5 px-1 transition-all inline-block rounded-sm"
+                                        >
+                                          {match[1]}
+                                        </a>
+                                      );
+                                    }
+                                    return part;
+                                  })}
+                                </p>
+                              );
+                            }
+
                             return <p key={idx} className="mb-2 last:mb-0 text-white/80">{line}</p>;
                           })}
                         </div>
