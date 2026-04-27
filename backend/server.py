@@ -261,13 +261,30 @@ async def update_settings(request: Request, cu=Depends(get_current_user)):
 
 @api_router.get("/analytics/summary")
 async def get_analytics_summary(cu=Depends(get_current_user)):
-    # Aggregation for top vehicles
+    # Aggregation for top vehicles with names
     top_views = await db.analytics.aggregate([
         {"$match": {"event_type": "view"}},
         {"$group": {"_id": "$vehicle_id", "count": {"$sum": 1}}},
         {"$sort": {"count": -1}},
-        {"$limit": 5}
-    ]).to_list(5)
+        {"$limit": 10},
+        {"$addFields": {"oid": {"$cond": {
+            "if": {"$and": [{"$ne": ["$_id", None]}, {"$eq": [{"$strLenCP": "$_id"}, 24]}]},
+            "then": {"$toObjectId": "$_id"},
+            "else": None
+        }}}},
+        {"$lookup": {
+            "from": "vehicles",
+            "localField": "oid",
+            "foreignField": "_id",
+            "as": "vehicle"
+        }},
+        {"$unwind": {"path": "$vehicle", "preserveNullAndEmptyArrays": True}},
+        {"$project": {
+            "_id": 1, "count": 1,
+            "title": {"$ifNull": ["$vehicle.title", "Unknown Vehicle"]},
+            "vin": {"$ifNull": ["$vehicle.vin", "N/A"]}
+        }}
+    ]).to_list(10)
     
     # Lead conversion rate
     total_views = await db.analytics.count_documents({"event_type": "view"})
@@ -278,6 +295,29 @@ async def get_analytics_summary(cu=Depends(get_current_user)):
         "total_views": total_views,
         "conversion_rate": (total_leads / total_views * 100) if total_views > 0 else 0
     }
+
+@api_router.get("/analytics/export")
+async def export_analytics(cu=Depends(get_current_user)):
+    events = await db.analytics.find({}).sort("created_at", -1).to_list(5000)
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=["id", "event_type", "vehicle_id", "ip", "created_at", "metadata"])
+    writer.writeheader()
+    for e in events:
+        writer.writerow({
+            "id": str(e["_id"]),
+            "event_type": e.get("event_type"),
+            "vehicle_id": e.get("vehicle_id"),
+            "ip": e.get("ip"),
+            "created_at": e.get("created_at"),
+            "metadata": json.dumps(e.get("metadata", {}))
+        })
+    output.seek(0)
+    return Response(content=output.getvalue(), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=autonorth_analytics.csv"})
+
+@api_router.post("/analytics/reset")
+async def reset_analytics(cu=Depends(get_current_user)):
+    await db.analytics.delete_many({})
+    return {"message": "Analytics cleared"}
 
 @api_router.post("/analytics/track")
 async def track_event(request: Request, event: AnalyticsEvent):

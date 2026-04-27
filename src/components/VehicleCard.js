@@ -32,6 +32,27 @@ export default function VehicleCard({ vehicle, index = 0 }) {
   const imgX = useTransform(springX, [-0.5, 0.5], ['22px', '-22px']);
   const imgY = useTransform(springY, [-0.5, 0.5], ['18px', '-18px']);
 
+  // Gyroscope tracking for mobile tilt
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleOrientation = (e) => {
+      if (!e.beta || !e.gamma) return;
+      // Map beta/gamma to mx/my range [-0.5, 0.5]
+      // Beta (pitch): ~30 to 60 degrees is normal holding angle
+      const ny = (e.beta - 45) / 30; 
+      const nx = e.gamma / 30;
+      mx.set(Math.max(-0.5, Math.min(0.5, nx)));
+      my.set(Math.max(-0.5, Math.min(0.5, ny)));
+      setGlare({ x: (nx + 0.5) * 100, y: (ny + 0.5) * 100 });
+      setHovered(true);
+    };
+
+    if (window.DeviceOrientationEvent && /Mobi|Android/i.test(navigator.userAgent)) {
+      window.addEventListener('deviceorientation', handleOrientation);
+    }
+    return () => window.removeEventListener('deviceorientation', handleOrientation);
+  }, [mx, my]);
+
   const handleMouseMove = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const nx = (e.clientX - rect.left) / rect.width;
@@ -55,11 +76,11 @@ export default function VehicleCard({ vehicle, index = 0 }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 40 }}
+      initial={{ opacity: 0, y: 30 }}
       whileInView={{ opacity: 1, y: 0 }}
       whileTap={{ scale: 0.98 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.8, delay: index * 0.08, ease: [0.16, 1, 0.3, 1] }}
+      viewport={{ once: true, amount: 0.1 }}
+      transition={{ duration: 0.5, delay: index * 0.05, ease: 'easeOut' }}
       style={{ perspective: '1500px' }}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
@@ -93,6 +114,7 @@ export default function VehicleCard({ vehicle, index = 0 }) {
                 src={img}
                 alt={vehicle.title}
                 className="absolute inset-0 w-full h-full object-cover"
+                loading={index < 4 ? "eager" : "lazy"}
                 style={{ x: imgX, y: imgY, scale: hovered ? 1.15 : 1.0 }}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
