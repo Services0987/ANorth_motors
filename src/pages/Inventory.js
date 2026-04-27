@@ -21,7 +21,7 @@ const FUEL_TYPES = ['All', 'Gas', 'Diesel', 'Hybrid', 'Electric'];
 const CONDITIONS = ['All', 'new', 'used'];
 
 /* ─── 3D Rotated Glowing Diamond & Turbine Wheel (Wow Factor "O") ─── */
-function WowTurbineO({ size = 160 }) {
+export function WowTurbineO({ size = 160 }) {
   return (
     <div
       className="inline-flex items-center justify-center relative mx-4 lg:mx-8"

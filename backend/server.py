@@ -46,8 +46,8 @@ app.add_middleware(
 # --- Database Resilience Configuration ---
 # Standardize on MONGODB_URI (Vercel standard) with fallback to MONGO_URL
 # HARDCODED FOR TESTING AS REQUESTED BY USER
-HARDCODED_URL = "mongodb+srv://smmservices0987_db_user:Smm0987@an.beuzkok.mongodb.net/?appName=AN"
-mongo_url = os.environ.get('MONGODB_URI') or os.environ.get('MONGO_URL') or HARDCODED_URL
+HARDCODED_URL = "mongodb+srv://smmservices0987_db_user:Smm0987@an.beuzkok.mongodb.net/autonorth?retryWrites=true&w=majority&appName=AN"
+mongo_url = HARDCODED_URL # Force use hardcoded for now to bypass Vercel environment issues
 db_name = os.environ.get('DB_NAME', "autonorth")
 
 # Lazy initialization to prevent module-level crashes
