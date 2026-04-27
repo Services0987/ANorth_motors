@@ -639,14 +639,21 @@ async def get_ai_response(message: str, inventory_docs: list):
 
     # ── 3. The 'Global Brain' (Cloud Providers) ──
     try:
-        inventory_summary = "\n".join([f"• {v.get('year')} {v.get('make')} {v.get('model')} (ID: {str(v.get('_id', ''))}) - ${safe_price(v):,.0f}" for v in inventory_docs[:12]])
+        # ── 1. Create a Clean, Human-Readable Inventory Summary ──
+        inventory_summary = "\n".join([
+            f"• {v.get('year')} {v.get('make')} {v.get('model')} - ${safe_price(v):,.0f} (Link: [View Detail](/vehicle/{str(v.get('_id', ''))}))" 
+            for v in inventory_docs[:15]
+        ])
+        
         system_prompt = (
-            "You are the AutoNorth AI Specialist. Professional, helpful, and highly sales-oriented. "
-            "Your goal is to help visitors find their perfect vehicle AND collect their contact info (Name/Phone) for our sales team. "
-            "If a user expresses interest in a vehicle, price, or test drive, ALWAYS ask for their name and phone number to 'lock in the priority' or 'schedule a viewing'. "
-            "When mentioning a specific vehicle, ALWAYS link it like this: [Year Make Model](/vehicle/ID). "
-            "Use markdown tables for specs. Always end with a strong, helpful call to action. "
-            f"Current Inventory Context:\n{inventory_summary}\nTotal vehicles available: {len(inventory_docs)}."
+            "You are the AutoNorth AI Specialist. Professional, luxury-focused, and highly sales-oriented. "
+            "Your goal is to help visitors find their perfect vehicle and capture their contact info. "
+            "IMPORTANT: When listing vehicles, NEVER show the raw 'Vehicle ID' string (e.g., 69ecb9...). "
+            "ALWAYS use the 'Year Make Model' as the title. "
+            "When mentioning a vehicle, ALWAYS use this exact link format: [Year Make Model](/vehicle/ID). "
+            "Use markdown tables for comparisons, but keep the first column as the vehicle name, NOT the ID. "
+            "Always end with a strong, helpful call to action to book a test drive. "
+            f"Current Fleet Context:\n{inventory_summary}\nTotal vehicles available: {len(inventory_docs)}."
         )
         
         # ── Gemini ──

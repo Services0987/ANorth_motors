@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { 
   MessageSquare, X, Phone, Send, Bot, User, Loader2 as Loader, 
   BrainCircuit, ChevronDown, RefreshCw, CheckCircle, AlertTriangle 
@@ -21,6 +21,70 @@ const SAFE_ICON = (Icon, props = {}) => {
   const Component = Icon;
   return <Component {...props} />;
 };
+
+function ChatVehicleCard({ title, link, specs, onMinimized }) {
+  const mx = useMotionValue(0);
+  const my = useMotionValue(0);
+  const springX = useSpring(mx, { stiffness: 150, damping: 20 });
+  const springY = useSpring(my, { stiffness: 150, damping: 20 });
+  const rotateY = useTransform(springX, [-0.5, 0.5], [-12, 12]);
+  const rotateX = useTransform(springY, [-0.5, 0.5], [8, -8]);
+
+  // Gyroscope support for mobile cards
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleOrientation = (e) => {
+      if (!e.beta || !e.gamma) return;
+      const ny = (e.beta - 45) / 30; 
+      const nx = e.gamma / 30;
+      mx.set(Math.max(-0.5, Math.min(0.5, nx)));
+      my.set(Math.max(-0.5, Math.min(0.5, ny)));
+    };
+    if (window.DeviceOrientationEvent && /Mobi|Android/i.test(navigator.userAgent)) {
+      window.addEventListener('deviceorientation', handleOrientation);
+    }
+    return () => window.removeEventListener('deviceorientation', handleOrientation);
+  }, [mx, my]);
+
+  const handleMove = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    mx.set((e.clientX - rect.left) / rect.width - 0.5);
+    my.set((e.clientY - rect.top) / rect.height - 0.5);
+  };
+
+  return (
+    <motion.div 
+      style={{ rotateX, rotateY, transformStyle: 'preserve-3d', perspective: '800px' }}
+      onMouseMove={handleMove}
+      onMouseLeave={() => { mx.set(0); my.set(0); }}
+      className="my-4 group"
+    >
+      <div className="p-4 bg-white/[0.03] border border-white/[0.08] border-l-2 border-l-[#D4AF37] relative overflow-hidden transition-all group-hover:border-white/[0.15] group-hover:bg-white/[0.05]">
+        <div className="relative z-10">
+          <div className="mb-2" style={{ transform: 'translateZ(30px)' }}>
+            {link ? (
+              <a href={link} onClick={onMinimized} className="text-[#D4AF37] font-bold text-base hover:underline decoration-[#D4AF37]/30">
+                {title}
+              </a>
+            ) : (
+              <span className="text-[#D4AF37] font-bold text-base uppercase tracking-tight">{title}</span>
+            )}
+          </div>
+          <div className="space-y-1" style={{ transform: 'translateZ(15px)' }}>
+            {specs.map((spec, sidx) => (
+              <div key={sidx} className="flex gap-2 text-[11px] items-start">
+                <div className="w-1 h-1 bg-[#D4AF37]/40 rounded-full mt-1.5" />
+                <span className="text-white/60 leading-tight">{spec}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Ambient Specular Highlight */}
+        <div className="absolute inset-0 bg-gradient-to-br from-white/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+      </div>
+    </motion.div>
+  );
+}
 
 export default function ChatBot() {
   const [open, setOpen] = useState(false);
@@ -255,29 +319,13 @@ export default function ChatBot() {
                               }
 
                               return (
-                                <div key={idx} className="my-3 p-4 bg-white/[0.02] border-l-2 border-[#D4AF37] group hover:bg-white/[0.04] transition-all">
-                                  <div className="mb-2">
-                                    {linkMatch ? (
-                                      <a 
-                                        href={linkMatch[2]} 
-                                        onClick={() => setMinimized(true)}
-                                        className="text-[#D4AF37] font-bold text-base hover:underline underline-offset-4 decoration-[#D4AF37]/30"
-                                      >
-                                        {linkMatch[1]}
-                                      </a>
-                                    ) : (
-                                      <span className="text-[#D4AF37] font-bold text-base uppercase tracking-tight">{titleCell}</span>
-                                    )}
-                                  </div>
-                                  <div className="space-y-1">
-                                    {otherSpecs.map((spec, sidx) => (
-                                      <div key={sidx} className="flex gap-2 text-[11px] items-start">
-                                        <div className="w-1 h-1 bg-[#D4AF37]/40 rounded-full mt-1.5" />
-                                        <span className="text-white/60 leading-tight">{spec}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
+                                <ChatVehicleCard 
+                                  key={idx}
+                                  title={linkMatch ? linkMatch[1] : titleCell}
+                                  link={linkMatch ? linkMatch[2] : null}
+                                  specs={otherSpecs}
+                                  onMinimized={() => setMinimized(true)}
+                                />
                               );
                             }
 
