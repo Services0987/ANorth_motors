@@ -289,7 +289,7 @@ export default function Inventory() {
         {/* ══════════════════════════════════════════════════════
             HERO  —  The "Mind Blowing" AUTONORTH Display
         ══════════════════════════════════════════════════════ */}
-            {/* ━━ THE HD CINEMATIC BRAND EXPERIENCE ━━ */}
+        <motion.div style={{ opacity: heroOpacity }} className="relative h-screen flex flex-col items-center justify-center text-center px-6 overflow-hidden bg-black">
             <div className="absolute inset-0 z-0">
               <motion.img 
                 src="/luxury_showroom_hero_bg_1777279800612.png" 
