@@ -150,8 +150,8 @@ export default function AdminLeads() {
         </div>
 
         {/* Table + Detail Panel */}
-        <div className="flex gap-6 min-h-0 overflow-hidden">
-          <div className={`bg-[#0A0A0A] border border-white/[0.05] overflow-x-auto flex-1 min-w-0 ${selectedLead ? 'hidden md:block' : ''}`}>
+        <div className="flex flex-col md:flex-row gap-6 items-start">
+          <div className={`bg-[#0A0A0A] border border-white/[0.05] overflow-x-auto flex-grow w-full min-w-0 ${selectedLead ? 'hidden md:block' : ''}`}>
             <table className="w-full text-sm font-body">
               <thead>
                 <tr className="border-b border-white/[0.05]">

@@ -593,6 +593,18 @@ async def clear_leads(cu=Depends(get_current_user)):
     await db.leads.delete_many({})
     return {"message": "All leads cleared"}
 
+@api_router.put("/leads/{id}")
+async def update_lead_status(id: str, data: dict, cu=Depends(get_current_user)):
+    status = data.get("status")
+    if not status: raise HTTPException(400, "Status required")
+    await db.leads.update_one({"_id": ObjectId(id)}, {"$set": {"status": status}})
+    return {"message": "Status updated"}
+
+@api_router.delete("/leads/{id}")
+async def delete_lead(id: str, cu=Depends(get_current_user)):
+    await db.leads.delete_one({"_id": ObjectId(id)})
+    return {"message": "Lead deleted"}
+
 @api_router.get("/scraper/settings")
 async def get_scraper_settings(cu=Depends(get_current_user)):
     return {"auto_sync": False, "last_sync": None}
