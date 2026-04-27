@@ -153,9 +153,13 @@ export default function AdminLeads() {
             <table className="w-full text-sm font-body">
               <thead>
                 <tr className="border-b border-white/[0.05]">
-                  {['Name', 'Type', 'Contact', 'Vehicle Interest', 'Date', 'Status', 'Actions'].map((h) => (
-                    <th key={h} className="text-left px-4 py-3 text-[10px] font-heading tracking-[0.15em] uppercase text-white/30 whitespace-nowrap">{h}</th>
-                  ))}
+                  <th className="text-left px-4 py-3 text-[10px] font-heading tracking-[0.15em] uppercase text-white/30">Name</th>
+                  {!selectedLead && <th className="text-left px-4 py-3 text-[10px] font-heading tracking-[0.15em] uppercase text-white/30">Type</th>}
+                  {!selectedLead && <th className="text-left px-4 py-3 text-[10px] font-heading tracking-[0.15em] uppercase text-white/30">Contact</th>}
+                  <th className="text-left px-4 py-3 text-[10px] font-heading tracking-[0.15em] uppercase text-white/30">Vehicle Interest</th>
+                  {!selectedLead && <th className="text-left px-4 py-3 text-[10px] font-heading tracking-[0.15em] uppercase text-white/30 whitespace-nowrap">Date</th>}
+                  <th className="text-left px-4 py-3 text-[10px] font-heading tracking-[0.15em] uppercase text-white/30">Status</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-heading tracking-[0.15em] uppercase text-white/30">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -174,34 +178,38 @@ export default function AdminLeads() {
                     className={`border-b border-white/[0.03] cursor-pointer transition-colors ${selectedLead?.id === lead.id ? 'bg-white/[0.03]' : 'hover:bg-white/[0.01]'}`}
                   >
                     <td className="px-4 py-3">
-                      <p className="text-white text-xs font-medium">{lead.name}</p>
-                      <p className="text-white/30 text-xs">{lead.email}</p>
+                      <p className="text-white text-xs font-medium truncate max-w-[120px]">{lead.name}</p>
+                      <p className="text-white/30 text-[10px] truncate max-w-[120px]">{lead.email}</p>
                     </td>
+                    {!selectedLead && (
+                      <td className="px-4 py-3">
+                        <span className={`text-xs font-body ${TYPE_COLORS[lead.lead_type] || 'text-white/40'}`}>{TYPE_LABELS[lead.lead_type] || lead.lead_type}</span>
+                      </td>
+                    )}
+                    {!selectedLead && (
+                      <td className="px-4 py-3">
+                        {lead.phone ? (
+                          <div className="flex items-center gap-2 text-white/80 font-body text-xs">
+                            {SAFE_ICON(Phone, { size: 12, className: "text-[#D4AF37]" })}
+                            {lead.phone}
+                          </div>
+                        ) : <span className="text-white/20">—</span>}
+                      </td>
+                    )}
                     <td className="px-4 py-3">
-                      <span className={`text-xs font-body ${TYPE_COLORS[lead.lead_type] || 'text-white/40'}`}>{TYPE_LABELS[lead.lead_type] || lead.lead_type}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {lead.phone ? (
-                        <div className="flex items-center gap-2 text-white/80 font-body text-xs">
-                          {SAFE_ICON(Phone, { size: 12, className: "text-[#D4AF37]" })}
-                          {lead.phone}
-                        </div>
-                      ) : <span className="text-white/20">—</span>}
-                    </td>
-                    <td className="px-4 py-3 min-w-[240px]">
                       <div className="flex items-center justify-between gap-4">
-                        <div>
-                          <p className={`text-xs font-medium ${lead.vehicle_title !== 'General Inquiry' ? 'text-[#D4AF37]' : 'text-white/40'}`}>
+                        <div className="min-w-0">
+                          <p className={`text-xs font-medium truncate max-w-[180px] ${lead.vehicle_title !== 'General Inquiry' ? 'text-[#D4AF37]' : 'text-white/40'}`}>
                             {lead.vehicle_title || '—'}
                           </p>
                           {lead.vehicle_vin && lead.vehicle_vin !== '—' && (
-                            <p className="text-white/20 text-[9px] uppercase tracking-wider mt-0.5">VIN: {lead.vehicle_vin}</p>
+                            <p className="text-white/20 text-[9px] uppercase tracking-wider mt-0.5 truncate max-w-[180px]">VIN: {lead.vehicle_vin}</p>
                           )}
                         </div>
                         {lead.vehicle_id && (
                           <SafeLink 
                             to={`/vehicle/${lead.vehicle_id}`}
-                            className="p-1.5 bg-white/5 border border-white/10 text-white/40 hover:text-[#D4AF37] hover:border-[#D4AF37]/40 transition-all rounded-sm"
+                            className="p-1.5 bg-white/5 border border-white/10 text-white/40 hover:text-[#D4AF37] hover:border-[#D4AF37]/40 transition-all rounded-sm flex-shrink-0"
                             title="View Vehicle Page"
                             onClick={(e) => e.stopPropagation()}
                           >
@@ -210,7 +218,7 @@ export default function AdminLeads() {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-white/30 text-xs whitespace-nowrap">{formatDate(lead.created_at)}</td>
+                    {!selectedLead && <td className="px-4 py-3 text-white/30 text-xs whitespace-nowrap">{formatDate(lead.created_at)}</td>}
                     <td className="px-4 py-3">
                       <select
                         value={lead.status || 'new'}
