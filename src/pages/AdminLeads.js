@@ -120,6 +120,28 @@ export default function AdminLeads() {
             </select>
             {SAFE_ICON(ChevronDown, { size: 13, className: "absolute right-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" })}
           </div>
+          
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => window.location.href = `${API}/leads/export`}
+              className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 text-white/60 hover:text-white hover:border-[#D4AF37]/40 text-[10px] font-heading uppercase tracking-widest transition-all"
+            >
+              Download CSV
+            </button>
+            <button 
+              onClick={async () => {
+                if (!window.confirm("Export your data first! Are you sure you want to PERMANENTLY clear all leads?")) return;
+                try {
+                  await axios.post(`${API}/leads/clear`, {}, { withCredentials: true });
+                  fetchLeads();
+                } catch { alert("Clear failed"); }
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-red-500/5 border border-red-500/10 text-red-400/40 hover:bg-red-500 hover:text-white text-[10px] font-heading uppercase tracking-widest transition-all"
+            >
+              Clear All
+            </button>
+          </div>
+
           <span className="text-white/30 text-xs font-body ml-auto">{filtered.length} lead{filtered.length !== 1 ? 's' : ''}</span>
         </div>
 

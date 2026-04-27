@@ -557,6 +557,42 @@ async def create_lead(data: LeadCreate):
     lead_doc["_id"] = str(res.inserted_id)
     return lead_doc
 
+@api_router.get("/leads/export")
+async def export_leads(cu=Depends(get_current_user)):
+    try:
+        leads = await db.leads.find({}).sort("created_at", -1).to_list(1000)
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["Date", "Name", "Email", "Phone", "Type", "Vehicle", "VIN", "Status", "Message/Transcript"])
+        
+        for l in leads:
+            writer.writerow([
+                l.get("created_at", "").isoformat() if isinstance(l.get("created_at"), datetime) else l.get("created_at", ""),
+                l.get("name", ""),
+                l.get("email", ""),
+                l.get("phone", ""),
+                l.get("lead_type", ""),
+                l.get("vehicle_title", ""),
+                l.get("vehicle_vin", ""),
+                l.get("status", "new"),
+                l.get("message", "")
+            ])
+            
+        output.seek(0)
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=autonorth_leads_{datetime.now().strftime('%Y%m%d')}.csv"}
+        )
+    except Exception as e:
+        logger.error(f"Lead Export Error: {e}")
+        raise HTTPException(500, "Export failed")
+
+@api_router.post("/leads/clear")
+async def clear_leads(cu=Depends(get_current_user)):
+    await db.leads.delete_many({})
+    return {"message": "All leads cleared"}
+
 @api_router.get("/scraper/settings")
 async def get_scraper_settings(cu=Depends(get_current_user)):
     return {"auto_sync": False, "last_sync": None}
