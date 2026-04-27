@@ -150,8 +150,8 @@ export default function AdminLeads() {
         </div>
 
         {/* Table + Detail Panel */}
-        <div className="flex gap-6">
-          <div className={`bg-[#0A0A0A] border border-white/[0.05] overflow-x-auto flex-1 ${selectedLead ? 'hidden md:block' : ''}`}>
+        <div className="flex gap-6 min-h-0 overflow-hidden">
+          <div className={`bg-[#0A0A0A] border border-white/[0.05] overflow-x-auto flex-1 min-w-0 ${selectedLead ? 'hidden md:block' : ''}`}>
             <table className="w-full text-sm font-body">
               <thead>
                 <tr className="border-b border-white/[0.05]">
@@ -215,10 +215,10 @@ export default function AdminLeads() {
                     <td className="px-4 py-3 text-white/30 text-xs whitespace-nowrap">{formatDate(lead.created_at)}</td>
                     <td className="px-4 py-3">
                       <select
-                        value={lead.status}
+                        value={lead.status || 'new'}
                         onChange={(e) => { e.stopPropagation(); updateStatus(lead.id, e.target.value); }}
                         onClick={(e) => e.stopPropagation()}
-                        className={`text-xs px-2 py-1 cursor-pointer bg-transparent border-0 font-body ${STATUS_STYLES[lead.status] || STATUS_STYLES.new}`}
+                        className={`text-xs px-2 py-1 cursor-pointer bg-transparent border-0 font-body ${STATUS_STYLES[lead.status] || STATUS_STYLES.new || ''}`}
                       >
                         {['new', 'contacted', 'qualified', 'closed'].map((s) => <option key={s} value={s} className="bg-[#0A0A0A] text-white">{s}</option>)}
                       </select>
