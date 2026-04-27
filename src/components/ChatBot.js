@@ -24,6 +24,15 @@ const SAFE_ICON = (Icon, props = {}) => {
 
 export default function ChatBot() {
   const [open, setOpen] = useState(false);
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    let msg = 'Welcome to AutoNorth. I am your AI Specialist.';
+    if (hour < 12) msg = 'Good morning from AutoNorth. I am your AI Specialist.';
+    else if (hour < 18) msg = 'Good afternoon from AutoNorth. I am your AI Specialist.';
+    else msg = 'Good evening from AutoNorth. I am your AI Specialist.';
+    return msg + ' How can I help you find your dream car today?';
+  };
+
   const [messages, setMessages] = useState(() => {
     // Session Persistence: Load from localStorage
     const saved = localStorage.getItem('autonorth_chat_session');
@@ -36,7 +45,7 @@ export default function ChatBot() {
         }
       } catch (e) { console.error("Session restore failed", e); }
     }
-    return [{ role: 'assistant', content: 'Welcome to AutoNorth. I am your AI Specialist. How can I help you find your dream car today?' }];
+    return [{ role: 'assistant', content: getGreeting() }];
   });
 
   const [input, setInput] = useState('');
@@ -123,9 +132,19 @@ export default function ChatBot() {
         whileTap={{ scale: 0.95 }}
         data-testid="chatbot-toggle"
       >
-        {open ? SAFE_ICON(X, { size: 20 }) : SAFE_ICON(MessageSquare, { size: 20 })}
+        {/* Breathing Aura Pulse */}
+        {!open && (
+          <motion.div 
+            className="absolute inset-0 rounded-full bg-[#D4AF37]/30"
+            animate={{ scale: [1, 1.8, 1], opacity: [0.3, 0, 0.3] }}
+            transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+          />
+        )}
+        <div className="relative z-10">
+          {open ? SAFE_ICON(X, { size: 20 }) : SAFE_ICON(MessageSquare, { size: 20 })}
+        </div>
         {!open && !leadCaptured && (
-          <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-[#050505] animate-pulse" />
+          <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-[#050505] animate-pulse z-20" />
         )}
       </motion.button>
 

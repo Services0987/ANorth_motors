@@ -158,6 +158,17 @@ export default function VehicleCard({ vehicle, index = 0 }) {
             {/* Bottom gradient */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
 
+            {/* Crown Jewel Pulse — Sublte glow for popular items */}
+            {vehicle.views > 20 && (
+              <div className="absolute inset-0 pointer-events-none z-0">
+                <motion.div 
+                  animate={{ scale: [1, 1.05, 1], opacity: [0.3, 0.6, 0.3] }}
+                  transition={{ duration: 3, repeat: Infinity }}
+                  className="absolute inset-0 rounded-full bg-[#D4AF37]/5 blur-3xl"
+                />
+              </div>
+            )}
+
             {/* Badges */}
             <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-30" style={{ transform: 'translateZ(50px)' }}>
               <motion.span

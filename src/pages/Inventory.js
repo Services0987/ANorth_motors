@@ -125,6 +125,20 @@ function use3DTilt(strength = 12) {
   const rotateX = useSpring(useTransform(y, [-0.5, 0.5], [strength, -strength]), { stiffness: 400, damping: 30 });
   const rotateY = useSpring(useTransform(x, [-0.5, 0.5], [-strength, strength]), { stiffness: 400, damping: 30 });
 
+  // Mobile Gyroscope listener for Bazaar cards
+  useEffect(() => {
+    if (typeof window === 'undefined' || !/Mobi|Android/i.test(navigator.userAgent)) return;
+    const handleOrientation = (e) => {
+      if (!e.beta || !e.gamma) return;
+      const nx = e.gamma / 30;
+      const ny = (e.beta - 45) / 30;
+      x.set(Math.max(-0.5, Math.min(0.5, nx)));
+      y.set(Math.max(-0.5, Math.min(0.5, ny)));
+    };
+    window.addEventListener('deviceorientation', handleOrientation);
+    return () => window.removeEventListener('deviceorientation', handleOrientation);
+  }, [x, y]);
+
   const handleMouse = useCallback((e) => {
     if (!ref.current) return;
     const { left, top, width, height } = ref.current.getBoundingClientRect();
