@@ -599,7 +599,26 @@ async def get_ai_response(message: str, inventory_docs: list):
                 await db.settings.update_one({"type": "general"}, {"$set": {"ai_health": "online", "last_active": datetime.now(timezone.utc)}})
                 return resp.json()["content"][0]["text"]
 
-        # ── OpenRouter ──
+        # --- Diagnostic Routes ---
+@api_router.get("/health")
+async def health_check():
+    return {
+        "status": "online",
+        "has_genai": HAS_GENAI,
+        "db_connected": db is not None,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
+@api_router.get("/debug")
+async def debug_info():
+    return {
+        "env_keys": list(os.environ.keys()),
+        "mongo_url_found": bool(os.environ.get('MONGODB_URI') or os.environ.get('MONGO_URL')),
+        "db_name": db_name,
+        "python_version": sys.version
+    }
+
+# --- Auth Routes ---
         elif provider == "openrouter":
             async with httpx.AsyncClient() as client:
                 resp = await client.post("https://openrouter.ai/api/v1/chat/completions",
