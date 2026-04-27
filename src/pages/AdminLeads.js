@@ -147,11 +147,9 @@ export default function AdminLeads() {
           </div>
 
           <span className="text-white/30 text-xs font-body ml-auto">{filtered.length} lead{filtered.length !== 1 ? 's' : ''}</span>
-        </div>
-
-        {/* Table + Detail Panel */}
-        <div className="flex flex-col md:flex-row gap-6 items-start">
-          <div className={`bg-[#0A0A0A] border border-white/[0.05] overflow-x-auto flex-grow w-full min-w-0 ${selectedLead ? 'hidden md:block' : ''}`}>
+        </div>        {/* Table + Detail Panel */}
+        <div className="flex flex-col lg:flex-row gap-6 items-start relative">
+          <div className={`bg-[#0A0A0A] border border-white/[0.05] overflow-x-auto flex-grow w-full min-w-0 ${selectedLead ? 'hidden lg:block' : ''}`}>
             <table className="w-full text-sm font-body">
               <thead>
                 <tr className="border-b border-white/[0.05]">
@@ -168,7 +166,7 @@ export default function AdminLeads() {
                     </tr>
                   ))
                 ) : filtered.length === 0 ? (
-                  <tr><td colSpan={6} className="text-center py-12 text-white/30">No leads found.</td></tr>
+                  <tr><td colSpan={7} className="text-center py-12 text-white/30">No leads found.</td></tr>
                 ) : filtered.map((lead) => (
                   <tr
                     key={lead.id}
@@ -233,10 +231,10 @@ export default function AdminLeads() {
               </tbody>
             </table>
           </div>
-
+ 
           {/* Lead Detail Panel */}
           {selectedLead && (
-            <div className="w-full md:w-80 bg-[#0A0A0A] border border-white/[0.05] p-6 flex-shrink-0">
+            <div className="w-full lg:w-96 bg-[#0A0A0A] border border-white/[0.05] p-6 flex-shrink-0 lg:sticky lg:top-24 lg:h-[calc(100vh-160px)] overflow-y-auto">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="font-heading text-sm font-medium text-white">Lead Details</h3>
                 <button onClick={() => setSelectedLead(null)} className="text-white/30 hover:text-white">{SAFE_ICON(X, { size: 16 })}</button>
