@@ -191,40 +191,50 @@ export default function ChatBot() {
                             : 'bg-white/[0.03] border border-white/[0.05] text-white/80'
                         }`} style={{ borderRadius: msg.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px' }}>
                           {msg.content.split('\n').map((line, idx) => {
-                            // Sanitization: Remove ##, *, \*, etc while keeping it clean
+                            // DEEP SANITIZATION: Kill every leak
                             let clean = line
                               .replace(/<br\s*\/?>/gi, ' ')
+                              .replace(/&nbsp;/gi, ' ')
                               .replace(/\\?\*/g, '')
                               .replace(/^#+\s*/, '')
                               .trim();
 
                             if (!clean && !line.includes('|')) return <div key={idx} className="h-2" />;
                             
-                            // Markdown Table detection (Fluid & Safe)
+                            // VERTICAL SPEC CARDS (Replacing Horizontal Tables)
                             if (line.includes('|') && line.includes('---')) return null;
                             if (line.includes('|')) {
-                              const cells = line.split('|').filter(c => c.trim()).map(c => c.replace(/\\?\*/g, '').trim());
-                              if (cells.length === 0) return null;
+                              const cells = line.split('|').filter(c => c.trim()).map(c => 
+                                c.replace(/<br\s*\/?>/gi, ' ').replace(/\\?\*/g, '').trim()
+                              );
+                              if (cells.length === 0 || cells.every(c => c.toLowerCase().includes('vehicle') || c.toLowerCase().includes('specs'))) return null;
+                              
+                              // First cell is usually the Vehicle Name/Link
+                              const vehicleCell = cells[0];
+                              const linkMatch = vehicleCell.match(/\[(.*?)\]\((.*?)\)/);
+                              
                               return (
-                                <div key={idx} className="overflow-x-auto my-2 border border-white/5 bg-white/[0.01]">
-                                  <div className="flex gap-4 p-3 min-w-max">
-                                    {cells.map((cell, cidx) => {
-                                      const linkMatch = cell.match(/\[(.*?)\]\((.*?)\)/);
+                                <div key={idx} className="my-3 p-4 bg-white/[0.02] border-l-2 border-[#D4AF37] group hover:bg-white/[0.04] transition-all">
+                                  <div className="mb-2">
+                                    {linkMatch ? (
+                                      <a 
+                                        href={linkMatch[2]} 
+                                        onClick={() => setMinimized(true)}
+                                        className="text-[#D4AF37] font-bold text-base hover:underline underline-offset-4 decoration-[#D4AF37]/30"
+                                      >
+                                        {linkMatch[1]}
+                                      </a>
+                                    ) : (
+                                      <span className="text-[#D4AF37] font-bold text-base uppercase tracking-tight">{vehicleCell}</span>
+                                    )}
+                                  </div>
+                                  <div className="space-y-1">
+                                    {cells.slice(1).map((cell, cidx) => {
+                                      if (!cell || cell === '-') return null;
                                       return (
-                                        <div key={cidx} className="flex-shrink-0">
-                                          {linkMatch ? (
-                                            <a 
-                                              href={linkMatch[2]} 
-                                              onClick={() => setMinimized(true)}
-                                              className="text-[#D4AF37] font-bold underline underline-offset-4 decoration-[#D4AF37]/30 hover:decoration-[#D4AF37]"
-                                            >
-                                              {linkMatch[1]}
-                                            </a>
-                                          ) : (
-                                            <span className={cidx === 0 ? "text-[#D4AF37] font-bold uppercase text-[10px] tracking-wider" : "text-white/60 text-[11px]"}>
-                                              {cell}
-                                            </span>
-                                          )}
+                                        <div key={cidx} className="flex gap-2 text-[11px] items-start">
+                                          <div className="w-1 h-1 bg-[#D4AF37]/40 rounded-full mt-1.5" />
+                                          <span className="text-white/60 leading-tight">{cell}</span>
                                         </div>
                                       );
                                     })}
@@ -245,7 +255,7 @@ export default function ChatBot() {
                                   {parts.map((part, pidx) => {
                                     const match = part.match(/\[(.*?)\]\((.*?)\)/);
                                     if (match) return <a key={pidx} href={match[2]} onClick={() => setMinimized(true)} className="text-[#D4AF37] font-bold border-b border-[#D4AF37]/30 hover:border-[#D4AF37] hover:bg-[#D4AF37]/5 px-1 transition-all rounded-sm">{match[1]}</a>;
-                                    return part.replace(/\\?\*/g, '');
+                                    return part.replace(/<br\s*\/?>/gi, ' ').replace(/\\?\*/g, '');
                                   })}
                                 </p>
                               );
