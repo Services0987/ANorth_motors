@@ -31,14 +31,6 @@ from pydantic import BaseModel, Field, BeforeValidator, ConfigDict
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Database configuration
-mongo_url = os.environ.get('MONGO_URL', "mongodb://localhost:27017")
-db_name = os.environ.get('DB_NAME', 'AutoNorth')
-
-# Initialize DB globally for Serverless/Vercel compatibility
-client = AsyncIOMotorClient(mongo_url)
-db = client[db_name]
-
 app = FastAPI(title="AutoNorth Motors API")
 api_router = APIRouter(prefix="/api")
 
@@ -601,7 +593,24 @@ async def get_ai_response(message: str, inventory_docs: list):
                 await db.settings.update_one({"type": "general"}, {"$set": {"ai_health": "online", "last_active": datetime.now(timezone.utc)}})
                 return resp.json()["content"][0]["text"]
 
-        # --- Diagnostic Routes ---
+        # ── OpenRouter ──
+        elif provider == "openrouter":
+            async with httpx.AsyncClient() as client:
+                resp = await client.post("https://openrouter.ai/api/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {api_key}", "HTTP-Referer": "https://autonorth.ca", "X-Title": "AutoNorth"},
+                    json={"model": custom_model or 'openrouter/auto', "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}]}, timeout=15.0)
+                r_json = resp.json()
+                if "choices" in r_json:
+                    await db.settings.update_one({"type": "general"}, {"$set": {"ai_health": "online", "last_active": datetime.now(timezone.utc)}})
+                    return r_json["choices"][0]["message"]["content"]
+                raise Exception(r_json.get("error", {}).get("message", "API Error"))
+
+    except Exception as e:
+        logger.error(f"Global AI Fail ({provider}): {e}")
+        await db.settings.update_one({"type": "general"}, {"$set": {"ai_health": "error", "ai_error": str(e), "last_active": datetime.now(timezone.utc)}})
+        return await local_fallback(message, inventory_docs)
+
+# --- Diagnostic Routes ---
 @api_router.get("/health")
 async def health_check():
     return {
@@ -620,23 +629,6 @@ async def debug_info():
         "python_version": sys.version
     }
 
-# --- Auth Routes ---
-        elif provider == "openrouter":
-            async with httpx.AsyncClient() as client:
-                resp = await client.post("https://openrouter.ai/api/v1/chat/completions",
-                    headers={"Authorization": f"Bearer {api_key}", "HTTP-Referer": "https://autonorth.ca", "X-Title": "AutoNorth"},
-                    json={"model": custom_model or 'openrouter/auto', "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}]}, timeout=15.0)
-                r_json = resp.json()
-                if "choices" in r_json:
-                    await db.settings.update_one({"type": "general"}, {"$set": {"ai_health": "online", "last_active": datetime.now(timezone.utc)}})
-                    return r_json["choices"][0]["message"]["content"]
-                raise Exception(r_json.get("error", {}).get("message", "API Error"))
-
-    except Exception as e:
-        logger.error(f"Global AI Fail ({provider}): {e}")
-        await db.settings.update_one({"type": "general"}, {"$set": {"ai_health": "error", "ai_error": str(e), "last_active": datetime.now(timezone.utc)}})
-        return await local_fallback(message, inventory_docs)
-
 @api_router.post("/chat")
 async def ai_chat(data: ChatRequest):
     try:
@@ -649,10 +641,7 @@ async def ai_chat(data: ChatRequest):
 
 @app.on_event("startup")
 async def startup():
-    # Ensure DB is ready (redundant but safe)
-    global client, db
-    if client is None:
-        client = AsyncIOMotorClient(mongo_url)
-        db = client[db_name]
+    # Ensure DB is ready
+    get_db()
 
 app.include_router(api_router)
