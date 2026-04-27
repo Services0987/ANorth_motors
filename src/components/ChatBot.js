@@ -17,8 +17,9 @@ const QUICK_PROMPTS = [
 ];
 
 const SAFE_ICON = (Icon, props = {}) => {
-  if (!Icon || (typeof Icon !== 'function' && typeof Icon !== 'object')) return null;
-  return <Icon {...props} />;
+  if (!Icon) return null;
+  const Component = Icon;
+  return <Component {...props} />;
 };
 
 export default function ChatBot() {
@@ -59,24 +60,7 @@ export default function ChatBot() {
     try {
       const { data } = await axios.post(`${API}/chat`, {
         message: userMsg,
-        session_id: sessionId,
-        inventory: inventory.map(v => ({
-          id: v._id || v.id,
-          title: v.title,
-          make: v.make,
-          model: v.model,
-          year: v.year,
-          price: v.price,
-          mileage: v.mileage,
-          condition: v.condition,
-          body_type: v.body_type,
-          fuel_type: v.fuel_type,
-          transmission: v.transmission,
-          drivetrain: v.drivetrain,
-          engine: v.engine,
-          color: v.exterior_color,
-          status: v.status
-        }))
+        session_id: sessionId || `session_${Math.random().toString(36).substr(2, 9)}`
       });
       setSessionId(data.session_id);
       setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);

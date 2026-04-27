@@ -107,7 +107,9 @@ class VehicleUpdate(BaseModel):
     featured: Optional[bool] = None; show_on_home: Optional[bool] = None
 
 class ChatRequest(BaseModel):
-    session_id: str; message: str
+    message: str
+    session_id: Optional[str] = None
+    model_config = ConfigDict(extra="ignore")
 
 class LeadStatusUpdate(BaseModel):
     status: str

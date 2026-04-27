@@ -6,13 +6,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 
 const SAFE_ICON = (Icon, props = {}) => {
-  if (!Icon || (typeof Icon !== 'function' && typeof Icon !== 'object')) return null;
-  try {
-    return <Icon {...props} />;
-  } catch (e) {
-    console.error("Icon render failed in Layout:", e);
-    return null;
-  }
+  if (!Icon) return null;
+  const Component = Icon;
+  return <Component {...props} />;
 };
 
 const navItems = [
@@ -71,8 +67,17 @@ export default function AdminLayout({ children, title }) {
     }
     setSecuritySaving(true); setSecurityError(''); setSecuritySuccess(false);
     try {
-      await axios.put(`${API}/auth/profile`, { email: securityForm.email, password: securityForm.password || undefined }, { withCredentials: true });
-      await axios.put(`${API}/settings`, aiForm, { withCredentials: true });
+      await axios.put(`${API}/auth/profile`, { 
+        email: securityForm.email, 
+        password: securityForm.password || undefined 
+      }, { withCredentials: true });
+      
+      await axios.put(`${API}/settings`, {
+        ai_provider: aiForm.ai_provider,
+        ai_api_key: aiForm.ai_api_key,
+        ai_model: aiForm.ai_model
+      }, { withCredentials: true });
+
       setSecuritySuccess(true);
       setTimeout(() => { setShowSecurityModal(false); setSecuritySuccess(false); }, 2000);
     } catch (err) { 
