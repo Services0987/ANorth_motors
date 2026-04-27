@@ -155,55 +155,50 @@ export default function ChatBot() {
                             : 'bg-white/[0.03] border border-white/[0.05] text-white/80'
                         }`} style={{ borderRadius: msg.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px' }}>
                           {msg.content.split('\n').map((line, idx) => {
-                            const trimmed = line.trim();
-                            if (!trimmed) return <div key={idx} className="h-2" />;
+                            let clean = line.replace(/<br\s*\/?>/gi, ' ').replace(/\*\*/g, '').trim();
+                            if (!clean) return <div key={idx} className="h-2" />;
                             
-                            // Markdown Table detection
-                            if (trimmed.startsWith('|') && trimmed.includes('---')) return null;
-                            if (trimmed.startsWith('|')) {
-                              const cells = trimmed.split('|').filter(c => c.trim());
+                            // Markdown Table detection (Enhanced)
+                            if (clean.startsWith('|') && clean.includes('---')) return null;
+                            if (clean.startsWith('|')) {
+                              const cells = clean.split('|').filter(c => c.trim());
                               if (cells.length === 0) return null;
                               return (
-                                <div key={idx} className="flex border-b border-white/5 py-1.5 gap-3 text-[11px]">
-                                  {cells.map((cell, cidx) => (
-                                    <span key={cidx} className={cidx === 0 ? "font-bold text-[#D4AF37] min-w-[80px]" : "flex-1 text-white/60"}>
-                                      {cell.trim()}
-                                    </span>
-                                  ))}
+                                <div key={idx} className="grid grid-cols-3 border-b border-white/5 py-2 gap-2 text-[10px] items-center">
+                                  {cells.map((cell, cidx) => {
+                                    // Detect links INSIDE cells
+                                    const linkMatch = cell.match(/\[(.*?)\]\((.*?)\)/);
+                                    return (
+                                      <span key={cidx} className={`${cidx === 0 ? "font-bold text-[#D4AF37]" : "text-white/60"} truncate`}>
+                                        {linkMatch ? (
+                                          <a href={linkMatch[2]} className="text-[#D4AF37] underline underline-offset-2 decoration-[#D4AF37]/30 hover:decoration-[#D4AF37]">{linkMatch[1]}</a>
+                                        ) : cell.trim()}
+                                      </span>
+                                    );
+                                  })}
                                 </div>
                               );
                             }
 
                             // Headers and Lists
-                            if (trimmed.startsWith('###')) return <h3 key={idx} className="text-[#D4AF37] font-bold mt-4 mb-2 uppercase text-[10px] tracking-[0.2em]">{trimmed.replace(/###/g, '')}</h3>;
-                            if (trimmed.startsWith('**')) return <p key={idx} className="font-bold text-white mt-2 mb-1">{trimmed.replace(/\*\*/g, '')}</p>;
-                            if (trimmed.startsWith('*') || trimmed.startsWith('-')) return <li key={idx} className="ml-4 list-disc marker:text-[#D4AF37] text-white/70 mb-1">{trimmed.substring(1).trim()}</li>;
+                            if (clean.startsWith('###')) return <h3 key={idx} className="text-[#D4AF37] font-bold mt-4 mb-2 uppercase text-[10px] tracking-[0.2em]">{clean.replace(/###/g, '')}</h3>;
+                            if (clean.startsWith('*') || clean.startsWith('-')) return <li key={idx} className="ml-4 list-disc marker:text-[#D4AF37] text-white/70 mb-1">{clean.substring(1).trim()}</li>;
                             
-                            // Interactive Vehicle Links
-                            if (line.includes('[') && line.includes('](')) {
-                              const parts = line.split(/(\[.*?\]\(.*?\))/g);
+                            // Standalone Interactive Links
+                            if (clean.includes('[') && clean.includes('](')) {
+                              const parts = clean.split(/(\[.*?\]\(.*?\))/g);
                               return (
-                                <p key={idx} className="mb-2 last:mb-0 text-white/80">
+                                <p key={idx} className="mb-2 last:mb-0 text-white/80 break-words">
                                   {parts.map((part, pidx) => {
                                     const match = part.match(/\[(.*?)\]\((.*?)\)/);
-                                    if (match) {
-                                      return (
-                                        <a 
-                                          key={pidx} 
-                                          href={match[2]} 
-                                          className="text-[#D4AF37] font-bold border-b border-[#D4AF37]/30 hover:border-[#D4AF37] hover:bg-[#D4AF37]/5 px-1 transition-all inline-block rounded-sm"
-                                        >
-                                          {match[1]}
-                                        </a>
-                                      );
-                                    }
+                                    if (match) return <a key={pidx} href={match[2]} className="text-[#D4AF37] font-bold border-b border-[#D4AF37]/30 hover:border-[#D4AF37] hover:bg-[#D4AF37]/5 px-1 transition-all rounded-sm">{match[1]}</a>;
                                     return part;
                                   })}
                                 </p>
                               );
                             }
 
-                            return <p key={idx} className="mb-2 last:mb-0 text-white/80">{line}</p>;
+                            return <p key={idx} className="mb-2 last:mb-0 text-white/80 break-words">{clean}</p>;
                           })}
                         </div>
                       </div>

@@ -7,6 +7,7 @@ import { Helmet } from 'react-helmet-async';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import VehicleCard from '../components/VehicleCard';
+import SymbolicLogo from '../components/SymbolicLogo';
 
 const API = (process.env.REACT_APP_BACKEND_URL || '') + '/api';
 
@@ -323,57 +324,11 @@ export default function Inventory() {
               World Class Performance
             </motion.p>
 
-            {/* ━━ THE WOW FACTOR LOGO ━━ */}
-            <div
-              className="flex items-center justify-center flex-wrap leading-none w-full max-w-[1400px] mb-8"
-              style={{
-                fontFamily: "'Syncopate', 'Outfit', sans-serif",
-                fontSize: 'clamp(3rem, 11vw, 11rem)',
-                fontWeight: 800,
-                letterSpacing: '-0.02em',
-              }}
-            >
-              {/* AUT */}
-              <motion.div className="flex text-white drop-shadow-2xl">
-                {['A', 'U', 'T'].map((l, i) => (
-                  <motion.span
-                    key={l}
-                    initial={{ opacity: 0, x: -50, filter: 'blur(10px)' }}
-                    animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
-                    transition={{ duration: 1, delay: 0.5 + i * 0.1, ease: [0.16, 1, 0.3, 1] }}
-                  >
-                    {l}
-                  </motion.span>
-                ))}
-              </motion.div>
+            {/* ━━ THE SYMBOLIC BRAND MASTERPIECE ━━ */}
+            <div className="relative z-10 w-full max-w-[1200px] flex items-center justify-center py-10">
+              <SymbolicLogo className="w-full" />
+            </div>
 
-              {/* THE ROTATED GLOWING SQUARE WITH WHEEL */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.3, rotate: 180 }}
-                animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                transition={{ duration: 1.5, delay: 0.8, ease: [0.34, 1.56, 0.64, 1] }}
-                className="flex items-center justify-center"
-              >
-                <WowTurbineO size={tyreSize} />
-              </motion.div>
-
-              {/* NORTH - Outlined Architectural Style */}
-              <motion.div className="flex">
-                {['N', 'O', 'R', 'T', 'H'].map((l, i) => (
-                  <motion.span
-                    key={`north-${l}`}
-                    style={{
-                      color: 'transparent',
-                      WebkitTextStroke: '2px rgba(255,255,255,0.4)',
-                    }}
-                    initial={{ opacity: 0, x: 50, filter: 'blur(10px)' }}
-                    animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
-                    transition={{ duration: 1, delay: 1.1 + i * 0.1, ease: [0.16, 1, 0.3, 1] }}
-                  >
-                    {l}
-                  </motion.span>
-                ))}
-              </motion.div>
             </div>
 
             <motion.div
