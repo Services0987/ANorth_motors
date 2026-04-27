@@ -329,8 +329,6 @@ export default function Inventory() {
               <SymbolicLogo className="w-full" />
             </div>
 
-            </div>
-
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.8 }}
               className="flex flex-col items-center"
