@@ -49,9 +49,19 @@ app.add_middleware(
 # Global error handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Global error: {str(exc)}", exc_info=True)
-    msg = str(exc) if not isinstance(exc, HTTPException) else exc.detail
+    error_type = type(exc).__name__
+    error_msg = str(exc)
+    logger.error(f"Global error [{error_type}]: {error_msg}", exc_info=True)
+    
+    # Hide sensitive details for non-HTTP errors, but provide context
+    msg = error_msg if isinstance(exc, HTTPException) else f"Internal conflict: {error_type}"
     return JSONResponse(status_code=500, content={"error": "Internal Server Error", "message": msg})
+
+def safe_price(v):
+    try:
+        p = v.get('price', 0)
+        return float(p) if p else 0.0
+    except: return 0.0
 
 JWT_ALGORITHM = "HS256"
 chat_sessions: dict = {}
@@ -527,8 +537,8 @@ async def get_ai_response(message: str, inventory_docs: list):
         
         # ── Gemini ──
         if provider == "gemini":
-            client = genai.Client(api_key=api_key)
-            resp = client.models.generate_content(model=custom_model or 'gemini-1.5-flash', config=genai.types.GenerateContentConfig(system_instruction=system_prompt), contents=message)
+            ai_client = genai.Client(api_key=api_key)
+            resp = ai_client.models.generate_content(model=custom_model or 'gemini-1.5-flash', config=genai.types.GenerateContentConfig(system_instruction=system_prompt), contents=message)
             await db.settings.update_one({"type": "general"}, {"$set": {"ai_health": "online", "last_active": datetime.now(timezone.utc)}})
             return resp.text
 
