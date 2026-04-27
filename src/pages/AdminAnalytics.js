@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import AdminLayout from '../components/AdminLayout';
-import { BarChart3, TrendingUp, MousePointerClick, Target, Eye } from 'lucide-react';
+import { BarChart3, TrendingUp, MousePointerClick, Target, Eye, Activity } from 'lucide-react';
 
 const API = '/api';
 

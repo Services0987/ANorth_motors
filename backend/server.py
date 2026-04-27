@@ -30,8 +30,9 @@ logger = logging.getLogger(__name__)
 mongo_url = os.environ.get('MONGO_URL', "mongodb://localhost:27017")
 db_name = os.environ.get('DB_NAME', 'AutoNorth')
 
-client: Optional[AsyncIOMotorClient] = None
-db: Any = None
+# Initialize DB globally for Serverless/Vercel compatibility
+client = AsyncIOMotorClient(mongo_url)
+db = client[db_name]
 
 app = FastAPI(title="AutoNorth Motors API")
 api_router = APIRouter(prefix="/api")
@@ -569,8 +570,10 @@ async def ai_chat(data: ChatRequest):
 
 @app.on_event("startup")
 async def startup():
+    # Ensure DB is ready (redundant but safe)
     global client, db
-    client = AsyncIOMotorClient(mongo_url)
-    db = client[db_name]
+    if client is None:
+        client = AsyncIOMotorClient(mongo_url)
+        db = client[db_name]
 
 app.include_router(api_router)
