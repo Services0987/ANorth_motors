@@ -7,7 +7,6 @@ import { Helmet } from 'react-helmet-async';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import VehicleCard from '../components/VehicleCard';
-import SymbolicLogo from '../components/SymbolicLogo';
 
 const API = (process.env.REACT_APP_BACKEND_URL || '') + '/api';
 
@@ -290,54 +289,47 @@ export default function Inventory() {
         {/* ══════════════════════════════════════════════════════
             HERO  —  The "Mind Blowing" AUTONORTH Display
         ══════════════════════════════════════════════════════ */}
-        <motion.div style={{ opacity: heroOpacity }} className="relative h-screen flex flex-col items-center justify-center text-center px-6 overflow-hidden bg-black">
-          {/* Subtle slow zooming stars/particles */}
-          <div className="absolute inset-0 pointer-events-none opacity-40">
-            {[...Array(30)].map((_, i) => (
-              <motion.div key={i} className="absolute w-[2px] h-[2px] bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.8)]"
-                style={{
-                  left: `${(i * 13) % 100}%`,
-                  top: `${(i * 29) % 100}%`,
-                }}
-                animate={{
-                  scale: [0, 1.5, 0],
-                  opacity: [0, 1, 0],
-                }}
-                transition={{ duration: 4 + (i % 3), repeat: Infinity, delay: i * 0.1, ease: 'easeInOut' }}
+            {/* ━━ THE HD CINEMATIC BRAND EXPERIENCE ━━ */}
+            <div className="absolute inset-0 z-0">
+              <motion.img 
+                src="/luxury_showroom_hero_bg_1777279800612.png" 
+                className="w-full h-full object-cover opacity-60"
+                initial={{ scale: 1.1 }}
+                animate={{ scale: 1 }}
+                transition={{ duration: 10, ease: "linear", repeat: Infinity, repeatType: "reverse" }}
               />
-            ))}
-          </div>
-
-          <motion.div
-            style={{ y: heroY }}
-            initial={{ opacity: 0, scale: 0.9, y: 30 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
-            className="relative z-10 w-full flex flex-col items-center justify-center"
-          >
-            <motion.p
-              initial={{ y: 20, opacity: 0, letterSpacing: '0.1em' }}
-              animate={{ y: 0, opacity: 1, letterSpacing: '0.6em' }}
-              transition={{ duration: 1.4, delay: 0.3 }}
-              className="text-[10px] md:text-xs uppercase text-[#D4AF37] font-heading font-medium mb-12 shadow-black drop-shadow-xl"
-            >
-              World Class Performance
-            </motion.p>
-
-            {/* ━━ THE SYMBOLIC BRAND MASTERPIECE ━━ */}
-            <div className="relative z-10 w-full max-w-[1200px] flex items-center justify-center py-10">
-              <SymbolicLogo className="w-full" />
+              <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-transparent to-black" />
             </div>
 
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.8 }}
-              className="flex flex-col items-center"
-            >
-              <div className="h-px w-64 bg-gradient-to-r from-transparent via-[#D4AF37]/50 to-transparent mb-6" />
-              <p className="text-white/40 font-body text-[10px] md:text-sm tracking-[0.25em] md:tracking-[0.35em] uppercase leading-relaxed text-center px-4 max-w-2xl drop-shadow-md">
-                Curated Excellence. Unmatched Quality.<br />Experience the Edmonton Gold Standard.
-              </p>
-            </motion.div>
+            <div className="relative z-10 w-full max-w-[1000px] flex flex-col items-center justify-center py-10 px-6">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8, filter: 'blur(20px)' }}
+                animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+                transition={{ duration: 2, ease: [0.16, 1, 0.3, 1] }}
+                className="w-full relative group"
+              >
+                {/* Logo Glow Layer */}
+                <motion.div 
+                  className="absolute inset-0 blur-3xl opacity-20 bg-[#D4AF37] rounded-full"
+                  animate={{ opacity: [0.1, 0.3, 0.1] }}
+                  transition={{ duration: 4, repeat: Infinity }}
+                />
+                <img 
+                  src="/autonorth_cinematic_logo_1777279777559.png" 
+                  alt="AutoNorth" 
+                  className="w-full h-auto drop-shadow-[0_0_50px_rgba(212,175,55,0.3)]"
+                />
+              </motion.div>
+
+              <motion.p
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 1, delay: 1.5 }}
+                className="text-white/40 font-body text-[10px] md:text-sm tracking-[0.4em] uppercase mt-12 text-center"
+              >
+                Curated Excellence. Unmatched Quality.
+              </motion.p>
+            </div>
           </motion.div>
 
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2.2 }} className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-20">
