@@ -730,16 +730,18 @@ async def ai_chat(data: ChatRequest):
             phone = phone_match.group(0) if phone_match else None
             email = email_match.group(0) if email_match else None
             
-            # Fetch vehicle title if context exists
+            # Fetch vehicle details if context exists
             v_title = "General Inquiry"
+            v_vin = "—"
             if data.vehicle_id:
                 try:
                     v_doc = await db.vehicles.find_one({"_id": ObjectId(data.vehicle_id)})
                     if v_doc:
                         v_title = f"{v_doc.get('year')} {v_doc.get('make')} {v_doc.get('model')}"
+                        v_vin = v_doc.get('vin', '—')
                 except: pass
 
-            # Save the lead automatically
+            # Save the lead automatically with FULL TRANSCRIPT
             lead_doc = {
                 "name": "AI Chat Visitor",
                 "email": email,
@@ -747,13 +749,14 @@ async def ai_chat(data: ChatRequest):
                 "lead_type": "chat_capture",
                 "vehicle_id": data.vehicle_id,
                 "vehicle_title": v_title,
-                "message": f"Captured from AI Chat on {data.url_context or 'main site'}: {data.message}",
+                "vehicle_vin": v_vin,
+                "message": f"CONVERSATION TRANSCRIPT:\nUser: {data.message}\nAI: {response_text}\n\n(Full history available in chat logs)",
                 "status": "new",
                 "created_at": datetime.now(timezone.utc)
             }
             await db.leads.insert_one(lead_doc)
             lead_captured = True
-            logger.info(f"AI Lead Captured: {email or phone} for {v_title}")
+            logger.info(f"AI Lead Captured: {email or phone} for {v_title} (VIN: {v_vin})")
 
         return {"response": response_text, "lead_captured": lead_captured}
     except Exception as e:

@@ -164,9 +164,27 @@ export default function AdminLeads() {
                         </div>
                       ) : <span className="text-white/20">—</span>}
                     </td>
-                    <td className="px-4 py-3 max-w-[200px]">
-                      <p className="text-[#D4AF37] text-xs font-medium truncate">{lead.vehicle_title || '—'}</p>
-                      {lead.vehicle_id && <p className="text-white/10 text-[8px] uppercase tracking-tighter">ID: {lead.vehicle_id.slice(-6)}</p>}
+                    <td className="px-4 py-3 min-w-[240px]">
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <p className={`text-xs font-medium ${lead.vehicle_title !== 'General Inquiry' ? 'text-[#D4AF37]' : 'text-white/40'}`}>
+                            {lead.vehicle_title || '—'}
+                          </p>
+                          {lead.vehicle_vin && lead.vehicle_vin !== '—' && (
+                            <p className="text-white/20 text-[9px] uppercase tracking-wider mt-0.5">VIN: {lead.vehicle_vin}</p>
+                          )}
+                        </div>
+                        {lead.vehicle_id && (
+                          <Link 
+                            to={`/vehicle/${lead.vehicle_id}`}
+                            className="p-1.5 bg-white/5 border border-white/10 text-white/40 hover:text-[#D4AF37] hover:border-[#D4AF37]/40 transition-all rounded-sm"
+                            title="View Vehicle Page"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {SAFE_ICON(Car, { size: 12 })}
+                          </Link>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-white/30 text-xs whitespace-nowrap">{formatDate(lead.created_at)}</td>
                     <td className="px-4 py-3">
@@ -248,8 +266,10 @@ export default function AdminLeads() {
 
                 {selectedLead.message && (
                   <div className="border-t border-white/[0.05] pt-4">
-                    <p className="text-[10px] tracking-[0.15em] uppercase text-white/20 font-heading mb-2">Message</p>
-                    <p className="text-white/50 text-sm font-body leading-relaxed">{selectedLead.message}</p>
+                    <p className="text-[10px] tracking-[0.15em] uppercase text-white/20 font-heading mb-3">Conversation / Message</p>
+                    <div className="bg-white/[0.02] border border-white/[0.05] p-3 text-[11px] font-body text-white/60 leading-relaxed whitespace-pre-wrap max-h-48 overflow-y-auto">
+                      {selectedLead.message}
+                    </div>
                   </div>
                 )}
 
