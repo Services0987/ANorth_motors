@@ -278,10 +278,48 @@ export default function Inventory() {
     return () => window.removeEventListener('resize', update);
   }, []);
 
+  const [assetsReady, setAssetsReady] = useState(false);
+
+  // Preload critical assets for smooth animations
+  useEffect(() => {
+    const criticalImages = [
+      '/clean_luxury_showroom_no_text_1777282813141.png',
+      '/full_luxury_wheel_with_tyre_1777282790829.png'
+    ];
+    let loadedCount = 0;
+    criticalImages.forEach(src => {
+      const img = new Image();
+      img.src = src;
+      img.onload = () => {
+        loadedCount++;
+        if (loadedCount === criticalImages.length) setAssetsReady(true);
+      };
+      img.onerror = () => setAssetsReady(true); // Fallback to avoid hanging
+    });
+  }, []);
+
   return (
     <>
       <Helmet>
         <title>Inventory | AutoNorth Motors Edmonton — Premium Vehicles</title>
+        <meta name="description" content="Browse our curated collection of premium trucks, SUVs, and vans at AutoNorth Motors Edmonton. High-quality Ford, Ram, and GMC models with guaranteed reliability." />
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "AutoDealer",
+            "name": "AutoNorth Motors",
+            "address": {
+              "@type": "PostalAddress",
+              "addressLocality": "Edmonton",
+              "addressRegion": "AB",
+              "addressCountry": "CA"
+            },
+            "url": "https://autonorth.ca",
+            "telephone": "+18256055050",
+            "priceRange": "$$$",
+            "image": "https://autonorth.ca/logo_cinematic.png"
+          })}
+        </script>
       </Helmet>
       <div className="bg-[#050505] min-h-screen" data-testid="inventory-page">
         <Navbar />
@@ -291,113 +329,122 @@ export default function Inventory() {
         ══════════════════════════════════════════════════════ */}
         <motion.div style={{ opacity: heroOpacity }} className="relative h-screen flex flex-col items-center justify-center text-center px-6 overflow-hidden bg-black">
             <div className="absolute inset-0 z-0">
-              <motion.img 
-                src="/clean_luxury_showroom_no_text_1777282813141.png" 
-                className="w-full h-full object-cover opacity-70"
-                initial={{ scale: 1.1 }}
-                animate={{ scale: 1 }}
-                transition={{ duration: 15, ease: "linear", repeat: Infinity, repeatType: "reverse" }}
-              />
+              {assetsReady && (
+                <motion.img 
+                  src="/clean_luxury_showroom_no_text_1777282813141.png" 
+                  className="w-full h-full object-cover opacity-70"
+                  initial={{ scale: 1.1, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 0.7 }}
+                  transition={{ 
+                    opacity: { duration: 1 },
+                    scale: { duration: 15, ease: "linear", repeat: Infinity, repeatType: "reverse" }
+                  }}
+                />
+              )}
               <div className="absolute inset-0 bg-gradient-to-b from-black/90 via-transparent to-black" />
             </div>
 
             <div className="relative z-10 w-full flex flex-col items-center justify-center py-10 px-6">
               {/* ━━ THE MECHANICAL MASTERPIECE BRAND ━━ */}
-              <div className="flex flex-col items-center gap-2">
-                
-                {/* WORD: AUTO */}
-                <div className="flex items-center justify-center gap-1 md:gap-4 mb-4">
-                  {['A', 'U', 'T'].map((l, i) => (
-                    <motion.span
-                      key={`auto-${l}`}
-                      initial={{ opacity: 0, y: 50, filter: 'blur(10px)' }}
-                      animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                      transition={{ duration: 1, delay: i * 0.2, ease: [0.16, 1, 0.3, 1] }}
-                      className="text-white font-heading font-extrabold text-[clamp(3rem,12vw,9rem)] leading-none drop-shadow-2xl"
-                      style={{
-                        background: 'linear-gradient(180deg, #fff 0%, #aaa 50%, #444 100%)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        textShadow: '0 10px 30px rgba(0,0,0,0.5)',
-                        letterSpacing: '-0.02em'
-                      }}
-                    >
-                      {l}
-                    </motion.span>
-                  ))}
+              <AnimatePresence>
+              {assetsReady && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center gap-2">
                   
-                  {/* SPINNING O (WHEEL) */}
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.5, rotate: -180 }}
-                    animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                    transition={{ duration: 1.5, delay: 0.8, ease: [0.34, 1.56, 0.64, 1] }}
-                    className="relative"
-                  >
-                    <motion.img 
-                      src="/full_luxury_wheel_with_tyre_1777282790829.png"
-                      className="w-[clamp(3rem,12vw,9rem)] h-auto drop-shadow-[0_0_40px_rgba(212,175,55,0.5)] rounded-full overflow-hidden"
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
-                    />
-                  </motion.div>
-                </div>
-
-                {/* WORD: NORTH */}
-                <div className="flex items-center justify-center gap-1 md:gap-4">
-                  {['N'].map((l, i) => (
-                    <motion.span
-                      key={`north-${l}`}
-                      initial={{ opacity: 0, y: 50, filter: 'blur(10px)' }}
-                      animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                      transition={{ duration: 1, delay: 1.2, ease: [0.16, 1, 0.3, 1] }}
-                      className="text-white font-heading font-extrabold text-[clamp(3rem,12vw,9rem)] leading-none drop-shadow-2xl"
-                      style={{
-                        background: 'linear-gradient(180deg, #fff 0%, #aaa 50%, #444 100%)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        textShadow: '0 10px 30px rgba(0,0,0,0.5)',
-                        letterSpacing: '-0.02em'
-                      }}
+                  {/* WORD: AUTO */}
+                  <div className="flex items-center justify-center gap-1 md:gap-4 mb-4">
+                    {['A', 'U', 'T'].map((l, i) => (
+                      <motion.span
+                        key={`auto-${l}`}
+                        initial={{ opacity: 0, y: 50, filter: 'blur(10px)' }}
+                        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                        transition={{ duration: 1, delay: i * 0.2, ease: [0.16, 1, 0.3, 1] }}
+                        className="text-white font-heading font-extrabold text-[clamp(3rem,12vw,9rem)] leading-none drop-shadow-2xl"
+                        style={{
+                          background: 'linear-gradient(180deg, #fff 0%, #aaa 50%, #444 100%)',
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent',
+                          textShadow: '0 10px 30px rgba(0,0,0,0.5)',
+                          letterSpacing: '-0.02em'
+                        }}
+                      >
+                        {l}
+                      </motion.span>
+                    ))}
+                    
+                    {/* SPINNING O (WHEEL) */}
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.5, rotate: -180 }}
+                      animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                      transition={{ duration: 1.5, delay: 0.8, ease: [0.34, 1.56, 0.64, 1] }}
+                      className="relative"
                     >
-                      {l}
-                    </motion.span>
-                  ))}
+                      <motion.img 
+                        src="/full_luxury_wheel_with_tyre_1777282790829.png"
+                        className="w-[clamp(3rem,12vw,9rem)] h-auto drop-shadow-[0_0_40px_rgba(212,175,55,0.5)] rounded-full overflow-hidden"
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+                      />
+                    </motion.div>
+                  </div>
 
-                  {/* SPINNING O (WHEEL 2) */}
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.5, rotate: -180 }}
-                    animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                    transition={{ duration: 1.5, delay: 1.4, ease: [0.34, 1.56, 0.64, 1] }}
-                    className="relative"
-                  >
-                    <motion.img 
-                      src="/full_luxury_wheel_with_tyre_1777282790829.png"
-                      className="w-[clamp(3rem,12vw,9rem)] h-auto drop-shadow-[0_0_40px_rgba(212,175,55,0.5)] rounded-full overflow-hidden"
-                      animate={{ rotate: -360 }}
-                      transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-                    />
-                  </motion.div>
+                  {/* WORD: NORTH */}
+                  <div className="flex items-center justify-center gap-1 md:gap-4">
+                    {['N'].map((l, i) => (
+                      <motion.span
+                        key={`north-${l}`}
+                        initial={{ opacity: 0, y: 50, filter: 'blur(10px)' }}
+                        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                        transition={{ duration: 1, delay: 1.2, ease: [0.16, 1, 0.3, 1] }}
+                        className="text-white font-heading font-extrabold text-[clamp(3rem,12vw,9rem)] leading-none drop-shadow-2xl"
+                        style={{
+                          background: 'linear-gradient(180deg, #fff 0%, #aaa 50%, #444 100%)',
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent',
+                          textShadow: '0 10px 30px rgba(0,0,0,0.5)',
+                          letterSpacing: '-0.02em'
+                        }}
+                      >
+                        {l}
+                      </motion.span>
+                    ))}
 
-                  {['R', 'T', 'H'].map((l, i) => (
-                    <motion.span
-                      key={`north-${l}`}
-                      initial={{ opacity: 0, y: 50, filter: 'blur(10px)' }}
-                      animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                      transition={{ duration: 1, delay: 1.6 + i * 0.2, ease: [0.16, 1, 0.3, 1] }}
-                      className="text-white font-heading font-extrabold text-[clamp(3rem,12vw,9rem)] leading-none drop-shadow-2xl"
-                      style={{
-                        background: 'linear-gradient(180deg, #fff 0%, #aaa 50%, #444 100%)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        textShadow: '0 10px 30px rgba(0,0,0,0.5)',
-                        letterSpacing: '-0.02em'
-                      }}
+                    {/* SPINNING O (WHEEL 2) */}
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.5, rotate: -180 }}
+                      animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                      transition={{ duration: 1.5, delay: 1.4, ease: [0.34, 1.56, 0.64, 1] }}
+                      className="relative"
                     >
-                      {l}
-                    </motion.span>
-                  ))}
-                </div>
-              </div>
+                      <motion.img 
+                        src="/full_luxury_wheel_with_tyre_1777282790829.png"
+                        className="w-[clamp(3rem,12vw,9rem)] h-auto drop-shadow-[0_0_40px_rgba(212,175,55,0.5)] rounded-full overflow-hidden"
+                        animate={{ rotate: -360 }}
+                        transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+                      />
+                    </motion.div>
+
+                    {['R', 'T', 'H'].map((l, i) => (
+                      <motion.span
+                        key={`north-${l}`}
+                        initial={{ opacity: 0, y: 50, filter: 'blur(10px)' }}
+                        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                        transition={{ duration: 1, delay: 1.6 + i * 0.2, ease: [0.16, 1, 0.3, 1] }}
+                        className="text-white font-heading font-extrabold text-[clamp(3rem,12vw,9rem)] leading-none drop-shadow-2xl"
+                        style={{
+                          background: 'linear-gradient(180deg, #fff 0%, #aaa 50%, #444 100%)',
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent',
+                          textShadow: '0 10px 30px rgba(0,0,0,0.5)',
+                          letterSpacing: '-0.02em'
+                        }}
+                      >
+                        {l}
+                      </motion.span>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+              </AnimatePresence>
 
               <motion.p
                 initial={{ y: 20, opacity: 0 }}

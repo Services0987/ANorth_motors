@@ -286,12 +286,13 @@ async def import_vehicles(file: UploadFile = File(...), cu=Depends(get_current_u
             
             # Skip placeholders that cause collisions
             id_blacklist = ["", "n/a", "none", "pending", "unknown", "null"]
-            clean_vin = vin.lower() if vin else ""
-            clean_stock = stock.lower() if stock else ""
+            clean_vin = vin.lower().strip() if vin else ""
+            clean_stock = stock.lower().strip() if stock else ""
             
-            use_vin = vin if clean_vin not in id_blacklist else ""
-            use_stock = stock if clean_stock not in id_blacklist else ""
+            use_vin = vin.strip() if clean_vin not in id_blacklist else ""
+            use_stock = stock.strip() if clean_stock not in id_blacklist else ""
 
+            # WE MUST HAVE AT LEAST ONE UNIQUE ID
             if not use_vin and not use_stock:
                 continue
 
@@ -307,7 +308,6 @@ async def import_vehicles(file: UploadFile = File(...), cu=Depends(get_current_u
             cond = get_val(row, ["condition", "status"])
             desc = get_val(row, ["description", "notes", "comments", "details"])
             
-            # New fields from screenshot
             fuel = get_val(row, ["fuel_type", "fuel", "gas_type"])
             trans = get_val(row, ["transmission", "trans", "gearbox"])
             ext_color = get_val(row, ["exterior_color", "color", "ext_color", "exterior"])
@@ -317,7 +317,7 @@ async def import_vehicles(file: UploadFile = File(...), cu=Depends(get_current_u
 
             imgs = [img.strip() for img in re.split(r'[\s\n]+|,\s*(?=http)', images_val) if img.strip() and img.startswith("http")]
             
-            v = {
+            v_data = {
                 "title": title if title else f"{year_val} {make} {model}".strip(),
                 "make": make,
                 "model": model,
@@ -336,25 +336,31 @@ async def import_vehicles(file: UploadFile = File(...), cu=Depends(get_current_u
                 "stock_number": use_stock,
                 "description": desc,
                 "images": imgs,
-                "status": "available",
-                "created_at": datetime.now(timezone.utc)
+                "status": "available"
             }
 
-            # SMART UPSERT
+            # SMART UPSERT: Priority 1: VIN, Priority 2: Stock
             query = {}
-            if use_vin and use_stock:
-                query = {"$or": [{"vin": use_vin}, {"stock_number": use_stock}]}
-            elif use_vin:
+            if use_vin:
                 query = {"vin": use_vin}
             else:
                 query = {"stock_number": use_stock}
 
-            await db.vehicles.update_one(query, {"$set": v}, upsert=True)
+            # Check if exists to preserve created_at
+            existing = await db.vehicles.find_one(query)
+            if existing:
+                await db.vehicles.update_one({"_id": existing["_id"]}, {"$set": v_data})
+            else:
+                v_data["created_at"] = datetime.now(timezone.utc)
+                v_data["featured"] = False
+                v_data["show_on_home"] = False
+                await db.vehicles.insert_one(v_data)
+            
             added += 1
         except Exception as e:
             logger.error(f"CSV Row error: {e}")
             
-    return {"message": f"Successfully imported {added} vehicles"}
+    return {"message": f"Inventory sync complete. Processed {added} vehicles."}
 
 @api_router.get("/leads")
 async def list_leads(cu=Depends(get_current_user)):
