@@ -49,7 +49,19 @@ export default function ChatBot() {
       msgs: messages,
       timestamp: Date.now()
     }));
-    scrollToBottom();
+    
+    // Intelligent Scroll: If the last message is from assistant, scroll to ITS top
+    if (messages.length > 1 && messages[messages.length - 1].role === 'assistant') {
+      setTimeout(() => {
+        const lastMsgId = `msg-${messages.length - 1}`;
+        const element = document.getElementById(lastMsgId);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+    } else {
+      scrollToBottom();
+    }
   }, [messages]);
 
   const scrollToBottom = () => {
@@ -73,9 +85,6 @@ export default function ChatBot() {
     if (open && inputRef.current) setTimeout(() => inputRef.current?.focus(), 100);
   }, [open]);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
 
   const sendMessage = useCallback(async () => {
     if (!input.trim() || thinking) return;
@@ -176,56 +185,67 @@ export default function ChatBot() {
                         <div className={`w-7 h-7 flex-shrink-0 flex items-center justify-center ${msg.role === 'user' ? 'bg-white/10' : 'bg-[#D4AF37]'}`}>
                           {msg.role === 'user' ? SAFE_ICON(User, { size: 12, className: "text-white/50" }) : SAFE_ICON(Bot, { size: 12, className: "text-black" })}
                         </div>
-                        <div className={`px-4 py-3 text-sm font-body leading-relaxed overflow-hidden ${
+                        <div id={`msg-${i}`} className={`px-4 py-3 text-sm font-body leading-relaxed overflow-hidden ${
                           msg.role === 'user' 
                             ? 'bg-[#D4AF37]/10 border border-[#D4AF37]/20 text-white' 
                             : 'bg-white/[0.03] border border-white/[0.05] text-white/80'
                         }`} style={{ borderRadius: msg.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px' }}>
                           {msg.content.split('\n').map((line, idx) => {
-                            let clean = line.replace(/<br\s*\/?>/gi, ' ').replace(/\*\*/g, '').trim();
-                            if (!clean) return <div key={idx} className="h-2" />;
+                            // Sanitization: Remove ##, *, \*, etc while keeping it clean
+                            let clean = line
+                              .replace(/<br\s*\/?>/gi, ' ')
+                              .replace(/\\?\*/g, '')
+                              .replace(/^#+\s*/, '')
+                              .trim();
+
+                            if (!clean && !line.includes('|')) return <div key={idx} className="h-2" />;
                             
-                            // Markdown Table detection (Enhanced)
-                            if (clean.startsWith('|') && clean.includes('---')) return null;
-                            if (clean.startsWith('|')) {
-                              const cells = clean.split('|').filter(c => c.trim());
+                            // Markdown Table detection (Fluid & Safe)
+                            if (line.includes('|') && line.includes('---')) return null;
+                            if (line.includes('|')) {
+                              const cells = line.split('|').filter(c => c.trim()).map(c => c.replace(/\\?\*/g, '').trim());
                               if (cells.length === 0) return null;
                               return (
-                                <div key={idx} className="grid grid-cols-3 border-b border-white/5 py-2 gap-2 text-[10px] items-center">
-                                  {cells.map((cell, cidx) => {
-                                    // Detect links INSIDE cells
-                                    const linkMatch = cell.match(/\[(.*?)\]\((.*?)\)/);
-                                    return (
-                                      <span key={cidx} className={`${cidx === 0 ? "font-bold text-[#D4AF37]" : "text-white/60"} truncate`}>
-                                        {linkMatch ? (
-                                          <a 
-                                            href={linkMatch[2]} 
-                                            onClick={() => setMinimized(true)}
-                                            className="text-[#D4AF37] underline underline-offset-2 decoration-[#D4AF37]/30 hover:decoration-[#D4AF37]"
-                                          >
-                                            {linkMatch[1]}
-                                          </a>
-                                        ) : cell.trim()}
-                                      </span>
-                                    );
-                                  })}
+                                <div key={idx} className="overflow-x-auto my-2 border border-white/5 bg-white/[0.01]">
+                                  <div className="flex gap-4 p-3 min-w-max">
+                                    {cells.map((cell, cidx) => {
+                                      const linkMatch = cell.match(/\[(.*?)\]\((.*?)\)/);
+                                      return (
+                                        <div key={cidx} className="flex-shrink-0">
+                                          {linkMatch ? (
+                                            <a 
+                                              href={linkMatch[2]} 
+                                              onClick={() => setMinimized(true)}
+                                              className="text-[#D4AF37] font-bold underline underline-offset-4 decoration-[#D4AF37]/30 hover:decoration-[#D4AF37]"
+                                            >
+                                              {linkMatch[1]}
+                                            </a>
+                                          ) : (
+                                            <span className={cidx === 0 ? "text-[#D4AF37] font-bold uppercase text-[10px] tracking-wider" : "text-white/60 text-[11px]"}>
+                                              {cell}
+                                            </span>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
                                 </div>
                               );
                             }
 
-                            // Headers and Lists
-                            if (clean.startsWith('###')) return <h3 key={idx} className="text-[#D4AF37] font-bold mt-4 mb-2 uppercase text-[10px] tracking-[0.2em]">{clean.replace(/###/g, '')}</h3>;
-                            if (clean.startsWith('*') || clean.startsWith('-')) return <li key={idx} className="ml-4 list-disc marker:text-[#D4AF37] text-white/70 mb-1">{clean.substring(1).trim()}</li>;
+                            // Headers and Lists (Styled)
+                            if (line.startsWith('#')) return <h3 key={idx} className="text-[#D4AF37] font-bold mt-4 mb-2 uppercase text-[11px] tracking-[0.2em] border-b border-[#D4AF37]/20 pb-1">{clean}</h3>;
+                            if (line.trim().startsWith('*') || line.trim().startsWith('-')) return <li key={idx} className="ml-4 list-disc marker:text-[#D4AF37] text-white/70 mb-1">{clean}</li>;
                             
                             // Standalone Interactive Links
-                            if (clean.includes('[') && clean.includes('](')) {
-                              const parts = clean.split(/(\[.*?\]\(.*?\))/g);
+                            if (line.includes('[') && line.includes('](')) {
+                              const parts = line.split(/(\[.*?\]\(.*?\))/g);
                               return (
                                 <p key={idx} className="mb-2 last:mb-0 text-white/80 break-words">
                                   {parts.map((part, pidx) => {
                                     const match = part.match(/\[(.*?)\]\((.*?)\)/);
                                     if (match) return <a key={pidx} href={match[2]} onClick={() => setMinimized(true)} className="text-[#D4AF37] font-bold border-b border-[#D4AF37]/30 hover:border-[#D4AF37] hover:bg-[#D4AF37]/5 px-1 transition-all rounded-sm">{match[1]}</a>;
-                                    return part;
+                                    return part.replace(/\\?\*/g, '');
                                   })}
                                 </p>
                               );
@@ -245,14 +265,23 @@ export default function ChatBot() {
                       </div>
                     </div>
                   )}
-                  <div ref={bottomRef} />
+                  <div ref={bottomRef} className="h-10" />
                 </div>
 
                 {/* Quick prompts */}
-                {messages.length === 1 && (
+                {messages.length === 1 && !thinking && (
                   <div className="px-5 pb-3 flex flex-wrap gap-1.5 flex-shrink-0">
                     {QUICK_PROMPTS.map(p => (
-                      <button key={p} onClick={() => { setInput(p); setTimeout(() => sendMessage(), 100); }}
+                      <button key={p} 
+                        onClick={() => {
+                          if (thinking) return;
+                          setInput(p);
+                          // Use a slight delay to ensure state update
+                          setTimeout(() => {
+                            const btn = document.querySelector('[data-testid="chatbot-send-btn"]');
+                            btn?.click();
+                          }, 50);
+                        }}
                         className="text-[10px] font-heading uppercase tracking-widest text-white/30 border border-white/10 px-3 py-2 hover:border-[#D4AF37]/40 hover:text-[#D4AF37] transition-all">
                         {p}
                       </button>
@@ -275,7 +304,10 @@ export default function ChatBot() {
                     <input ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKey}
                       className="flex-1 bg-white/[0.03] border border-white/[0.08] px-4 py-2.5 text-sm font-body text-white placeholder:text-white/20 focus:outline-none focus:border-[#D4AF37]/50"
                       placeholder="Ask about any vehicle..." data-testid="chatbot-input" />
-                    <button onClick={sendMessage} disabled={!input.trim() || thinking}
+                    <button 
+                      onClick={sendMessage} 
+                      disabled={!input.trim() || thinking}
+                      data-testid="chatbot-send-btn"
                       className="w-10 h-10 bg-[#D4AF37] hover:bg-[#F3E5AB] text-black flex items-center justify-center transition-all disabled:opacity-30">
                       {SAFE_ICON(Send, { size: 14 })}
                     </button>
