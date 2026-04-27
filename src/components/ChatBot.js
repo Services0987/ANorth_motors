@@ -204,15 +204,34 @@ export default function ChatBot() {
                             // VERTICAL SPEC CARDS (Replacing Horizontal Tables)
                             if (line.includes('|') && line.includes('---')) return null;
                             if (line.includes('|')) {
-                              const cells = line.split('|').filter(c => c.trim()).map(c => 
-                                c.replace(/<br\s*\/?>/gi, ' ').replace(/\\?\*/g, '').trim()
-                              );
-                              if (cells.length === 0 || cells.every(c => c.toLowerCase().includes('vehicle') || c.toLowerCase().includes('specs'))) return null;
+                              const rawCells = line.split('|').filter(c => c.trim());
+                              const cells = rawCells.map(c => c.replace(/<br\s*\/?>/gi, ' ').replace(/\\?\*/g, '').trim());
                               
-                              // First cell is usually the Vehicle Name/Link
-                              const vehicleCell = cells[0];
-                              const linkMatch = vehicleCell.match(/\[(.*?)\]\((.*?)\)/);
+                              // Filter out header-only rows
+                              if (cells.length === 0 || cells.every(c => /^(vehicle|year|price|specs|#|id)$/i.test(c))) return null;
                               
+                              // SMART SCAN: Find the link in ANY cell
+                              let titleCell = null;
+                              let linkMatch = null;
+                              let otherSpecs = [];
+
+                              cells.forEach(cell => {
+                                const match = cell.match(/\[(.*?)\]\((.*?)\)/);
+                                if (match && !linkMatch) {
+                                  linkMatch = match;
+                                  titleCell = match[1];
+                                } else if (cell && cell !== '-' && !/^\d+$/.test(cell)) {
+                                  // Skip pure numbers (indices) and placeholders
+                                  otherSpecs.push(cell);
+                                }
+                              });
+
+                              // If no link, use the first non-numeric cell as title
+                              if (!linkMatch) {
+                                titleCell = cells.find(c => !/^\d+$/.test(c) && c !== '-' && !/^(vehicle|year|price|specs)$/i.test(c));
+                                if (!titleCell) return null;
+                              }
+
                               return (
                                 <div key={idx} className="my-3 p-4 bg-white/[0.02] border-l-2 border-[#D4AF37] group hover:bg-white/[0.04] transition-all">
                                   <div className="mb-2">
@@ -225,19 +244,16 @@ export default function ChatBot() {
                                         {linkMatch[1]}
                                       </a>
                                     ) : (
-                                      <span className="text-[#D4AF37] font-bold text-base uppercase tracking-tight">{vehicleCell}</span>
+                                      <span className="text-[#D4AF37] font-bold text-base uppercase tracking-tight">{titleCell}</span>
                                     )}
                                   </div>
                                   <div className="space-y-1">
-                                    {cells.slice(1).map((cell, cidx) => {
-                                      if (!cell || cell === '-') return null;
-                                      return (
-                                        <div key={cidx} className="flex gap-2 text-[11px] items-start">
-                                          <div className="w-1 h-1 bg-[#D4AF37]/40 rounded-full mt-1.5" />
-                                          <span className="text-white/60 leading-tight">{cell}</span>
-                                        </div>
-                                      );
-                                    })}
+                                    {otherSpecs.map((spec, sidx) => (
+                                      <div key={sidx} className="flex gap-2 text-[11px] items-start">
+                                        <div className="w-1 h-1 bg-[#D4AF37]/40 rounded-full mt-1.5" />
+                                        <span className="text-white/60 leading-tight">{spec}</span>
+                                      </div>
+                                    ))}
                                   </div>
                                 </div>
                               );
