@@ -1,6 +1,11 @@
 from dotenv import load_dotenv
 load_dotenv()
-from google import genai
+try:
+    from google import genai
+    HAS_GENAI = True
+except ImportError:
+    HAS_GENAI = False
+    print("Warning: google-genai package not found. AI Specialist will be limited.")
 
 import os
 import re
@@ -47,25 +52,36 @@ app.add_middleware(
 )
 
 # --- Database Resilience Configuration ---
-# Fallback logic for various environment naming conventions (Vercel/Atlas)
-mongo_url = os.environ.get('MONGO_URL') or os.environ.get('MONGODB_URI') or "mongodb://localhost:27017"
+# Standardize on MONGODB_URI (Vercel standard) with fallback to MONGO_URL
+mongo_url = os.environ.get('MONGODB_URI') or os.environ.get('MONGO_URL') or "mongodb://localhost:27017"
 db_name = os.environ.get('DB_NAME', "autonorth")
 
 # Lazy initialization to prevent module-level crashes
-client = None
-db = None
+_client = None
+_db = None
 
 def get_db():
-    global client, db
-    if db is None:
+    global _client, _db
+    if _db is None:
         try:
-            logger.info(f"Initializing MongoDB connection to {mongo_url.split('@')[-1] if '@' in mongo_url else 'local'}")
-            client = AsyncIOMotorClient(mongo_url, serverSelectionTimeoutMS=5000)
-            db = client[db_name]
+            logger.info("Initializing MongoDB connection...")
+            _client = AsyncIOMotorClient(mongo_url, serverSelectionTimeoutMS=5000)
+            _db = _client[db_name]
         except Exception as e:
             logger.error(f"MongoDB Initialization Failed: {str(e)}")
             return None
-    return db
+    return _db
+
+class DatabaseProxy:
+    """Proxy object that initializes the DB on first access to prevent NoneType errors."""
+    def __getattr__(self, name):
+        db_obj = get_db()
+        if db_obj is None:
+            raise HTTPException(status_code=503, detail="Inventory database currently unavailable")
+        return getattr(db_obj, name)
+
+# This proxy replaces the static 'db' object so all existing 'db.collection' calls work automatically
+db = DatabaseProxy()
 
 # Global error handler
 @app.exception_handler(Exception)
@@ -567,6 +583,8 @@ async def get_ai_response(message: str, inventory_docs: list):
         
         # ── Gemini ──
         if provider == "gemini":
+            if not HAS_GENAI:
+                return "AI Specialist is currently offline (SDK missing). Please call 825-605-5050."
             ai_client = genai.Client(api_key=api_key)
             resp = ai_client.models.generate_content(model=custom_model or 'gemini-1.5-flash', config=genai.types.GenerateContentConfig(system_instruction=system_prompt), contents=message)
             await db.settings.update_one({"type": "general"}, {"$set": {"ai_health": "online", "last_active": datetime.now(timezone.utc)}})
