@@ -34,7 +34,7 @@ export default function Contact() {
     <>
       <Helmet>
         <title>Contact Us | AutoNorth Motors Edmonton — Your Trusted AB Dealer</title>
-        <meta name="description" content="Contact AutoNorth Motors in Edmonton, Alberta. Visit our showroom at 3304 91 St or call 825-605-5050. Serving Edmonton, Red Deer, Calgary, and all of Canada." />
+        <meta name="description" content="Contact AutoNorth Motors in Edmonton, Alberta. Visit our showroom at 3304 91 St or call 825-605-5050. Serving Edmonton, Red Deer, Calgary, and customers across all of Canada." />
         <meta name="keywords" content="contact AutoNorth Motors, car dealer Edmonton phone, Ford dealership Edmonton address, Alberta auto dealer contact" />
       </Helmet>
 
@@ -52,7 +52,7 @@ export default function Contact() {
           {/* Left */}
           <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}>
             <div className="relative overflow-hidden aspect-video mb-8">
-              <img src={SHOWROOM_IMAGE} alt="AutoNorth Motors Showroom" className="w-full h-full object-cover" />
+              <img src={SHOWROOM_IMAGE} alt="AutoNorth Motors Premium Vehicle Showroom in Edmonton Alberta" className="w-full h-full object-cover" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
               <div className="absolute bottom-6 left-6">
                 <p className="font-heading text-white text-lg font-medium">Visit Our Showroom</p>

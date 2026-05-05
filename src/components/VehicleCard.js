@@ -112,7 +112,7 @@ export default function VehicleCard({ vehicle, index = 0 }) {
               <motion.img
                 key={activeImg}
                 src={img}
-                alt={vehicle.title}
+                alt={`${vehicle.year} ${vehicle.make} ${vehicle.model} - AutoNorth Motors Edmonton`}
                 className="absolute inset-0 w-full h-full object-cover"
                 loading={index < 4 ? "eager" : "lazy"}
                 style={{ x: imgX, y: imgY, scale: hovered ? 1.15 : 1.0 }}

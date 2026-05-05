@@ -120,8 +120,9 @@ export default function VehicleDetail() {
   return (
     <>
       <Helmet>
-        <title>{`${vehicle.title} — AutoNorth Motors Edmonton`}</title>
-        <meta name="description" content={`${vehicle.title} for sale at AutoNorth Motors Edmonton. $${vehicle.price?.toLocaleString()} CAD. ${vehicle.mileage === 0 ? 'Brand new.' : `${vehicle.mileage?.toLocaleString()} km.`} ${vehicle.fuel_type} · ${vehicle.transmission}. Book a test drive today.`} />
+        <title>{`${vehicle.title} | AutoNorth Motors Edmonton`}</title>
+        <meta name="description" content={`${vehicle.title} for sale at AutoNorth Motors Edmonton. $${vehicle.price?.toLocaleString()} CAD. ${vehicle.mileage === 0 ? 'Brand new.' : `${vehicle.mileage?.toLocaleString()} km.`} ${vehicle.fuel_type} · ${vehicle.transmission}. Best price in Alberta and Canada.`} />
+        <link rel="canonical" href={`https://www.autonorth.ca/vehicle/${id}`} />
         <script type="application/ld+json">{JSON.stringify(schemaData)}</script>
       </Helmet>
 

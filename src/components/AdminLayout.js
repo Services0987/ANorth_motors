@@ -234,7 +234,7 @@ export default function AdminLayout({ children, title }) {
       )}
 
       {/* Main content */}
-      <div className="flex-1 lg:ml-64 flex flex-col min-h-screen">
+      <div className="flex-1 lg:ml-64 flex flex-col min-h-screen min-w-0 overflow-hidden">
         <header className="sticky top-0 z-30 bg-[#0A0A0A] border-b border-white/[0.05] px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button onClick={() => setSidebarOpen(!sidebarOpen)} className="lg:hidden text-white/50">
@@ -273,7 +273,7 @@ export default function AdminLayout({ children, title }) {
           </div>
         </header>
 
-        <main className="flex-1 p-6 md:p-8">
+        <main className="flex-1 p-6 md:p-8 min-w-0 overflow-hidden">
           {children}
         </main>
 

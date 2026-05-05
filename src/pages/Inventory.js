@@ -315,8 +315,9 @@ export default function Inventory() {
   return (
     <>
       <Helmet>
-        <title>Inventory | AutoNorth Motors Edmonton — Premium Vehicles</title>
-        <meta name="description" content="Browse our curated collection of premium trucks, SUVs, and vans at AutoNorth Motors Edmonton. High-quality Ford, Ram, and GMC models with guaranteed reliability." />
+        <title>Inventory | AutoNorth Motors Edmonton — Premium Vehicles Canada</title>
+        <meta name="description" content="Browse our curated collection of premium trucks, SUVs, and luxury vans at AutoNorth Motors Edmonton. High-quality Ford, Ram, and GMC models available for customers in Alberta and all of Canada." />
+        <link rel="canonical" href="https://www.autonorth.ca/inventory" />
         <script type="application/ld+json">
           {JSON.stringify({
             "@context": "https://schema.org",

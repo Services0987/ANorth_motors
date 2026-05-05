@@ -111,8 +111,56 @@ export default function Home() {
   return (
     <>
       <Helmet>
-        <title>AutoNorth Motors | Premium Dealership</title>
-        <meta name="description" content="Discover Edmonton's finest selection of premium vehicles. AutoNorth Motors - Where quality meets the road." />
+        <title>AutoNorth Motors | Best Car Deals in Edmonton, Alberta & Canada</title>
+        <meta name="description" content="Discover Edmonton's finest selection of premium trucks, SUVs, and luxury vehicles at AutoNorth Motors. Serving Alberta and Canada with certified pre-owned deals and zero dealer fees." />
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "AutoDealer",
+            "name": "AutoNorth Motors",
+            "url": "https://www.autonorth.ca",
+            "logo": "https://www.autonorth.ca/favicon.ico",
+            "image": "https://www.autonorth.ca/showroom.jpg",
+            "description": "Edmonton's premier destination for premium new and used vehicles. Serving Alberta and Canada with zero dealer fees.",
+            "address": {
+              "@type": "PostalAddress",
+              "streetAddress": "3304 91 St",
+              "addressLocality": "Edmonton",
+              "addressRegion": "AB",
+              "postalCode": "T6N 1C1",
+              "addressCountry": "CA"
+            },
+            "geo": {
+              "@type": "GeoCoordinates",
+              "latitude": 53.4667,
+              "longitude": -113.4667
+            },
+            "hasMap": "https://www.google.com/maps?cid=YOUR_CID_HERE",
+            "areaServed": [
+              { "@type": "City", "name": "Edmonton" },
+              { "@type": "City", "name": "Red Deer" },
+              { "@type": "City", "name": "Calgary" },
+              { "@type": "AdministrativeArea", "name": "Alberta" },
+              { "@type": "Country", "name": "Canada" }
+            ],
+            "telephone": "+18256055050",
+            "priceRange": "$$$",
+            "openingHoursSpecification": [
+              {
+                "@type": "OpeningHoursSpecification",
+                "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+                "opens": "09:00",
+                "closes": "20:00"
+              },
+              {
+                "@type": "OpeningHoursSpecification",
+                "dayOfWeek": ["Saturday", "Sunday"],
+                "opens": "10:00",
+                "closes": "18:00"
+              }
+            ]
+          })}
+        </script>
       </Helmet>
 
       <div className="bg-[#050505] min-h-screen font-body selection:bg-[#D4AF37]/30" data-testid="home-page">
@@ -123,7 +171,7 @@ export default function Home() {
         <section className="relative min-h-screen flex items-center overflow-hidden" data-testid="hero-section">
           {/* BG image with parallax */}
           <motion.div className="absolute inset-0" style={{ y: heroY }}>
-            <img src={HERO_IMAGE} alt="AutoNorth Motors Premium Vehicles" className="w-full h-full object-cover scale-110" />
+            <img src={HERO_IMAGE} alt="AutoNorth Motors Luxury Dealership Edmonton Alberta - Premium Trucks and SUVs" className="w-full h-full object-cover scale-110" />
           </motion.div>
 
           {/* Layered overlays */}
@@ -440,7 +488,7 @@ export default function Home() {
                   </div>
                   <p className="text-white/55 font-body text-sm leading-relaxed mb-6 italic">"{t.text}"</p>
                   <div className="flex items-center gap-3 pt-5 border-t border-white/[0.05]">
-                    <img src={t.img} alt={t.name} className="w-10 h-10 object-cover grayscale" onError={(e) => { e.target.style.display = 'none'; }} />
+                    <img src={t.img} alt={`${t.name} - AutoNorth Motors Client Review`} className="w-10 h-10 object-cover grayscale" onError={(e) => { e.target.style.display = 'none'; }} />
                     <div>
                       <p className="font-heading text-white text-sm font-medium">{t.name}</p>
                       <p className="text-white/30 text-xs font-body">{t.role} · {t.vehicle}</p>
