@@ -117,61 +117,63 @@ export default function Home() {
         <title>AutoNorth Motors | Best Car Deals in Edmonton, Alberta & Canada</title>
         <meta name="description" content="Discover Edmonton's finest selection of premium trucks, SUVs, and luxury vehicles at AutoNorth Motors. Serving Alberta and Canada with certified pre-owned deals and zero dealer fees." />
         <script type="application/ld+json">
-          {JSON.stringify([
-            {
-              "@context": "https://schema.org",
-              "@type": "AutoDealer",
-              "name": "AutoNorth Motors",
-              "url": "https://autonorth.ca",
-              "logo": "https://autonorth.ca/favicon.ico",
-              "image": "https://autonorth.ca/autonorth_cinematic_logo_1777279777559.png",
-              "description": "Edmonton's premier destination for premium trucks, SUVs, and cars. Elite certified pre-owned selection with zero dealer fees.",
-              "address": {
-                "@type": "PostalAddress",
-                "streetAddress": "9104 91 St NW",
-                "addressLocality": "Edmonton",
-                "addressRegion": "AB",
-                "postalCode": "T6C 3P6",
-                "addressCountry": "CA"
-              },
-              "geo": {
-                "@type": "GeoCoordinates",
-                "latitude": 53.5262,
-                "longitude": -113.4682
-              },
-              "telephone": "+18256055050",
-              "priceRange": "$$$",
-              "areaServed": [
-                { "@type": "City", "name": "Edmonton" },
-                { "@type": "AdministrativeArea", "name": "Alberta" },
-                { "@type": "Country", "name": "Canada" }
-              ],
-              "openingHoursSpecification": [
-                {
-                  "@type": "OpeningHoursSpecification",
-                  "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-                  "opens": "09:00",
-                  "closes": "20:00"
+          {`
+            [
+              {
+                "@context": "https://schema.org",
+                "@type": "AutoDealer",
+                "name": "AutoNorth Motors",
+                "url": "https://autonorth.ca",
+                "logo": "https://autonorth.ca/favicon.ico",
+                "image": "https://autonorth.ca/autonorth_cinematic_logo_1777279777559.png",
+                "description": "Edmonton's premier destination for premium trucks, SUVs, and cars. Elite certified pre-owned selection with zero dealer fees.",
+                "address": {
+                  "@type": "PostalAddress",
+                  "streetAddress": "9104 91 St NW",
+                  "addressLocality": "Edmonton",
+                  "addressRegion": "AB",
+                  "postalCode": "T6C 3P6",
+                  "addressCountry": "CA"
                 },
-                {
-                  "@type": "OpeningHoursSpecification",
-                  "dayOfWeek": ["Saturday", "Sunday"],
-                  "opens": "10:00",
-                  "closes": "18:00"
+                "geo": {
+                  "@type": "GeoCoordinates",
+                  "latitude": 53.5262,
+                  "longitude": -113.4682
+                },
+                "telephone": "+18256055050",
+                "priceRange": "$$$",
+                "areaServed": [
+                  { "@type": "City", "name": "Edmonton" },
+                  { "@type": "AdministrativeArea", "name": "Alberta" },
+                  { "@type": "Country", "name": "Canada" }
+                ],
+                "openingHoursSpecification": [
+                  {
+                    "@type": "OpeningHoursSpecification",
+                    "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+                    "opens": "09:00",
+                    "closes": "20:00"
+                  },
+                  {
+                    "@type": "OpeningHoursSpecification",
+                    "dayOfWeek": ["Saturday", "Sunday"],
+                    "opens": "10:00",
+                    "closes": "18:00"
+                  }
+                ]
+              },
+              {
+                "@context": "https://schema.org",
+                "@type": "WebSite",
+                "url": "https://autonorth.ca",
+                "potentialAction": {
+                  "@type": "SearchAction",
+                  "target": "https://autonorth.ca/inventory?search={search_term_string}",
+                  "query-input": "required name=search_term_string"
                 }
-              ]
-            },
-            {
-              "@context": "https://schema.org",
-              "@type": "WebSite",
-              "url": "https://autonorth.ca",
-              "potentialAction": {
-                "@type": "SearchAction",
-                "target": "https://autonorth.ca/inventory?search={search_term_string}",
-                "query-input": "required name=search_term_string"
               }
-            }
-          ])}
+            ]
+          `}
         </script>
       </Helmet>
 
@@ -220,18 +222,30 @@ export default function Home() {
 
           <motion.div style={{ opacity: heroOpacity }} className="relative z-10 max-w-7xl mx-auto px-6 md:px-12 pt-24 pb-32">
             <motion.div variants={stagger} initial="hidden" animate="show">
-              <motion.p variants={fadeUp} className="text-xs tracking-[0.4em] uppercase text-[#D4AF37] font-heading mb-6 flex items-center gap-3">
+              <motion.p variants={fadeUp} className="text-xs tracking-[0.4em] uppercase text-[#D4AF37] font-heading mb-6 flex items-center gap-3 font-bold">
                 <span className="w-8 h-px bg-[#D4AF37]" />
-                Edmonton, Alberta · Est. 2012
+                {topCategory ? `Hand-Picked ${topCategory}s for You` : 'Edmonton, Alberta · Est. 2012'}
               </motion.p>
 
-              <motion.h1 variants={fadeUp} className="font-heading text-5xl md:text-7xl lg:text-[5.5rem] font-light text-white leading-[0.95] tracking-tighter mb-6">
-                Drive Your<br />
-                <span className="gradient-text font-semibold">Ambition.</span>
+              <motion.h1 variants={fadeUp} className="font-heading text-5xl md:text-7xl lg:text-[5.5rem] font-light text-white leading-[0.95] tracking-tighter mb-6 uppercase">
+                {topCategory ? (
+                  <>
+                    The Best <span className="gradient-text font-bold">{topCategory}s</span><br />
+                    <span className="text-white/40">in Edmonton</span>
+                  </>
+                ) : (
+                  <>
+                    Drive Your<br />
+                    <span className="gradient-text font-semibold">Ambition.</span>
+                  </>
+                )}
               </motion.h1>
 
-              <motion.p variants={fadeUp} className="text-white/60 font-body text-xl md:text-2xl max-w-lg leading-relaxed mb-10">
-                Edmonton's most trusted destination for premium new and pre-owned vehicles. Zero dealer fees. Best price guaranteed.
+              <motion.p variants={fadeUp} className="text-white/60 font-body text-xl md:text-2xl max-w-xl leading-relaxed mb-10">
+                {topCategory 
+                  ? `Discover Edmonton's finest ${topCategory.toLowerCase()}s. Engineered for Alberta's roads, priced for your budget with zero dealer fees.`
+                  : "Edmonton's most trusted destination for premium new and pre-owned vehicles. Zero dealer fees. Best price guaranteed in Alberta."
+                }
               </motion.p>
 
               <motion.div variants={fadeUp} className="flex flex-wrap gap-4 mb-16">

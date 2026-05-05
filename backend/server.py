@@ -229,10 +229,19 @@ async def terminate_session(session_id: str, cu=Depends(get_current_user)):
     return {"message": "Session terminated"}
 
 @api_router.get("/auth/me")
-async def me(cu=Depends(get_current_user)):
-    cu["_id"] = str(cu["_id"])
-    cu.pop("password_hash", None)
-    return cu
+async def me(request: Request):
+    """Silent Auth Check: Returns null instead of 401 for cleaner console logs."""
+    try:
+        cu = await get_current_user(request)
+        cu["_id"] = str(cu["_id"])
+        cu.pop("password_hash", None)
+        return cu
+    except HTTPException as e:
+        if e.status_code == 401:
+            return None # SILENT FAILURE
+        raise e
+    except Exception:
+        return None
 
 @api_router.put("/auth/profile")
 async def update_profile(request: Request, cu=Depends(get_current_user)):
@@ -564,10 +573,12 @@ async def get_sitemap():
     """Dynamic Sitemap for Search Engine Dominance."""
     vehicles = await db.vehicles.find({"status": "available"}).to_list(1000)
     xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-    xml += '  <url><loc>https://autonorth.ca/</loc><priority>1.0</priority></url>\n'
-    xml += '  <url><loc>https://autonorth.ca/inventory</loc><priority>0.9</priority></url>\n'
+    xml += '  <url><loc>https://autonorth.ca/</loc><lastmod>'+datetime.now().strftime('%Y-%m-%d')+'</lastmod><changefreq>daily</changefreq><priority>1.0</priority></url>\n'
+    xml += '  <url><loc>https://autonorth.ca/inventory</loc><lastmod>'+datetime.now().strftime('%Y-%m-%d')+'</lastmod><changefreq>always</changefreq><priority>0.9</priority></url>\n'
     for v in vehicles:
-        xml += f'  <url><loc>https://autonorth.ca/vehicle/{str(v["_id"])}</loc><lastmod>{v.get("created_at", datetime.now()).isoformat().split("T")[0]}</lastmod></url>\n'
+        lastmod = v.get("updated_at") or v.get("created_at") or datetime.now()
+        if not isinstance(lastmod, datetime): lastmod = datetime.now()
+        xml += f'  <url><loc>https://autonorth.ca/vehicle/{str(v["_id"])}</loc><lastmod>{lastmod.isoformat().split("T")[0]}</lastmod><changefreq>weekly</changefreq><priority>0.6</priority></url>\n'
     xml += '</urlset>'
     return Response(content=xml, media_type="application/xml")
 
@@ -575,15 +586,26 @@ async def get_sitemap():
 async def get_rss_feed():
     """RSS Feed for Social Media Algorithmic Hijacking."""
     vehicles = await db.vehicles.find({"status": "available"}).sort("created_at", -1).limit(50).to_list(50)
-    xml = '<?xml version="1.0" encoding="UTF-8" ?>\n<rss version="2.0">\n<channel>\n'
-    xml += '  <title>AutoNorth Motors Inventory</title>\n'
+    xml = '<?xml version="1.0" encoding="UTF-8" ?>\n'
+    xml += '<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/" xmlns:dc="http://purl.org/dc/elements/1.1/">\n<channel>\n'
+    xml += '  <title>AutoNorth Motors | Premium Inventory Edmonton</title>\n'
     xml += '  <link>https://autonorth.ca</link>\n'
-    xml += '  <description>Premium Vehicles in Edmonton, Alberta</description>\n'
+    xml += '  <description>Latest certified pre-owned trucks, SUVs and luxury vehicles in Edmonton, Alberta.</description>\n'
     for v in vehicles:
+        title = f"{v.get('year')} {v.get('make')} {v.get('model')} - ${v.get('price', 0):,.0f}"
+        desc = f"Certified {v.get('condition')} {v.get('title')} with {v.get('mileage', 0):,.0f} km. {v.get('description', '')[:200]}..."
+        img = v.get("images", [""])[0] if v.get("images") else ""
+        
         xml += '  <item>\n'
-        xml += f'    <title>{v.get("title")}</title>\n'
+        xml += f'    <title><![CDATA[{title}]]></title>\n'
         xml += f'    <link>https://autonorth.ca/vehicle/{str(v["_id"])}</link>\n'
-        xml += f'    <description>${v.get("price", 0):,.0f} - {v.get("mileage", 0):,.0f} km</description>\n'
+        xml += f'    <description><![CDATA[{desc}]]></description>\n'
+        if img:
+            xml += f'    <media:content url="{img}" medium="image" />\n'
+        xml += f'    <dc:creator>AutoNorth Motors</dc:creator>\n'
+        pub_date = v.get("created_at") or datetime.now()
+        if not isinstance(pub_date, datetime): pub_date = datetime.now()
+        xml += f'    <pubDate>{pub_date.strftime("%a, %d %b %Y %H:%M:%S GMT")}</pubDate>\n'
         xml += '  </item>\n'
     xml += '</channel>\n</rss>'
     return Response(content=xml, media_type="application/xml")

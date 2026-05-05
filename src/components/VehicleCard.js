@@ -27,10 +27,15 @@ export default function VehicleCard({ vehicle, index = 0 }) {
   const springX = useSpring(mx, { stiffness: 200, damping: 25 });
   const springY = useSpring(my, { stiffness: 200, damping: 25 });
 
-  const rotateY = useTransform(springX, [-0.5, 0.5], [-18, 18]);
-  const rotateX = useTransform(springY, [-0.5, 0.5], [10, -10]);
-  const imgX = useTransform(springX, [-0.5, 0.5], ['22px', '-22px']);
-  const imgY = useTransform(springY, [-0.5, 0.5], ['18px', '-18px']);
+  // Performance: Reduce tilt range on mobile to save GPU cycles
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const tiltX = isMobile ? 5 : 10;
+  const tiltY = isMobile ? 8 : 18;
+
+  const rotateY = useTransform(springX, [-0.5, 0.5], [-tiltY, tiltY]);
+  const rotateX = useTransform(springY, [-0.5, 0.5], [tiltX, -tiltX]);
+  const imgX = useTransform(springX, [-0.5, 0.5], [isMobile ? '10px' : '22px', isMobile ? '-10px' : '-22px']);
+  const imgY = useTransform(springY, [-0.5, 0.5], [isMobile ? '8px' : '18px', isMobile ? '-8px' : '-18px']);
 
   // Gyroscope tracking for mobile tilt
   React.useEffect(() => {

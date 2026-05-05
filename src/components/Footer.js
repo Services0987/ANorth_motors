@@ -90,6 +90,22 @@ export default function Footer() {
           </div>
         </div>
 
+        {/* Local SEO Dominance Section */}
+        <div className="border-t border-white/5 py-12">
+          <h4 className="font-heading text-[10px] tracking-[0.3em] uppercase text-white/20 mb-8 text-center">Local Service Areas · Alberta, Canada</h4>
+          <div className="flex flex-wrap justify-center gap-x-8 gap-y-3">
+            {[
+              'Downtown Edmonton', 'Sherwood Park', 'St. Albert', 'Leduc', 'Spruce Grove', 
+              'Fort Saskatchewan', 'Beaumont', 'Stony Plain', 'South Terwillegar', 
+              'Windermere', 'Summerside', 'Griesbach', 'Oliver', 'Glenora', 'Old Strathcona'
+            ].map((area) => (
+              <span key={area} className="text-[10px] font-body text-white/15 hover:text-[#D4AF37] transition-colors cursor-default uppercase tracking-wider">
+                {area}
+              </span>
+            ))}
+          </div>
+        </div>
+
         <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-white/20 text-xs font-body tracking-wide">
             © {new Date().getFullYear()} AutoNorth Motors. All rights reserved.

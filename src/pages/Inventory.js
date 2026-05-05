@@ -490,14 +490,18 @@ export default function Inventory() {
           </motion.div>
         </motion.div>
 
-        {/* COLLECTION HEADER */}
         <div ref={collectionRef} className="py-16 px-6 md:px-12 max-w-7xl mx-auto border-t border-white/[0.04] bg-[#050505] relative z-20">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-            <h2 className="font-heading text-3xl md:text-5xl font-light text-white tracking-tight mb-2">
-              The <span className="gradient-text font-bold">Collection</span>
-            </h2>
-            <p className="text-white/40 text-[10px] md:text-xs uppercase font-heading tracking-[0.3em]">
-              {total > 0 ? `${total} Premium Vehicles Available` : 'Browsing all available units'}
+            <h1 className="font-heading text-3xl md:text-5xl font-light text-white tracking-tight mb-2 uppercase">
+              {getIntentText().split(' ').map((word, i) => (
+                <span key={i} className={i < 2 ? "font-bold mr-3" : "text-white/40 mr-3"}>
+                  {word}
+                </span>
+              ))}
+              <span className="gradient-text font-bold ml-1">in Edmonton</span>
+            </h1>
+            <p className="text-[#D4AF37] text-[10px] md:text-xs uppercase font-heading tracking-[0.3em] font-bold">
+              {total > 0 ? `${total} Certified Units in Alberta` : 'Browsing all available inventory'}
             </p>
           </motion.div>
         </div>
@@ -593,8 +597,8 @@ export default function Inventory() {
               </motion.div>
             ) : (
               <motion.div key={`grid-page-${page}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8" data-testid="vehicles-grid">
-                {vehicles.map((v, i) => (
-                  <BazaarCard key={v._id || v.id || i} vehicle={v} index={i} />
+                {vehicles && vehicles.map((v, i) => (
+                  v && <BazaarCard key={v._id || v.id || i} vehicle={v} index={i} />
                 ))}
               </motion.div>
             )}
