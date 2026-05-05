@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { AuthProvider } from './contexts/AuthContext';
+import { PersonalizationProvider } from './contexts/PersonalizationProvider';
 import ProtectedRoute from './components/ProtectedRoute';
 import ChatBot from './components/ChatBot';
 
@@ -57,9 +58,11 @@ function App() {
   return (
     <HelmetProvider>
       <AuthProvider>
-        <BrowserRouter>
-          <AppContent />
-        </BrowserRouter>
+        <PersonalizationProvider>
+          <BrowserRouter>
+            <AppContent />
+          </BrowserRouter>
+        </PersonalizationProvider>
       </AuthProvider>
     </HelmetProvider>
   );

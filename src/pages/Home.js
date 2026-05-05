@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
 import { ArrowRight, ChevronDown, Shield, Award, Clock, Headphones, Car, Truck, Navigation, Zap, Bus, PackageOpen } from 'lucide-react';
 import axios from 'axios';
 import Navbar from '../components/Navbar';
@@ -8,9 +8,11 @@ import Footer from '../components/Footer';
 import VehicleCard from '../components/VehicleCard';
 import ExitIntentPopup from '../components/ExitIntentPopup';
 import { Helmet } from 'react-helmet-async';
+import { usePersonalization } from '../contexts/PersonalizationProvider';
 
 const API = (process.env.REACT_APP_BACKEND_URL || '') + '/api';
 const HERO_IMAGE = 'https://images.pexels.com/photos/3729464/pexels-photo-3729464.jpeg?auto=compress&cs=tinysrgb&w=1920&q=80';
+const PLACEHOLDER = 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?auto=format&fit=crop&q=80&w=800';
 
 const CATEGORIES = [
   { label: 'Trucks', query: 'Truck', icon: Truck, desc: 'Power & Towing' },
@@ -77,6 +79,7 @@ const SAFE_ICON = (Icon, props = {}) => {
 };
 
 export default function Home() {
+  const { history, topCategory } = usePersonalization();
   const [featured, setFeatured] = useState([]);
   const [loading, setLoading] = useState(true);
   const [leadForm, setLeadForm] = useState({ name: '', email: '', phone: '' });
@@ -114,52 +117,61 @@ export default function Home() {
         <title>AutoNorth Motors | Best Car Deals in Edmonton, Alberta & Canada</title>
         <meta name="description" content="Discover Edmonton's finest selection of premium trucks, SUVs, and luxury vehicles at AutoNorth Motors. Serving Alberta and Canada with certified pre-owned deals and zero dealer fees." />
         <script type="application/ld+json">
-          {JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "AutoDealer",
-            "name": "AutoNorth Motors",
-            "url": "https://www.autonorth.ca",
-            "logo": "https://www.autonorth.ca/favicon.ico",
-            "image": "https://www.autonorth.ca/showroom.jpg",
-            "description": "Edmonton's premier destination for premium new and used vehicles. Serving Alberta and Canada with zero dealer fees.",
-            "address": {
-              "@type": "PostalAddress",
-              "streetAddress": "3304 91 St",
-              "addressLocality": "Edmonton",
-              "addressRegion": "AB",
-              "postalCode": "T6N 1C1",
-              "addressCountry": "CA"
-            },
-            "geo": {
-              "@type": "GeoCoordinates",
-              "latitude": 53.4667,
-              "longitude": -113.4667
-            },
-            "hasMap": "https://www.google.com/maps?cid=YOUR_CID_HERE",
-            "areaServed": [
-              { "@type": "City", "name": "Edmonton" },
-              { "@type": "City", "name": "Red Deer" },
-              { "@type": "City", "name": "Calgary" },
-              { "@type": "AdministrativeArea", "name": "Alberta" },
-              { "@type": "Country", "name": "Canada" }
-            ],
-            "telephone": "+18256055050",
-            "priceRange": "$$$",
-            "openingHoursSpecification": [
-              {
-                "@type": "OpeningHoursSpecification",
-                "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-                "opens": "09:00",
-                "closes": "20:00"
+          {JSON.stringify([
+            {
+              "@context": "https://schema.org",
+              "@type": "AutoDealer",
+              "name": "AutoNorth Motors",
+              "url": "https://autonorth.ca",
+              "logo": "https://autonorth.ca/favicon.ico",
+              "image": "https://autonorth.ca/autonorth_cinematic_logo_1777279777559.png",
+              "description": "Edmonton's premier destination for premium trucks, SUVs, and cars. Elite certified pre-owned selection with zero dealer fees.",
+              "address": {
+                "@type": "PostalAddress",
+                "streetAddress": "9104 91 St NW",
+                "addressLocality": "Edmonton",
+                "addressRegion": "AB",
+                "postalCode": "T6C 3P6",
+                "addressCountry": "CA"
               },
-              {
-                "@type": "OpeningHoursSpecification",
-                "dayOfWeek": ["Saturday", "Sunday"],
-                "opens": "10:00",
-                "closes": "18:00"
+              "geo": {
+                "@type": "GeoCoordinates",
+                "latitude": 53.5262,
+                "longitude": -113.4682
+              },
+              "telephone": "+18256055050",
+              "priceRange": "$$$",
+              "areaServed": [
+                { "@type": "City", "name": "Edmonton" },
+                { "@type": "AdministrativeArea", "name": "Alberta" },
+                { "@type": "Country", "name": "Canada" }
+              ],
+              "openingHoursSpecification": [
+                {
+                  "@type": "OpeningHoursSpecification",
+                  "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+                  "opens": "09:00",
+                  "closes": "20:00"
+                },
+                {
+                  "@type": "OpeningHoursSpecification",
+                  "dayOfWeek": ["Saturday", "Sunday"],
+                  "opens": "10:00",
+                  "closes": "18:00"
+                }
+              ]
+            },
+            {
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              "url": "https://autonorth.ca",
+              "potentialAction": {
+                "@type": "SearchAction",
+                "target": "https://autonorth.ca/inventory?search={search_term_string}",
+                "query-input": "required name=search_term_string"
               }
-            ]
-          })}
+            }
+          ])}
         </script>
       </Helmet>
 
@@ -265,6 +277,58 @@ export default function Home() {
           </div>
         </section>
 
+        {/* ── Welcome Back / Recently Viewed (Personalization) ── */}
+        <AnimatePresence>
+          {history.length > 0 && (
+            <motion.section 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="py-12 bg-[#0A0A0A] border-b border-white/[0.05]"
+            >
+              <div className="max-w-7xl mx-auto px-6 md:px-12">
+                <div className="flex flex-col md:flex-row justify-between items-end gap-6 mb-8">
+                  <div>
+                    <motion.p 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="text-xs tracking-[0.3em] uppercase text-[#D4AF37] font-heading mb-2"
+                    >
+                      Welcome Back
+                    </motion.p>
+                    <h2 className="font-heading text-2xl md:text-3xl font-light text-white">
+                      Picked for you {topCategory && <span className="text-white/30 text-lg ml-2">(Interest: {topCategory}s)</span>}
+                    </h2>
+                  </div>
+                  <button onClick={() => navigate('/inventory')} className="text-[#D4AF37] text-[10px] font-heading uppercase tracking-widest hover:text-white transition-colors">
+                    Explore all matches
+                  </button>
+                </div>
+                
+                <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide no-scrollbar" style={{ msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
+                  {history.map((v, i) => (
+                    <motion.div 
+                      key={v.id}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: i * 0.1 }}
+                      className="flex-shrink-0 w-64 group"
+                    >
+                      <Link to={`/vehicle/${v.id}`} className="block">
+                        <div className="aspect-[4/3] bg-white/5 border border-white/10 overflow-hidden mb-3 relative">
+                          <img src={v.image || PLACEHOLDER} alt={v.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 opacity-80 group-hover:opacity-100" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                          <p className="absolute bottom-3 left-3 text-white font-heading text-sm font-bold">${v.price?.toLocaleString()}</p>
+                        </div>
+                        <p className="text-white/60 text-xs font-medium truncate group-hover:text-[#D4AF37] transition-colors">{v.title}</p>
+                      </Link>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            </motion.section>
+          )}
+        </AnimatePresence>
+
         {/* ── Featured Vehicles ── */}
         <section className="py-24 md:py-32" data-testid="featured-section">
           <div className="max-w-7xl mx-auto px-6 md:px-12">
@@ -334,7 +398,7 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8" style={{ perspective: '900px' }}>
               {featured.slice(0, 3).map((v, i) => (
                 <motion.div
-                  key={v.id}
+                  key={v._id || v.id || `showroom-${i}`}
                   initial={{ opacity: 0, z: -200, y: 60 }}
                   whileInView={{ opacity: 1, z: 0, y: 0 }}
                   viewport={{ once: true }}

@@ -5,6 +5,7 @@ import {
   BrainCircuit, ChevronDown, RefreshCw, CheckCircle, AlertTriangle 
 } from 'lucide-react';
 import axios from 'axios';
+import { usePersonalization } from '../contexts/PersonalizationProvider';
 
 const API = (process.env.REACT_APP_BACKEND_URL || '') + '/api';
 
@@ -88,12 +89,18 @@ function ChatVehicleCard({ title, link, specs, onMinimized }) {
 
 export default function ChatBot() {
   const [open, setOpen] = useState(false);
+  const { topCategory } = usePersonalization();
+
   const getGreeting = () => {
     const hour = new Date().getHours();
     let msg = 'Welcome to AutoNorth. I am your AI Specialist.';
     if (hour < 12) msg = 'Good morning from AutoNorth. I am your AI Specialist.';
     else if (hour < 18) msg = 'Good afternoon from AutoNorth. I am your AI Specialist.';
     else msg = 'Good evening from AutoNorth. I am your AI Specialist.';
+    
+    if (topCategory) {
+      return msg + ` I see you've been looking at our ${topCategory}s. Would you like to see our latest arrivals or discuss financing options?`;
+    }
     return msg + ' How can I help you find your dream car today?';
   };
 

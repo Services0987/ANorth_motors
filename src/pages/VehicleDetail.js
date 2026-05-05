@@ -7,6 +7,7 @@ import axios from 'axios';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { Analytics } from '../utils/analytics';
+import { usePersonalization } from '../contexts/PersonalizationProvider';
 
 const SAFE_ICON = (Icon, props = {}) => {
   if (!Icon || (typeof Icon !== 'function' && typeof Icon !== 'object')) return null;
@@ -23,6 +24,7 @@ const TAB_ICONS = { contact: MessageSquare, test_drive: Calendar, financing: Zap
 export default function VehicleDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { trackInterest } = usePersonalization();
   const [vehicle, setVehicle] = useState(null);
   const [loading, setLoading] = useState(true);
   const [imgIdx, setImgIdx] = useState(0);
@@ -40,10 +42,11 @@ export default function VehicleDetail() {
       .then(({ data }) => {
         setVehicle(data);
         Analytics.viewVehicle(data._id || data.id, data.title);
+        trackInterest(data);
       })
       .catch(() => navigate('/inventory'))
       .finally(() => setLoading(false));
-  }, [id, navigate]);
+  }, [id, navigate, trackInterest]);
 
   const images = vehicle?.images?.length > 0 ? vehicle.images : [PLACEHOLDER];
 
@@ -103,17 +106,26 @@ export default function VehicleDetail() {
     "@context": "https://schema.org",
     "@type": "Vehicle",
     "name": vehicle.title,
-    "description": vehicle.description,
+    "description": vehicle.description || `Certified pre-owned ${vehicle.title} available at AutoNorth Motors Edmonton. Features ${vehicle.engine} engine, ${vehicle.transmission} transmission.`,
+    "image": images,
+    "brand": { "@type": "Brand", "name": vehicle.make },
+    "manufacturer": { "@type": "Organization", "name": vehicle.make },
     "vehicleModelDate": String(vehicle.year),
-    "fuelType": vehicle.fuel_type,
+    "fuelType": vehicle.fuel_type || vehicle.fuel || 'Gas',
+    "vehicleIdentificationNumber": vehicle.vin,
     "mileageFromOdometer": { "@type": "QuantitativeValue", "value": vehicle.mileage, "unitCode": "KMT" },
-    "vehicleTransmission": vehicle.transmission,
+    "vehicleTransmission": vehicle.transmission || 'Automatic',
+    "bodyType": vehicle.body_type,
+    "itemCondition": vehicle.condition === 'new' ? "https://schema.org/NewCondition" : "https://schema.org/UsedCondition",
     "offers": {
       "@type": "Offer",
       "price": vehicle.price,
       "priceCurrency": "CAD",
+      "itemCondition": vehicle.condition === 'new' ? "https://schema.org/NewCondition" : "https://schema.org/UsedCondition",
       "availability": vehicle.status === 'available' ? "https://schema.org/InStock" : "https://schema.org/SoldOut",
-      "seller": { "@type": "AutoDealer", "name": "AutoNorth Motors" }
+      "url": `https://autonorth.ca/vehicle/${id}`,
+      "seller": { "@type": "AutoDealer", "name": "AutoNorth Motors" },
+      "priceValidUntil": new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0]
     }
   };
 

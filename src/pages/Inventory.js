@@ -278,6 +278,19 @@ export default function Inventory() {
   const activeFilters = Object.values(filters).filter(Boolean).length;
   const totalPages    = Math.ceil(total / limit);
 
+  // Semantic Intent Engine: Generate dynamic SEO signals based on active filters
+  const getIntentText = () => {
+    const parts = [];
+    if (filters.condition) parts.push(filters.condition === 'new' ? 'New' : 'Used');
+    if (filters.make) parts.push(filters.make);
+    if (filters.body_type) parts.push(`${filters.body_type}s`);
+    if (parts.length === 0) return 'Premium Vehicles';
+    return parts.join(' ');
+  };
+
+  const intentTitle = `${getIntentText()} for Sale in Edmonton, Alberta | AutoNorth Motors`;
+  const intentDesc = `Browse our elite selection of ${getIntentText().toLowerCase()} in Edmonton. Serving Alberta and Canada with certified quality, zero dealer fees, and instant financing. View all ${total} matching listings.`;
+
   /* ── Hero parallax ── */
   const { scrollY } = useScroll();
   const heroOpacity = useTransform(scrollY, [0, 500], [1, 0]);
@@ -315,24 +328,21 @@ export default function Inventory() {
   return (
     <>
       <Helmet>
-        <title>Inventory | AutoNorth Motors Edmonton — Premium Vehicles Canada</title>
-        <meta name="description" content="Browse our curated collection of premium trucks, SUVs, and luxury vans at AutoNorth Motors Edmonton. High-quality Ford, Ram, and GMC models available for customers in Alberta and all of Canada." />
-        <link rel="canonical" href="https://www.autonorth.ca/inventory" />
+        <title>{intentTitle}</title>
+        <meta name="description" content={intentDesc} />
+        <link rel="canonical" href={`https://autonorth.ca/inventory${activeFilters > 0 ? '?' + new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([_, v]) => v))).toString() : ''}`} />
         <script type="application/ld+json">
           {JSON.stringify({
             "@context": "https://schema.org",
-            "@type": "AutoDealer",
-            "name": "AutoNorth Motors",
-            "address": {
-              "@type": "PostalAddress",
-              "addressLocality": "Edmonton",
-              "addressRegion": "AB",
-              "addressCountry": "CA"
-            },
-            "url": "https://autonorth.ca",
-            "telephone": "+18256055050",
-            "priceRange": "$$$",
-            "image": "https://autonorth.ca/logo_cinematic.png"
+            "@type": "ItemList",
+            "name": intentTitle,
+            "description": intentDesc,
+            "itemListElement": vehicles.slice(0, 10).map((v, i) => ({
+              "@type": "ListItem",
+              "position": i + 1,
+              "url": `https://autonorth.ca/vehicle/${v._id || v.id}`,
+              "name": v.title
+            }))
           })}
         </script>
       </Helmet>
@@ -406,7 +416,7 @@ export default function Inventory() {
                   <div className="flex items-center justify-center gap-1 md:gap-4">
                     {['N'].map((l, i) => (
                       <motion.span
-                        key={`north-${l}`}
+                        key={`north-char-${l}-${i}`}
                         initial={{ opacity: 0, y: 50, filter: 'blur(10px)' }}
                         animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
                         transition={{ duration: 1, delay: 1.2, ease: [0.16, 1, 0.3, 1] }}
@@ -425,6 +435,7 @@ export default function Inventory() {
 
                     {/* SPINNING O (WHEEL 2) */}
                     <motion.div
+                      key="wheel-o-2"
                       initial={{ opacity: 0, scale: 0.5, rotate: -180 }}
                       animate={{ opacity: 1, scale: 1, rotate: 0 }}
                       transition={{ duration: 1.5, delay: 1.4, ease: [0.34, 1.56, 0.64, 1] }}
@@ -440,7 +451,7 @@ export default function Inventory() {
 
                     {['R', 'T', 'H'].map((l, i) => (
                       <motion.span
-                        key={`north-${l}`}
+                        key={`north-char-${l}-${i}`}
                         initial={{ opacity: 0, y: 50, filter: 'blur(10px)' }}
                         animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
                         transition={{ duration: 1, delay: 1.6 + i * 0.2, ease: [0.16, 1, 0.3, 1] }}
