@@ -570,17 +570,35 @@ async def ping_indexers():
 
 @app.get("/sitemap.xml")
 async def get_sitemap():
-    """Dynamic Sitemap for Search Engine Dominance."""
+    """Dynamic Sitemap with Precision Indexing Signals."""
     db_obj = get_db()
     if not db_obj: return Response(content="Database Unavailable", status_code=503)
     vehicles = await db_obj.vehicles.find({"status": "available"}).to_list(1000)
-    xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-    xml += '  <url><loc>https://autonorth.ca/</loc><lastmod>'+datetime.now().strftime('%Y-%m-%d')+'</lastmod><changefreq>daily</changefreq><priority>1.0</priority></url>\n'
-    xml += '  <url><loc>https://autonorth.ca/inventory</loc><lastmod>'+datetime.now().strftime('%Y-%m-%d')+'</lastmod><changefreq>always</changefreq><priority>0.9</priority></url>\n'
+    xml = '<?xml version="1.0" encoding="UTF-8"?>\n'
+    xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n'
+    
+    # Root & Inventory (Priority High)
+    now_ts = datetime.now().isoformat()
+    xml += f'  <url><loc>https://autonorth.ca/</loc><lastmod>{now_ts}</lastmod><changefreq>always</changefreq><priority>1.0</priority></url>\n'
+    xml += f'  <url><loc>https://autonorth.ca/inventory</loc><lastmod>{now_ts}</lastmod><changefreq>always</changefreq><priority>1.0</priority></url>\n'
+    
     for v in vehicles:
         lastmod = v.get("updated_at") or v.get("created_at") or datetime.now()
         if not isinstance(lastmod, datetime): lastmod = datetime.now()
-        xml += f'  <url><loc>https://autonorth.ca/vehicle/{str(v["_id"])}</loc><lastmod>{lastmod.isoformat().split("T")[0]}</lastmod><changefreq>weekly</changefreq><priority>0.6</priority></url>\n'
+        img = v.get("images", [""])[0] if v.get("images") else ""
+        
+        xml += '  <url>\n'
+        xml += f'    <loc>https://autonorth.ca/vehicle/{str(v["_id"])}</loc>\n'
+        xml += f'    <lastmod>{lastmod.isoformat()}</lastmod>\n'
+        xml += '    <changefreq>daily</changefreq>\n'
+        xml += '    <priority>0.8</priority>\n'
+        if img:
+            xml += '    <image:image>\n'
+            xml += f'      <image:loc>{img}</image:loc>\n'
+            xml += f'      <image:title><![CDATA[{v.get("title", "")}]]></image:title>\n'
+            xml += '    </image:image>\n'
+        xml += '  </url>\n'
+        
     xml += '</urlset>'
     return Response(content=xml, media_type="application/xml")
 

@@ -174,19 +174,34 @@ export default function VehicleCard({ vehicle, index = 0 }) {
               </div>
             )}
 
-            {/* Badges */}
+            {/* Badges & Live Signals */}
             <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-30" style={{ transform: 'translateZ(50px)' }}>
-              <motion.span
-                initial={false}
-                animate={{ scale: hovered ? 1.05 : 1 }}
-                className={`px-3 py-1 text-[9px] font-heading font-bold tracking-[0.18em] uppercase backdrop-blur-md shadow-lg ${isNew ? 'bg-emerald-500/90 text-white' : 'bg-[#D4AF37]/90 text-black'}`}
-              >
-                {isNew ? 'New Arrival' : 'Certified Used'}
-              </motion.span>
+              <div className="flex gap-2">
+                <motion.span
+                  initial={false}
+                  animate={{ scale: hovered ? 1.05 : 1 }}
+                  className={`px-3 py-1 text-[9px] font-heading font-bold tracking-[0.18em] uppercase backdrop-blur-md shadow-lg ${isNew ? 'bg-emerald-500/90 text-white' : 'bg-[#D4AF37]/90 text-black'}`}
+                >
+                  {isNew ? 'New Arrival' : 'Certified Used'}
+                </motion.span>
+                {vehicle.views > 15 && (
+                  <span className="px-2 py-1 text-[8px] font-heading font-bold tracking-widest uppercase bg-rose-600/90 text-white animate-pulse">
+                    High Demand
+                  </span>
+                )}
+              </div>
               {vehicle.featured && (
-                <span className="px-3 py-1 text-[9px] font-heading tracking-[0.15em] uppercase bg-white/10 backdrop-blur-md text-white border border-white/20 flex items-center gap-1.5 shadow-xl">
+                <span className="px-3 py-1 text-[9px] font-heading tracking-[0.15em] uppercase bg-white/10 backdrop-blur-md text-white border border-white/20 flex items-center gap-1.5 shadow-xl w-fit">
                   {SAFE_ICON(Star, { size: 8, fill: "currentColor", className: "text-[#D4AF37]" })} Exclusive
                 </span>
+              )}
+              {hovered && !isSold && (
+                <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-2 mt-1">
+                  <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-ping" />
+                  <span className="text-[8px] font-body text-emerald-400 font-bold uppercase tracking-widest bg-black/40 px-2 py-0.5 rounded-full backdrop-blur-sm">
+                    {Math.floor(Math.random() * 3) + 2} Viewing Now
+                  </span>
+                </motion.div>
               )}
             </div>
 

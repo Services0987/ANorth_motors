@@ -8,12 +8,17 @@ export const PersonalizationProvider = ({ children }) => {
     return saved ? JSON.parse(saved) : [];
   });
 
+  const [intents, setIntents] = useState(() => {
+    const saved = localStorage.getItem('autonorth_micro_intents');
+    return saved ? JSON.parse(saved) : { financing: 0, test_drive: 0, high_value: 0 };
+  });
+
   const [topCategory, setTopCategory] = useState(null);
 
   useEffect(() => {
     localStorage.setItem('autonorth_interest_history', JSON.stringify(history));
+    localStorage.setItem('autonorth_micro_intents', JSON.stringify(intents));
     
-    // Analyze top category
     if (history.length > 0) {
       const counts = {};
       history.forEach(item => {
@@ -22,12 +27,11 @@ export const PersonalizationProvider = ({ children }) => {
       const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
       if (top) setTopCategory(top[0]);
     }
-  }, [history]);
+  }, [history, intents]);
 
   const trackInterest = (vehicle) => {
     if (!vehicle) return;
     setHistory(prev => {
-      // Keep only last 20 items, unique by ID
       const filtered = prev.filter(item => item.id !== (vehicle._id || vehicle.id));
       const newItem = {
         id: vehicle._id || vehicle.id,
@@ -37,12 +41,17 @@ export const PersonalizationProvider = ({ children }) => {
         price: vehicle.price,
         timestamp: Date.now()
       };
+      if (vehicle.price > 80000) trackIntent('high_value');
       return [newItem, ...filtered].slice(0, 20);
     });
   };
 
+  const trackIntent = (type) => {
+    setIntents(prev => ({ ...prev, [type]: (prev[type] || 0) + 1 }));
+  };
+
   return (
-    <PersonalizationContext.Provider value={{ history, topCategory, trackInterest }}>
+    <PersonalizationContext.Provider value={{ history, topCategory, intents, trackInterest, trackIntent }}>
       {children}
     </PersonalizationContext.Provider>
   );

@@ -90,18 +90,39 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Local SEO Dominance Section */}
+        {/* Local SEO Dominance Section (Algorithmic Authority) */}
         <div className="border-t border-white/5 py-12">
-          <h4 className="font-heading text-[10px] tracking-[0.3em] uppercase text-white/20 mb-8 text-center">Local Service Areas · Alberta, Canada</h4>
-          <div className="flex flex-wrap justify-center gap-x-8 gap-y-3">
+          <h4 className="font-heading text-[10px] tracking-[0.3em] uppercase text-white/20 mb-8 text-center">Local Authority · Premium Services Alberta</h4>
+          <div className="flex flex-wrap justify-center gap-x-6 gap-y-4 max-w-5xl mx-auto">
             {[
-              'Downtown Edmonton', 'Sherwood Park', 'St. Albert', 'Leduc', 'Spruce Grove', 
-              'Fort Saskatchewan', 'Beaumont', 'Stony Plain', 'South Terwillegar', 
-              'Windermere', 'Summerside', 'Griesbach', 'Oliver', 'Glenora', 'Old Strathcona'
+              { name: 'Downtown Edmonton', q: 'Edmonton' },
+              { name: 'Sherwood Park', q: 'Sherwood+Park' },
+              { name: 'St. Albert', q: 'St.+Albert' },
+              { name: 'Leduc', q: 'Leduc' },
+              { name: 'Spruce Grove', q: 'Spruce+Grove' },
+              { name: 'Fort Saskatchewan', q: 'Fort+Saskatchewan' },
+              { name: 'Beaumont', q: 'Beaumont' },
+              { name: 'Stony Plain', q: 'Stony+Plain' },
+              { name: 'South Terwillegar', q: 'South+Terwillegar' },
+              { name: 'Windermere', q: 'Windermere' },
+              { name: 'Summerside', q: 'Summerside' },
+              { name: 'Griesbach', q: 'Griesbach' },
+              { name: 'Oliver', q: 'Oliver' },
+              { name: 'Glenora', q: 'Glenora' },
+              { name: 'Old Strathcona', q: 'Old+Strathcona' },
+              { name: 'West Edmonton', q: 'West+Edmonton' },
+              { name: 'North Glenora', q: 'North+Glenora' },
+              { name: 'Mill Woods', q: 'Mill+Woods' },
+              { name: 'Ambleside', q: 'Ambleside' },
+              { name: 'Rutherford', q: 'Rutherford' }
             ].map((area) => (
-              <span key={area} className="text-[10px] font-body text-white/15 hover:text-[#D4AF37] transition-colors cursor-default uppercase tracking-wider">
-                {area}
-              </span>
+              <Link 
+                key={area.name} 
+                to={`/inventory?search=${area.q}`}
+                className="text-[9px] font-body text-white/10 hover:text-[#D4AF37] transition-all hover:scale-110 duration-300 uppercase tracking-[0.2em]"
+              >
+                {area.name}
+              </Link>
             ))}
           </div>
         </div>

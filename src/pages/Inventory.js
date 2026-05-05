@@ -332,18 +332,55 @@ export default function Inventory() {
         <meta name="description" content={intentDesc} />
         <link rel="canonical" href={`https://autonorth.ca/inventory${activeFilters > 0 ? '?' + new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([_, v]) => v))).toString() : ''}`} />
         <script type="application/ld+json">
-          {JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "ItemList",
-            "name": intentTitle,
-            "description": intentDesc,
-            "itemListElement": vehicles.slice(0, 10).map((v, i) => ({
-              "@type": "ListItem",
-              "position": i + 1,
-              "url": `https://autonorth.ca/vehicle/${v._id || v.id}`,
-              "name": v.title
-            }))
-          })}
+          {JSON.stringify([
+            {
+              "@context": "https://schema.org",
+              "@type": "CollectionPage",
+              "name": intentTitle,
+              "description": intentDesc,
+              "url": window.location.href,
+              "mainEntity": {
+                "@type": "ItemList",
+                "numberOfItems": total,
+                "itemListElement": vehicles.slice(0, 20).map((v, i) => ({
+                  "@type": "ListItem",
+                  "position": i + 1,
+                  "item": {
+                    "@type": "Product",
+                    "name": v.title,
+                    "url": `https://autonorth.ca/vehicle/${v._id || v.id}`,
+                    "image": v.images?.[0],
+                    "offers": {
+                      "@type": "Offer",
+                      "price": v.price,
+                      "priceCurrency": "CAD",
+                      "availability": "https://schema.org/InStock"
+                    }
+                  }
+                }))
+              }
+            },
+            {
+              "@context": "https://schema.org",
+              "@type": "AutoDealer",
+              "name": "AutoNorth Motors",
+              "address": {
+                "@type": "PostalAddress",
+                "streetAddress": "8202 118 Ave NW",
+                "addressLocality": "Edmonton",
+                "addressRegion": "AB",
+                "postalCode": "T5B 0S3",
+                "addressCountry": "CA"
+              },
+              "geo": {
+                "@type": "GeoCoordinates",
+                "latitude": 53.5682,
+                "longitude": -113.4619
+              },
+              "telephone": "+18256055050",
+              "priceRange": "$$$"
+            }
+          ])}
         </script>
       </Helmet>
       <div className="bg-[#050505] min-h-screen" data-testid="inventory-page">
@@ -608,9 +645,33 @@ export default function Inventory() {
 
           {!loading && totalPages > 1 && (
             <div className="mt-16 flex flex-col items-center">
-              <Pagination page={page} totalPages={totalPages} onPage={(p) => setPage(p)} />
+               <Pagination page={page} totalPages={totalPages} onPage={(p) => setPage(p)} />
             </div>
           )}
+
+          {/* ── ALGORITHMIC SEMANTIC SILO (CRAWLER TARGET) ── */}
+          <section className="mt-32 pt-20 border-t border-white/[0.05] opacity-[0.03] hover:opacity-100 transition-opacity duration-1000 overflow-hidden">
+            <h4 className="text-white text-xs tracking-widest uppercase mb-10 text-center font-heading">Global Intent Index</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-8 text-[9px] uppercase tracking-tighter">
+              {MAKES.filter(m => m !== 'All').map(m => (
+                <div key={`silo-${m}`} className="flex flex-col gap-2">
+                  <span className="text-white/60 font-bold">{m} Specialist</span>
+                  {BODY_TYPES.filter(bt => bt !== 'All').slice(0, 4).map(bt => (
+                    <Link key={`silo-${m}-${bt}`} to={`/inventory?make=${m}&body_type=${bt}`} className="text-white/20 hover:text-[#D4AF37] transition-colors">
+                      {m} {bt}s for Sale Edmonton
+                    </Link>
+                  ))}
+                </div>
+              ))}
+              <div className="flex flex-col gap-2">
+                <span className="text-white/60 font-bold">Local Financing</span>
+                <Link to="/financing" className="text-white/20 hover:text-[#D4AF37]">Used Car Loans St. Albert</Link>
+                <Link to="/financing" className="text-white/20 hover:text-[#D4AF37]">Bad Credit Financing Leduc</Link>
+                <Link to="/financing" className="text-white/20 hover:text-[#D4AF37]">No Dealer Fees Sherwood Park</Link>
+                <Link to="/financing" className="text-white/20 hover:text-[#D4AF37]">Instant Approval Fort Saskatchewan</Link>
+              </div>
+            </div>
+          </section>
 
           {!loading && total > 0 && (
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center text-white/20 text-[10px] font-heading mt-6 tracking-widest uppercase">
