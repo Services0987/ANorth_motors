@@ -227,7 +227,7 @@ export default function Home() {
                 {topCategory ? `Hand-Picked ${topCategory}s for You` : 'Edmonton, Alberta · Est. 2012'}
               </motion.p>
 
-              <motion.h1 variants={fadeUp} className="font-heading text-5xl md:text-7xl lg:text-[5.5rem] font-light text-white leading-[0.95] tracking-tighter mb-6 uppercase">
+              <h1 className="font-heading text-5xl md:text-7xl lg:text-[5.5rem] font-light text-white leading-[0.95] tracking-tighter mb-6 uppercase">
                 {topCategory ? (
                   <>
                     The Best <span className="gradient-text font-bold">{topCategory}s</span><br />
@@ -239,7 +239,7 @@ export default function Home() {
                     <span className="gradient-text font-semibold">Ambition.</span>
                   </>
                 )}
-              </motion.h1>
+              </h1>
 
               <motion.p variants={fadeUp} className="text-white/60 font-body text-xl md:text-2xl max-w-xl leading-relaxed mb-10">
                 {topCategory 

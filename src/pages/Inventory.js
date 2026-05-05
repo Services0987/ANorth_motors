@@ -405,6 +405,7 @@ export default function Inventory() {
                     >
                       <motion.img 
                         src="/full_luxury_wheel_with_tyre_1777282790829.png"
+                        alt="AutoNorth Motors Luxury Wheel Logo"
                         className="w-[clamp(3rem,12vw,9rem)] h-auto drop-shadow-[0_0_40px_rgba(212,175,55,0.5)] rounded-full overflow-hidden"
                         animate={{ rotate: 360 }}
                         transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
@@ -443,6 +444,7 @@ export default function Inventory() {
                     >
                       <motion.img 
                         src="/full_luxury_wheel_with_tyre_1777282790829.png"
+                        alt="AutoNorth Motors Luxury Wheel Symbol"
                         className="w-[clamp(3rem,12vw,9rem)] h-auto drop-shadow-[0_0_40px_rgba(212,175,55,0.5)] rounded-full overflow-hidden"
                         animate={{ rotate: -360 }}
                         transition={{ duration: 15, repeat: Infinity, ease: "linear" }}

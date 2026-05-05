@@ -568,10 +568,12 @@ async def ping_indexers():
     except Exception as e:
         logger.error(f"Indexer Ping Error: {e}")
 
-@api_router.get("/sitemap.xml")
+@app.get("/sitemap.xml")
 async def get_sitemap():
     """Dynamic Sitemap for Search Engine Dominance."""
-    vehicles = await db.vehicles.find({"status": "available"}).to_list(1000)
+    db_obj = get_db()
+    if not db_obj: return Response(content="Database Unavailable", status_code=503)
+    vehicles = await db_obj.vehicles.find({"status": "available"}).to_list(1000)
     xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
     xml += '  <url><loc>https://autonorth.ca/</loc><lastmod>'+datetime.now().strftime('%Y-%m-%d')+'</lastmod><changefreq>daily</changefreq><priority>1.0</priority></url>\n'
     xml += '  <url><loc>https://autonorth.ca/inventory</loc><lastmod>'+datetime.now().strftime('%Y-%m-%d')+'</lastmod><changefreq>always</changefreq><priority>0.9</priority></url>\n'
@@ -582,10 +584,12 @@ async def get_sitemap():
     xml += '</urlset>'
     return Response(content=xml, media_type="application/xml")
 
-@api_router.get("/rss.xml")
+@app.get("/rss.xml")
 async def get_rss_feed():
     """RSS Feed for Social Media Algorithmic Hijacking."""
-    vehicles = await db.vehicles.find({"status": "available"}).sort("created_at", -1).limit(50).to_list(50)
+    db_obj = get_db()
+    if not db_obj: return Response(content="Database Unavailable", status_code=503)
+    vehicles = await db_obj.vehicles.find({"status": "available"}).sort("created_at", -1).limit(50).to_list(50)
     xml = '<?xml version="1.0" encoding="UTF-8" ?>\n'
     xml += '<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/" xmlns:dc="http://purl.org/dc/elements/1.1/">\n<channel>\n'
     xml += '  <title>AutoNorth Motors | Premium Inventory Edmonton</title>\n'
