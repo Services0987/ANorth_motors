@@ -393,30 +393,6 @@ async def update_general_settings(data: Dict[str, Any], user: str = Depends(get_
     )
     return {"message": "Settings updated"}
 
-@app.get("/api/diag/db")
-async def diagnostic_db():
-    try:
-        dbs = await client.list_database_names()
-        results = {}
-        for d in dbs:
-            if d.lower() in ['autonorth', 'admin', 'local', 'config']:
-                _db = client[d]
-                colls = await _db.list_collection_names()
-                counts = {}
-                for c in colls:
-                    counts[c] = await _db[c].count_documents({})
-                results[d] = {"collections": colls, "counts": counts}
-        return {
-            "all_dbs": dbs,
-            "probed_details": results,
-            "current_env_db": DB_NAME,
-            "mongo_url_set": bool(os.environ.get("MONGODB_URI") or os.environ.get("MONGO_URL")),
-            "admin_user_exists": await client["AutoNorth"]["users"].find_one({"email": "admin@autonorth.ca"}) is not None,
-            "sample_vehicle": json.loads(json.dumps(await client["AutoNorth"]["vehicles"].find_one({}), default=str)) if await client["AutoNorth"]["vehicles"].find_one({}) else None
-        }
-    except Exception as e:
-        return {"error": str(e)}
-
 @app.get("/api/health")
 async def health():
     return {"status": "healthy", "db": DB_NAME}
