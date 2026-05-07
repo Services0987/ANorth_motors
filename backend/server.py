@@ -12,7 +12,6 @@ import io
 import logging
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from scraper import NeuralKnowledge, scrape_teamford_listing, sync_teamford_listings, sync_teamford_batch, get_sync_info
 from bson import ObjectId
 
 # Setup logging
@@ -26,6 +25,9 @@ MONGODB_URI = os.environ.get("MONGODB_URI", "mongodb://localhost:27017")
 client = AsyncIOMotorClient(MONGODB_URI)
 db = client.autonorth
 
+# Scraper imports after DB is ready
+from scraper import NeuralKnowledge, scrape_teamford_listing, sync_teamford_listings, sync_teamford_batch, get_sync_info
+
 # Security
 SECRET_KEY = os.environ.get("JWT_SECRET", "autonorth-super-secret-2024-elite")
 ALGORITHM = "HS256"
@@ -34,8 +36,13 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex="https://.*\.vercel\.app",
-    allow_origins=["http://localhost:3000", "https://autonorth.ca", "https://www.autonorth.ca", "https://anorth-motors.vercel.app"],
+    allow_origins=[
+        "http://localhost:3000", 
+        "https://autonorth.ca", 
+        "https://www.autonorth.ca", 
+        "https://anorth-motors.vercel.app",
+        "https://anorth-motors-git-main-smmservices0987-9344s-projects.vercel.app"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
