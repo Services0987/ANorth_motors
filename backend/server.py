@@ -25,6 +25,26 @@ DB_NAME = os.environ.get("DB_NAME", "autonorth")
 client = AsyncIOMotorClient(MONGODB_URI)
 db = client[DB_NAME]
 
+async def ensure_default_admin():
+    try:
+        admin_email = os.environ.get("ADMIN_EMAIL", "admin@autonorth.ca")
+        admin_pass = os.environ.get("ADMIN_PASSWORD", "admin123")
+        exists = await db.users.find_one({"email": admin_email})
+        if not exists:
+            await db.users.insert_one({
+                "email": admin_email,
+                "password": pwd_context.hash(admin_pass),
+                "role": "admin",
+                "created_at": datetime.utcnow()
+            })
+            print(f"Default admin {admin_email} created.")
+    except Exception as e:
+        print(f"Failed to ensure admin: {e}")
+
+@app.on_event("startup")
+async def startup_event():
+    await ensure_default_admin()
+
 # Security
 SECRET_KEY = os.environ.get("JWT_SECRET", "autonorth-super-secret-2024-elite")
 ALGORITHM = "HS256"
@@ -371,3 +391,29 @@ async def update_general_settings(data: Dict[str, Any], user: str = Depends(get_
         upsert=True
     )
     return {"message": "Settings updated"}
+
+@app.get("/api/diag/db")
+async def diagnostic_db():
+    try:
+        dbs = await client.list_database_names()
+        results = {}
+        for d in dbs:
+            if d.lower() in ['autonorth', 'admin', 'local', 'config']:
+                _db = client[d]
+                colls = await _db.list_collection_names()
+                counts = {}
+                for c in colls:
+                    counts[c] = await _db[c].count_documents({})
+                results[d] = {"collections": colls, "counts": counts}
+        return {
+            "all_dbs": dbs,
+            "probed_details": results,
+            "current_env_db": DB_NAME,
+            "mongo_url_set": bool(os.environ.get("MONGODB_URI") or os.environ.get("MONGO_URL"))
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.get("/api/health")
+async def health():
+    return {"status": "healthy", "db": DB_NAME}
