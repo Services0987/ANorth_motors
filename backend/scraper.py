@@ -3,6 +3,7 @@ import json
 import logging
 import asyncio
 import re
+import math
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timezone
 
@@ -14,11 +15,11 @@ ALGOLIA_API_KEY = "650a66d4bf074b5de276a2ecb945bf80"
 ALGOLIA_URL = f"https://{ALGOLIA_APP_ID}-dsn.algolia.net/1/indexes/*/queries"
 
 class NeuralKnowledge:
-    """
+    \"\"\"
     NEURAL KNOWLEDGE ENGINE:
     Acts as a high-intelligence 'Local Brain' that mimics advanced LLMs using 
     semantic pattern matching and inventory-aware synthesis.
-    """
+    \"\"\"
     @staticmethod
     def extract_intent(msg: str):
         msg = msg.lower()
@@ -99,7 +100,7 @@ def _clean_numeric(val):
     except: return 0
 
 def _parse_teamford_vehicle(h: Dict) -> Dict[str, Any]:
-    """Helper to parse a single vehicle from Algolia hit with robust field mapping."""
+    \"\"\"Helper to parse a single vehicle from Algolia hit with robust field mapping.\"\"\"
     # Robust Price Extraction
     price = 0
     price_fields = ["sort_price", "special_price", "list_price", "regular_price", "retail_price", "msrp"]
@@ -197,9 +198,28 @@ def _parse_teamford_vehicle(h: Dict) -> Dict[str, Any]:
         "source_url": f"https://www.teamford.ca/vehicles/{h.get('slug')}" if h.get('slug') else ""
     }
 
-async def scrape_teamford_inventory(limit: int = 2000) -> List[Dict[str, Any]]:
-    """DEFINITIVE SYNC ENGINE: Captures vehicles from Team Ford live feed."""
-    logger.info("Starting Team Ford Algolia Sync...")
+async def get_sync_info() -> Dict[str, Any]:
+    \"\"\"Retrieves total counts and page info for syncing.\"\"\"
+    try:
+        headers = {
+            "x-algolia-api-key": ALGOLIA_API_KEY,
+            "x-algolia-application-id": ALGOLIA_APP_ID,
+            "Content-Type": "application/json"
+        }
+        payload = {"requests": [{"indexName": "inventory", "params": "filters=craft_site_ids%3A34&hitsPerPage=1&page=0"}]}
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(ALGOLIA_URL, json=payload, headers=headers)
+            resp.raise_for_status()
+            data = resp.json()
+            nb_hits = data.get("results", [{}])[0].get("nbHits", 0)
+            return {"total_vehicles": nb_hits, "hits_per_page": 100, "total_pages": math.ceil(nb_hits / 100) if nb_hits else 0}
+    except Exception as e:
+        logger.error(f"Failed to get sync info: {e}")
+        return {"total_vehicles": 0, "hits_per_page": 100, "total_pages": 0}
+
+async def sync_teamford_batch(page: int) -> Dict[str, int]:
+    \"\"\"Syncs a single page (batch) of vehicles from Team Ford.\"\"\"
+    logger.info(f"Processing batch page {page}...")
     try:
         headers = {
             "x-algolia-api-key": ALGOLIA_API_KEY,
@@ -208,46 +228,71 @@ async def scrape_teamford_inventory(limit: int = 2000) -> List[Dict[str, Any]]:
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
             "Referer": "https://www.teamford.ca/"
         }
-        all_vehicles = []
-        page = 0
-        hits_per_page = 100 
+        payload = {"requests": [{"indexName": "inventory", "params": f"filters=craft_site_ids%3A34&hitsPerPage=100&page={page}"}]}
         
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            while len(all_vehicles) < limit:
-                logger.info(f"Fetching Algolia page {page}...")
-                # Try site ID 34 (Team Ford)
-                payload = {"requests": [{"indexName": "inventory", "params": f"filters=craft_site_ids%3A34&hitsPerPage={hits_per_page}&page={page}"}]}
-                resp = await client.post(ALGOLIA_URL, json=payload, headers=headers)
-                resp.raise_for_status()
-                data = resp.json()
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(ALGOLIA_URL, json=payload, headers=headers)
+            resp.raise_for_status()
+            hits = resp.json().get("results", [{}])[0].get("hits", [])
+            
+            if not hits: return {"imported": 0, "updated": 0, "count": 0}
+            
+            imported, updated = 0, 0
+            from server import db
+            
+            for h in hits:
+                v = _parse_teamford_vehicle(h)
+                vin, stock = v.get("vin"), v.get("stock_number")
+                if not vin and not stock: continue
                 
-                result = data.get("results", [{}])[0]
-                hits = result.get("hits", [])
-                nb_hits = result.get("nbHits", 0)
+                existing = None
+                if vin: existing = await db.vehicles.find_one({"vin": vin})
+                if not existing and stock: existing = await db.vehicles.find_one({"stock_number": stock})
                 
-                if not hits:
-                    logger.info("No more hits found in Algolia.")
-                    break
-                    
-                logger.info(f"Processing {len(hits)} hits from page {page} (Total results available: {nb_hits})")
-                for h in hits:
-                    doc = _parse_teamford_vehicle(h)
-                    if doc["vin"] or doc["stock_number"]:
-                        all_vehicles.append(doc)
-                
-                if len(all_vehicles) >= nb_hits or page >= 25: 
-                    break
-                page += 1
-                await asyncio.sleep(0.5) # Gentle rate limiting
-                
-        logger.info(f"Successfully scraped {len(all_vehicles)} vehicles from Team Ford.")
-        return all_vehicles
+                if existing:
+                    await db.vehicles.update_one({"_id": existing["_id"]}, {"$set": {**v, "updated_at": datetime.now(timezone.utc)}})
+                    updated += 1
+                else:
+                    v["created_at"] = datetime.now(timezone.utc)
+                    v["updated_at"] = v["created_at"]
+                    await db.vehicles.insert_one(v)
+                    imported += 1
+            
+            return {"imported": imported, "updated": updated, "count": len(hits)}
     except Exception as e:
-        logger.error(f"Sync Engine Failure: {str(e)}", exc_info=True)
-        return []
+        logger.error(f"Batch sync page {page} failed: {e}")
+        return {"imported": 0, "updated": 0, "count": 0, "error": str(e)}
+
+async def scrape_teamford_inventory(limit: int = 2000) -> List[Dict[str, Any]]:
+    \"\"\"Legacy helper to scrape all inventory at once. Uses batches to avoid timeouts.\"\"\"
+    info = await get_sync_info()
+    total_pages = info.get("total_pages", 0)
+    all_vehicles = []
+    
+    headers = {
+        "x-algolia-api-key": ALGOLIA_API_KEY,
+        "x-algolia-application-id": ALGOLIA_APP_ID,
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Referer": "https://www.teamford.ca/"
+    }
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        for page in range(total_pages):
+            payload = {"requests": [{"indexName": "inventory", "params": f"filters=craft_site_ids%3A34&hitsPerPage=100&page={page}"}]}
+            resp = await client.post(ALGOLIA_URL, json=payload, headers=headers)
+            if resp.status_code == 200:
+                hits = resp.json().get("results", [{}])[0].get("hits", [])
+                for h in hits:
+                    all_vehicles.append(_parse_teamford_vehicle(h))
+                    if len(all_vehicles) >= limit:
+                        return all_vehicles
+            if len(all_vehicles) >= limit: break
+            
+    return all_vehicles
 
 async def sync_teamford_listings() -> Dict[str, int]:
-    """Sync all Team Ford listings to local database."""
+    \"\"\"Sync all Team Ford listings to local database.\"\"\"
     logger.info("Initiating database sync...")
     try:
         vehicles = await scrape_teamford_inventory(limit=2000)
@@ -290,17 +335,17 @@ async def sync_teamford_listings() -> Dict[str, int]:
         return {"success": False, "imported": 0, "updated": 0, "deleted": 0}
 
 async def scrape_teamford_listing(url: str) -> Optional[Dict[str, Any]]:
-    """Scrapes a single Team Ford vehicle listing page."""
+    \"\"\"Scrapes a single Team Ford vehicle listing page.\"\"\"
     try:
         slug = url.rstrip('/').split('/')[-1]
-        algolia_headers = {"x-algolia-api-key": ALGOLIA_API_KEY, "x-algolia-application-id": ALGOLIA_APP_ID, "Content-Type": "application/json"}
+        algolia_headers = {\"x-algolia-api-key\": ALGOLIA_API_KEY, \"x-algolia-application-id\": ALGOLIA_APP_ID, \"Content-Type\": \"application/json\"}
         async with httpx.AsyncClient(timeout=30.0) as client:
-            payload = {"requests": [{"indexName": "inventory", "params": f"query={slug}&hitsPerPage=1&filters=craft_site_ids%3A34"}]}
+            payload = {\"requests\": [{\"indexName\": \"inventory\", \"params\": f\"query={slug}&hitsPerPage=1&filters=craft_site_ids%3A34\"}]}
             resp = await client.post(ALGOLIA_URL, json=payload, headers=algolia_headers)
             if resp.status_code == 200:
-                hits = resp.json().get("results", [{}])[0].get("hits", [])
+                hits = resp.json().get(\"results\", [{}])[0].get(\"hits\", [])
                 if hits: return _parse_teamford_vehicle(hits[0])
         return None
     except Exception as e:
-        logger.error(f"Failed to scrape listing {url}: {e}")
+        logger.error(f\"Failed to scrape listing {url}: {e}\")
         return None
