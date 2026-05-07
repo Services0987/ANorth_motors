@@ -7,7 +7,6 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 import uuid
-import pandas as pd
 import io
 import logging
 from jose import JWTError, jwt
@@ -25,8 +24,8 @@ MONGODB_URI = os.environ.get("MONGODB_URI") or os.environ.get("MONGO_URL") or "m
 client = AsyncIOMotorClient(MONGODB_URI)
 db = client.autonorth
 
-# Scraper imports after DB is ready
-from scraper import NeuralKnowledge, scrape_teamford_listing, sync_teamford_listings, sync_teamford_batch, get_sync_info
+client = AsyncIOMotorClient(MONGODB_URI)
+db = client.autonorth
 
 # Security
 SECRET_KEY = os.environ.get("JWT_SECRET", "autonorth-super-secret-2024-elite")
@@ -249,6 +248,7 @@ async def bulk_delete(ids: List[str], user: str = Depends(get_current_user)):
 # AI Chat
 @app.post("/api/chat")
 async def chat(data: Dict[str, Any]):
+    from scraper import NeuralKnowledge
     msg = data.get("message", "")
     # Get recent inventory for AI context
     cursor = db.vehicles.find({"status": "available"}).sort("created_at", -1).limit(50)
@@ -276,11 +276,13 @@ async def update_settings(settings: ScraperSettings, user: str = Depends(get_cur
 
 @app.get("/api/scraper/sync/info")
 async def scraper_sync_info(user: str = Depends(get_current_user)):
+    from scraper import get_sync_info
     info = await get_sync_info()
     return info
 
 @app.post("/api/scraper/sync/batch")
 async def scraper_sync_batch(page: int, user: str = Depends(get_current_user)):
+    from scraper import sync_teamford_batch
     result = await sync_teamford_batch(page)
     if result.get("count", 0) > 0:
         await db.settings.update_one(
@@ -292,6 +294,7 @@ async def scraper_sync_batch(page: int, user: str = Depends(get_current_user)):
 
 @app.post("/api/scraper/sync")
 async def trigger_sync(user: str = Depends(get_current_user)):
+    from scraper import sync_teamford_listings
     # Legacy bulk sync - might timeout on Vercel
     result = await sync_teamford_listings()
     if result.get("success"):
@@ -304,6 +307,7 @@ async def trigger_sync(user: str = Depends(get_current_user)):
 
 @app.post("/api/scraper/import-url")
 async def import_url(data: Dict[str, str], user: str = Depends(get_current_user)):
+    from scraper import scrape_teamford_listing
     url = data.get("url")
     if not url: raise HTTPException(status_code=400, detail="URL required")
     vehicle = await scrape_teamford_listing(url)
@@ -312,6 +316,7 @@ async def import_url(data: Dict[str, str], user: str = Depends(get_current_user)
 
 @app.post("/api/vehicles/import")
 async def import_csv(file: UploadFile = File(...), user: str = Depends(get_current_user)):
+    import pandas as pd
     content = await file.read()
     df = pd.read_csv(io.BytesIO(content))
     imported = 0
