@@ -1,4 +1,5 @@
 import os
+import json
 from fastapi import FastAPI, HTTPException, Request, Depends, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -409,7 +410,8 @@ async def diagnostic_db():
             "all_dbs": dbs,
             "probed_details": results,
             "current_env_db": DB_NAME,
-            "mongo_url_set": bool(os.environ.get("MONGODB_URI") or os.environ.get("MONGO_URL"))
+            "mongo_url_set": bool(os.environ.get("MONGODB_URI") or os.environ.get("MONGO_URL")),
+            "sample_vehicle": json.loads(json.dumps(await client["AutoNorth"]["vehicles"].find_one({}), default=str)) if await client["AutoNorth"]["vehicles"].find_one({}) else None
         }
     except Exception as e:
         return {"error": str(e)}
