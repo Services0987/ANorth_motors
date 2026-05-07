@@ -108,6 +108,10 @@ def _parse_teamford_vehicle(h: Dict) -> Dict[str, Any]:
         pricing = h.get("pricing") or {}
         if isinstance(pricing, dict):
             price = float(pricing.get("sell_price") or pricing.get("list_price") or 0)
+    
+    # Filter out unrealistic placeholder prices (e.g., 9999999 or 8888888)
+    if price > 2000000:
+        price = 0 # Mark as "Contact for Price"
 
     # Robust Image Construction (Cloudinary)
     images = []
