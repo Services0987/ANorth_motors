@@ -112,9 +112,10 @@ def _parse_teamford_vehicle(h: Dict) -> Dict[str, Any]:
     # 1. Try photo_service_ids (Real photos)
     photo_ids = h.get("photo_service_ids") or []
     if isinstance(photo_ids, list) and photo_ids:
-        # Base URL for Team Ford Cloudinary
-        base_url = "https://res.cloudinary.com/kraft-apps/image/upload/c_fill,f_auto,fl_lossy,q_auto,w_1920/"
-        images = [f"{base_url}{pid}" for pid in photo_ids]
+        # Base URL for Team Ford (GoAuto) Cloudinary
+        # Cloud name is 'goauto-images', transformation and v1 prefix are required
+        base_url = "https://res.cloudinary.com/goauto-images/image/upload/f_auto,c_fill,q_auto,w_1920/v1/"
+        images = [f"{base_url}{pid}.jpg" for pid in photo_ids]
     
     # 2. Fallback to images list
     if not images:
