@@ -180,9 +180,14 @@ async def get_vehicles(
     show_on_home: Optional[str] = None
 ):
     query = {}
-    if status != "all":
+    
+    # 1. Status Filter: Match case-insensitively. If 'available', match 'available' OR null/missing.
+    if status.lower() == "available":
+        query["status"] = {"$in": [None, "available", "Available", "AVAILABLE"]}
+    elif status.lower() != "all":
         query["status"] = {"$regex": f"^{status}$", "$options": "i"}
     
+    # 2. Search Logic
     if search:
         query["$or"] = [
             {"title": {"$regex": search, "$options": "i"}},
@@ -192,22 +197,26 @@ async def get_vehicles(
             {"stock_number": {"$regex": search, "$options": "i"}}
         ]
     
+    # 3. Categorical Filters
     if make: query["make"] = {"$regex": f"^{make}$", "$options": "i"}
     if body_type: query["body_type"] = {"$regex": f"^{body_type}$", "$options": "i"}
     if fuel_type: query["fuel_type"] = {"$regex": f"^{fuel_type}$", "$options": "i"}
     if condition: query["condition"] = {"$regex": f"^{condition}$", "$options": "i"}
     
+    # 4. Show on Home: Match True or null/missing (default True) unless explicitly False
     if show_on_home is not None:
         if show_on_home.lower() == "true":
             query["show_on_home"] = {"$ne": False}
         else:
             query["show_on_home"] = False
         
+    # 5. Price range
     if min_price is not None or max_price is not None:
         query["price"] = {}
         if min_price is not None: query["price"]["$gte"] = min_price
         if max_price is not None: query["price"]["$lte"] = max_price
 
+    # 6. Execution
     cursor = db.vehicles.find(query).sort("created_at", -1).skip(skip).limit(limit)
     vehicles = await cursor.to_list(length=limit)
     total = await db.vehicles.count_documents(query)
