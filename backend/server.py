@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="AutoNorth Motors API")
 
 # Database (Must be before scraper import to avoid circular issues)
-MONGODB_URI = os.environ.get("MONGODB_URI", "mongodb://localhost:27017")
+MONGODB_URI = os.environ.get("MONGODB_URI") or os.environ.get("MONGO_URL") or "mongodb://localhost:27017"
 client = AsyncIOMotorClient(MONGODB_URI)
 db = client.autonorth
 
