@@ -190,12 +190,16 @@ def _parse_teamford_vehicle(h: Dict) -> Dict[str, Any]:
         "engine": engine,
         "description": description[:2000], 
         "features": [_sanitize(f.get("name")) for f in h.get("features", []) if isinstance(f, dict) and f.get("name")],
+
         "images": images,
         "status": "available",
         "source": "teamford_sync",
         "featured": h.get("is_featured", False),
+        "show_on_home": True, # Ensure vehicles appear on the home page by default
         "is_on_special": h.get("is_on_special", False),
-        "source_url": f"https://www.teamford.ca/vehicles/{h.get('slug')}" if h.get('slug') else ""
+        "source_url": f"https://www.teamford.ca/vehicles/{h.get('slug')}" if h.get('slug') else "",
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc)
     }
 
 async def get_sync_info() -> Dict[str, Any]:
@@ -249,12 +253,21 @@ async def sync_teamford_batch(page: int) -> Dict[str, int]:
                 if vin: existing = await db.vehicles.find_one({"vin": vin})
                 if not existing and stock: existing = await db.vehicles.find_one({"stock_number": stock})
                 
+
                 if existing:
-                    await db.vehicles.update_one({"_id": existing["_id"]}, {"$set": {**v, "updated_at": datetime.now(timezone.utc)}})
+                    # Ensure existing vehicles also get timestamps and home visibility if missing
+                    update_fields = {**v, "updated_at": datetime.now(timezone.utc)}
+                    if "created_at" not in existing:
+                        update_fields["created_at"] = existing.get("created_at", datetime.now(timezone.utc))
+                    if "show_on_home" not in existing:
+                        update_fields["show_on_home"] = True
+                    
+                    await db.vehicles.update_one({"_id": existing["_id"]}, {"$set": update_fields})
                     updated += 1
                 else:
                     v["created_at"] = datetime.now(timezone.utc)
                     v["updated_at"] = v["created_at"]
+                    v["show_on_home"] = True # Default for new synced items
                     await db.vehicles.insert_one(v)
                     imported += 1
             

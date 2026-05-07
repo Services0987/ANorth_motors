@@ -148,16 +148,32 @@ async def update_profile(data: Dict[str, Any], user_email: str = Depends(get_cur
     await db.users.update_one({"email": user_email}, {"$set": update_data})
     return {"message": "Profile updated"}
 
+
+from bson import ObjectId
+
+def to_id(id_str: str):
+    try:
+        return ObjectId(id_str)
+    except:
+        return id_str
+
 @app.get("/api/vehicles")
 async def get_vehicles(
     status: str = "available", 
     limit: int = 100, 
     skip: int = 0,
-    search: Optional[str] = None
+    search: Optional[str] = None,
+    make: Optional[str] = None,
+    body_type: Optional[str] = None,
+    fuel_type: Optional[str] = None,
+    condition: Optional[str] = None,
+    min_price: Optional[float] = None,
+    max_price: Optional[float] = None,
+    show_on_home: Optional[str] = None
 ):
     query = {}
     if status != "all":
-        query["status"] = status
+        query["status"] = {"$regex": f"^{status}$", "$options": "i"}
     
     if search:
         query["$or"] = [
@@ -167,6 +183,19 @@ async def get_vehicles(
             {"vin": {"$regex": search, "$options": "i"}},
             {"stock_number": {"$regex": search, "$options": "i"}}
         ]
+    
+    if make: query["make"] = {"$regex": f"^{make}$", "$options": "i"}
+    if body_type: query["body_type"] = {"$regex": f"^{body_type}$", "$options": "i"}
+    if fuel_type: query["fuel_type"] = {"$regex": f"^{fuel_type}$", "$options": "i"}
+    if condition: query["condition"] = {"$regex": f"^{condition}$", "$options": "i"}
+    
+    if show_on_home is not None:
+        query["show_on_home"] = show_on_home.lower() == "true"
+        
+    if min_price is not None or max_price is not None:
+        query["price"] = {}
+        if min_price is not None: query["price"]["$gte"] = min_price
+        if max_price is not None: query["price"]["$lte"] = max_price
 
     cursor = db.vehicles.find(query).sort("created_at", -1).skip(skip).limit(limit)
     vehicles = await cursor.to_list(length=limit)
@@ -179,6 +208,9 @@ async def get_vehicles(
 @app.post("/api/vehicles")
 async def create_vehicle(vehicle: Vehicle, user: str = Depends(get_current_user)):
     v_dict = vehicle.dict(by_alias=True)
+    if "_id" in v_dict: del v_dict["_id"]
+    v_dict["created_at"] = datetime.now(timezone.utc)
+    v_dict["updated_at"] = v_dict["created_at"]
     result = await db.vehicles.insert_one(v_dict)
     return {"id": str(result.inserted_id)}
 
@@ -186,17 +218,18 @@ async def create_vehicle(vehicle: Vehicle, user: str = Depends(get_current_user)
 async def update_vehicle(vehicle_id: str, data: Dict[str, Any], user: str = Depends(get_current_user)):
     if "_id" in data: del data["_id"]
     data["updated_at"] = datetime.now(timezone.utc)
-    await db.vehicles.update_one({"_id": vehicle_id}, {"$set": data})
+    await db.vehicles.update_one({"_id": to_id(vehicle_id)}, {"$set": data})
     return {"message": "Vehicle updated"}
 
 @app.delete("/api/vehicles/{vehicle_id}")
 async def delete_vehicle(vehicle_id: str, user: str = Depends(get_current_user)):
-    await db.vehicles.delete_one({"_id": vehicle_id})
+    await db.vehicles.delete_one({"_id": to_id(vehicle_id)})
     return {"message": "Vehicle deleted"}
 
 @app.delete("/api/vehicles/bulk/delete")
 async def bulk_delete(ids: List[str], user: str = Depends(get_current_user)):
-    await db.vehicles.delete_many({"_id": {"$in": ids}})
+    obj_ids = [to_id(i) for i in ids]
+    await db.vehicles.delete_many({"_id": {"$in": obj_ids}})
     return {"message": f"{len(ids)} vehicles deleted"}
 
 # AI Chat
