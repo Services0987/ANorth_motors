@@ -21,6 +21,11 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="AutoNorth Motors API")
 
+# Database (Must be before scraper import to avoid circular issues)
+MONGODB_URI = os.environ.get("MONGODB_URI", "mongodb://localhost:27017")
+client = AsyncIOMotorClient(MONGODB_URI)
+db = client.autonorth
+
 # Security
 SECRET_KEY = os.environ.get("JWT_SECRET", "autonorth-super-secret-2024-elite")
 ALGORITHM = "HS256"
@@ -29,16 +34,14 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origin_regex="https://.*\.vercel\.app",
+    allow_origins=["http://localhost:3000", "https://autonorth.ca", "https://www.autonorth.ca", "https://anorth-motors.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Database
-MONGODB_URI = os.environ.get("MONGODB_URI", "mongodb://localhost:27017")
-client = AsyncIOMotorClient(MONGODB_URI)
-db = client.autonorth
+
 
 # Models
 class Vehicle(BaseModel):
