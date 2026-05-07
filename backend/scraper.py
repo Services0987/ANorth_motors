@@ -91,6 +91,13 @@ def _sanitize(text):
     # Remove Team Ford branding
     return re.sub(r'(?i)team\s*ford', 'AutoNorth', text)
 
+def _clean_numeric(val):
+    if not val: return 0
+    if isinstance(val, (int, float)): return float(val)
+    cleaned = re.sub(r'[^\d.]', '', str(val))
+    try: return float(cleaned)
+    except: return 0
+
 def _parse_teamford_vehicle(h: Dict) -> Dict[str, Any]:
     """Helper to parse a single vehicle from Algolia hit with robust field mapping."""
     # Robust Price Extraction
@@ -98,20 +105,21 @@ def _parse_teamford_vehicle(h: Dict) -> Dict[str, Any]:
     price_fields = ["sort_price", "special_price", "list_price", "regular_price", "retail_price", "msrp"]
     for field in price_fields:
         val = h.get(field)
-        if val:
-            try:
-                price = float(val)
-                if price > 0: break
-            except: continue
+        price = _clean_numeric(val)
+        if price > 0: break
     
     if not price:
         pricing = h.get("pricing") or {}
         if isinstance(pricing, dict):
-            price = float(pricing.get("sell_price") or pricing.get("list_price") or 0)
+            price = _clean_numeric(pricing.get("sell_price") or pricing.get("list_price") or 0)
     
-    # Filter out unrealistic placeholder prices (e.g., 9999999 or 8888888)
-    if price > 2000000:
+    # Filter out unrealistic placeholder prices (e.g., 9999999)
+    if price >= 9000000:
         price = 0 # Mark as "Contact for Price"
+    
+    # Robust Mileage
+    mileage = _clean_numeric(h.get("odometer") or h.get("mileage") or 0)
+    if mileage >= 500000: mileage = 0
 
     # Robust Image Construction (Cloudinary)
     images = []
@@ -170,7 +178,7 @@ def _parse_teamford_vehicle(h: Dict) -> Dict[str, Any]:
         "model": model,
         "year": year,
         "price": price,
-        "mileage": int(h.get("odometer") or h.get("mileage") or 0),
+        "mileage": int(mileage),
         "condition": (h.get("stock_type") or "used").lower(),
         "body_type": h.get("body_type_name") or h.get("body_style") or h.get("body_type_category"),
         "fuel_type": h.get("fuel_type_category") or h.get("fuel_type_name") or "Gas",

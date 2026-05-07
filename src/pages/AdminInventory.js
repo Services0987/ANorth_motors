@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Plus, Pencil, Trash2, X, Check, Star, Search,
-  ChevronDown, RefreshCcw as RefreshCw, Globe, Link, Layers, 
+  ChevronDown, RefreshCcw as RefreshCw, Globe, Link as LinkIcon, Layers, 
   ChevronLeft, ChevronRight, LayoutGrid, FileText, AlertTriangle as AlertCircle,
   StarOff, Upload, Download, LayoutList, CheckCircle
 } from 'lucide-react';
@@ -194,9 +194,7 @@ export default function AdminInventory() {
     setSyncStatus(null);
     try { 
       const { data } = await axios.post(`${API}/scraper/sync/teamford`, {}, { withCredentials: true }); 
-      setSyncStatus({ added: data.added, updated: data.updated, deleted: data.deleted });
-      fetchVehicles(); 
-      fetchScraperSettings(); 
+      alert(data.message || "Sync started in background!");
     }
     catch (err) { console.error(err); alert("Sync failed. Check logs."); } 
     finally { setScraperLoading(false); }
@@ -292,7 +290,7 @@ export default function AdminInventory() {
                 <input className="input-dark w-full pl-9 pr-4 py-2.5 text-sm font-body" placeholder="Paste any vehicle URL from teamford.ca..." value={scraperUrl} onChange={e => setScraperUrl(e.target.value)} />
               </div>
               <button onClick={handleUrlImport} disabled={!scraperUrl || scraperLoading} className="btn-outline px-6 py-2.5 text-[10px] font-heading tracking-widest uppercase flex items-center gap-2">
-                {SAFE_ICON(Link, { size: 11 })} Import URL
+                {SAFE_ICON(LinkIcon, { size: 11 })} Import URL
               </button>
            </div>
            {lastSync && <p className="text-white/20 text-[9px] mt-3 font-body uppercase tracking-widest">Last Successful Sync: {new Date(lastSync).toLocaleString()}</p>}
