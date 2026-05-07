@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Plus, Pencil, Trash2, X, Check, Star, Search,
-  ChevronDown, RefreshCcw as RefreshCw, Globe, Link as LinkIcon, Layers, 
+  ChevronDown, RefreshCcw as RefreshCw, Globe, ExternalLink, Layers, 
   ChevronLeft, ChevronRight, LayoutGrid, FileText, AlertTriangle as AlertCircle,
   StarOff, Upload, Download, LayoutList, CheckCircle
 } from 'lucide-react';
@@ -344,7 +344,7 @@ export default function AdminInventory() {
                 <input className="input-dark w-full pl-9 pr-4 py-2.5 text-sm font-body" placeholder="Paste any vehicle URL from teamford.ca..." value={scraperUrl} onChange={e => setScraperUrl(e.target.value)} />
               </div>
               <button onClick={handleUrlImport} disabled={!scraperUrl || scraperLoading} className="btn-outline px-6 py-2.5 text-[10px] font-heading tracking-widest uppercase flex items-center gap-2">
-                {SAFE_ICON(LinkIcon, { size: 11 })} Import URL
+                {SAFE_ICON(ExternalLink, { size: 11 })} Import URL
               </button>
            </div>
            {lastSync && <p className="text-white/20 text-[9px] mt-3 font-body uppercase tracking-widest">Last Successful Sync: {new Date(lastSync).toLocaleString()}</p>}
@@ -385,7 +385,7 @@ export default function AdminInventory() {
                 {SAFE_ICON(Plus, { size: 14 })} Manual
               </button>
               <button onClick={() => { openAdd(); setAddMode('url'); }} className="text-white/40 hover:text-white px-5 py-2.5 text-xs font-bold uppercase transition-all flex items-center gap-2">
-                {SAFE_ICON(LinkIcon, { size: 14 })} URL
+                {SAFE_ICON(ExternalLink, { size: 14 })} URL
               </button>
             </div>
             <label htmlFor="csv-upload" className="btn-outline px-6 py-3 text-xs flex items-center gap-2 cursor-pointer">
@@ -488,7 +488,7 @@ export default function AdminInventory() {
               {addMode === 'url' ? (
                 <div className="col-span-12 space-y-6 max-w-xl mx-auto py-10 w-full">
                   <div className="text-center mb-8">
-                    {SAFE_ICON(LinkIcon, { size: 32, className: "text-[#D4AF37] mx-auto mb-4" })}
+                    {SAFE_ICON(ExternalLink, { size: 32, className: "text-[#D4AF37] mx-auto mb-4" })}
                     <h3 className="text-white text-xl font-heading mb-2">Import from External URL</h3>
                     <p className="text-white/40 text-sm font-body">Paste a TeamFord.ca or GoAuto listing URL to automatically extract all specs and high-res images.</p>
                   </div>

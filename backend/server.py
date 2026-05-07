@@ -191,7 +191,10 @@ async def get_vehicles(
     if condition: query["condition"] = {"$regex": f"^{condition}$", "$options": "i"}
     
     if show_on_home is not None:
-        query["show_on_home"] = show_on_home.lower() == "true"
+        if show_on_home.lower() == "true":
+            query["show_on_home"] = {"$ne": False}
+        else:
+            query["show_on_home"] = False
         
     if min_price is not None or max_price is not None:
         query["price"] = {}
