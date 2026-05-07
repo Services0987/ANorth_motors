@@ -88,33 +88,61 @@ def _sanitize(text):
     return re.sub(r'(?i)team\s*ford', 'AutoNorth', str(text))
 
 def _parse_teamford_vehicle(h: Dict) -> Dict[str, Any]:
-    """Helper to parse a single vehicle from Algolia hit."""
-    price = float(h.get("pricing", {}).get("sell_price", 0))
-    if not price: price = float(h.get("list_price", 0))
-    if not price: price = float(h.get("retail_price", 0))
+    """Helper to parse a single vehicle from Algolia hit with robust field mapping."""
+    # Robust Price Extraction
+    price = 0
+    price_fields = ["special_price", "list_price", "regular_price", "retail_price", "msrp"]
+    for field in price_fields:
+        val = h.get(field)
+        if val:
+            try:
+                price = float(val)
+                if price > 0: break
+            except: continue
     
-    images = [img.get("url") for img in h.get("images", []) if img.get("url")]
+    if not price:
+        # Try nested pricing if available
+        pricing = h.get("pricing") or {}
+        if isinstance(pricing, dict):
+            price = float(pricing.get("sell_price") or pricing.get("list_price") or 0)
+
+    # Robust Images
+    images = [img.get("url") for img in h.get("images", []) if isinstance(img, dict) and img.get("url")]
     if not images and h.get("thumbnail_url"): images = [h.get("thumbnail_url")]
     
+    # Robust Identifiers
+    vin = h.get("vin")
+    stock = h.get("stock_number")
+    
+    # Mapping
+    make = h.get("make_name") or h.get("make") or ""
+    model = h.get("model_name") or h.get("model") or ""
+    year = int(h.get("year") or 2024)
+    trim = h.get("published_trim") or h.get("trim") or ""
+    
+    title = _sanitize(f"{year} {make} {model} {trim}".strip())
+    if not title or title == str(year):
+        title = _sanitize(h.get("title") or f"{year} Vehicle Listing")
+
     return {
-        "vin": h.get("vin"),
-        "stock_number": h.get("stock_number"),
-        "title": _sanitize(f"{h.get('year')} {h.get('make')} {h.get('model')} {h.get('trim', '')}".strip()),
-        "make": h.get("make"),
-        "model": h.get("model"),
-        "year": int(h.get("year", 2024)),
+        "vin": vin,
+        "stock_number": stock,
+        "title": title,
+        "make": make,
+        "model": model,
+        "year": year,
         "price": price,
-        "mileage": int(h.get("odometer", 0)),
-        "condition": h.get("stock_type", "used").lower(),
-        "body_type": h.get("body_style") or h.get("body_type_category"),
-        "fuel_type": h.get("fuel_type_category") or h.get("fuel_type", "Gas"),
-        "transmission": h.get("transmission_description") or h.get("transmission", "Automatic"),
-        "drivetrain": h.get("drive_type_name") or h.get("drivetrain"),
-        "exterior_color": h.get("exterior_colour") or h.get("exterior_color"),
-        "interior_color": h.get("interior_colour") or h.get("interior_color"),
-        "engine": h.get("engine_description") or h.get("engine"),
-        "description": _sanitize(h.get("comments", f"Certified premium {h.get('make')} {h.get('model')} available at AutoNorth Motors.")),
-        "features": [_sanitize(f.get("name")) for f in h.get("features", []) if f.get("name")],
+        "mileage": int(h.get("odometer") or h.get("mileage") or 0),
+        "condition": (h.get("stock_type") or "used").lower(),
+        "body_type": h.get("body_type_name") or h.get("body_style") or h.get("body_type_category"),
+        "fuel_type": h.get("fuel_type_category") or h.get("fuel_type_name") or "Gas",
+        "transmission": h.get("transmission_name") or h.get("transmission_desc") or "Automatic",
+        "drivetrain": h.get("drive_type_name") or h.get("drive_type_desc") or "",
+        "exterior_color": h.get("exterior_colour_name") or h.get("exterior_color"),
+        "interior_color": h.get("interior_colour_name") or h.get("interior_color"),
+        "engine": h.get("engine_description") or h.get("engine_config_name") or "",
+        "description": _sanitize(h.get("description") or h.get("comments") or f"Certified premium {make} {model} available at AutoNorth Motors."),
+        "features": [_sanitize(f.get("name")) for f in h.get("features", []) if isinstance(f, dict) and f.get("name")],
         "images": images,
         "status": "available",
         "source": "teamford_sync",
@@ -125,6 +153,7 @@ def _parse_teamford_vehicle(h: Dict) -> Dict[str, Any]:
 
 async def scrape_teamford_inventory(limit: int = 2000) -> List[Dict[str, Any]]:
     """DEFINITIVE SYNC ENGINE: Captures vehicles from Team Ford live feed."""
+    logger.info("Starting Team Ford Algolia Sync...")
     try:
         headers = {
             "x-algolia-api-key": ALGOLIA_API_KEY,
@@ -139,35 +168,50 @@ async def scrape_teamford_inventory(limit: int = 2000) -> List[Dict[str, Any]]:
         
         async with httpx.AsyncClient(timeout=120.0) as client:
             while len(all_vehicles) < limit:
-                payload = {"requests": [{"indexName": "inventory", "params": f"aroundRadius=500000&filters=craft_site_ids%3A34&hitsPerPage={hits_per_page}&page={page}"}]}
+                logger.info(f"Fetching Algolia page {page}...")
+                # Try site ID 34 (Team Ford)
+                payload = {"requests": [{"indexName": "inventory", "params": f"filters=craft_site_ids%3A34&hitsPerPage={hits_per_page}&page={page}"}]}
                 resp = await client.post(ALGOLIA_URL, json=payload, headers=headers)
                 resp.raise_for_status()
                 data = resp.json()
+                
                 result = data.get("results", [{}])[0]
                 hits = result.get("hits", [])
                 nb_hits = result.get("nbHits", 0)
                 
-                if not hits: break
+                if not hits:
+                    logger.info("No more hits found in Algolia.")
+                    break
+                    
+                logger.info(f"Processing {len(hits)} hits from page {page} (Total results available: {nb_hits})")
                 for h in hits:
                     doc = _parse_teamford_vehicle(h)
                     if doc["vin"] or doc["stock_number"]:
                         all_vehicles.append(doc)
-                if len(all_vehicles) >= nb_hits or page >= 25: break
+                
+                if len(all_vehicles) >= nb_hits or page >= 25: 
+                    break
                 page += 1
-                await asyncio.sleep(0.3)
+                await asyncio.sleep(0.5) # Gentle rate limiting
+                
+        logger.info(f"Successfully scraped {len(all_vehicles)} vehicles from Team Ford.")
         return all_vehicles
     except Exception as e:
-        logger.error(f"Sync Engine Failure: {str(e)}")
+        logger.error(f"Sync Engine Failure: {str(e)}", exc_info=True)
         return []
 
 async def sync_teamford_listings() -> Dict[str, int]:
     """Sync all Team Ford listings to local database."""
+    logger.info("Initiating database sync...")
     try:
         vehicles = await scrape_teamford_inventory(limit=2000)
+        if not vehicles:
+            logger.warning("No vehicles scraped. Sync aborted.")
+            return {"imported": 0, "updated": 0, "deleted": 0}
+            
         imported = 0
         updated = 0
         
-        # Late import to avoid circular issues
         from server import db
         
         for v in vehicles:
@@ -180,16 +224,24 @@ async def sync_teamford_listings() -> Dict[str, int]:
             if not existing and stock: existing = await db.vehicles.find_one({"stock_number": stock})
             
             if existing:
-                await db.vehicles.update_one({"_id": existing["_id"]}, {"$set": {**v, "updated_at": datetime.now(timezone.utc)}})
+                # Update existing
+                await db.vehicles.update_one(
+                    {"_id": existing["_id"]},
+                    {"$set": {**v, "updated_at": datetime.now(timezone.utc)}}
+                )
                 updated += 1
             else:
+                # Insert new
                 v["created_at"] = datetime.now(timezone.utc)
+                v["updated_at"] = v["created_at"]
                 await db.vehicles.insert_one(v)
                 imported += 1
-        return {"imported": imported, "updated": updated}
+        
+        logger.info(f"Sync complete: {imported} imported, {updated} updated.")
+        return {"success": True, "imported": imported, "updated": updated, "deleted": 0}
     except Exception as e:
-        logger.error(f"Sync failed: {e}")
-        return {"imported": 0, "updated": 0}
+        logger.error(f"Sync failed: {str(e)}", exc_info=True)
+        return {"success": False, "imported": 0, "updated": 0, "deleted": 0}
 
 async def scrape_teamford_listing(url: str) -> Optional[Dict[str, Any]]:
     """Scrapes a single Team Ford vehicle listing page."""
