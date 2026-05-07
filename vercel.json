@@ -7,11 +7,6 @@
     "PYO3_USE_ABI3_FORWARD_COMPATIBILITY": "1",
     "DISABLE_ESLINT_PLUGIN": "true"
   },
-  "functions": {
-    "api/index.py": {
-      "runtime": "@vercel/python"
-    }
-  },
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/index.py" },
     { "source": "/(.*)", "destination": "/index.html" }
