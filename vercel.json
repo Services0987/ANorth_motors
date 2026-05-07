@@ -5,6 +5,7 @@
   "outputDirectory": "build",
   "env": {
     "PYTHON_VERSION": "3.12",
+    "ENABLE_VC_PYTHON_312": "1",
     "PYO3_USE_ABI3_FORWARD_COMPATIBILITY": "1",
     "DISABLE_ESLINT_PLUGIN": "true"
   },
