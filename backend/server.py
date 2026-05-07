@@ -21,11 +21,9 @@ app = FastAPI(title="AutoNorth Motors API")
 
 # Database (Must be before scraper import to avoid circular issues)
 MONGODB_URI = os.environ.get("MONGODB_URI") or os.environ.get("MONGO_URL") or "mongodb://localhost:27017"
+DB_NAME = os.environ.get("DB_NAME", "autonorth")
 client = AsyncIOMotorClient(MONGODB_URI)
-db = client.autonorth
-
-client = AsyncIOMotorClient(MONGODB_URI)
-db = client.autonorth
+db = client[DB_NAME]
 
 # Security
 SECRET_KEY = os.environ.get("JWT_SECRET", "autonorth-super-secret-2024-elite")
