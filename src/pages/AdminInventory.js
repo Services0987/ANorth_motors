@@ -310,10 +310,21 @@ export default function AdminInventory() {
                 {SAFE_ICON(Trash2, { size: 11 })} Delete {selectedIds.length} Selected
               </button>
             )}
+            <div className="flex items-center gap-2 bg-[#0A0A0A] border border-white/10 px-2 py-1">
+              <span className="text-white/25 text-[9px] uppercase font-heading">Rows:</span>
+              <select 
+                value={limit} 
+                onChange={(e) => { setLimit(parseInt(e.target.value)); setPage(1); }}
+                className="bg-transparent text-white text-[10px] font-heading outline-none cursor-pointer"
+              >
+                <option value={10} className="bg-black">10</option>
+                <option value={20} className="bg-black">20</option>
+                <option value={50} className="bg-black">50</option>
+                <option value={100} className="bg-black">100</option>
                 <option value={500} className="bg-black">500</option>
               </select>
             </div>
-            <span className="text-white/25 text-xs font-body ml-2">{total} vehicles total</span>
+            <span className="text-white/25 text-[10px] font-heading uppercase tracking-widest ml-2">{total} vehicles total</span>
           </div>
           <div className="flex items-center gap-3">
             <input type="file" id="csv-upload" className="hidden" accept=".csv" onChange={handleCSVUpload} />
