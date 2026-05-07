@@ -16,7 +16,7 @@ const SAFE_ICON = (Icon, props = {}) => {
 
 const API = (process.env.REACT_APP_BACKEND_URL || '') + '/api';
 
-const PLACEHOLDER = 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=800&q=60';
+const PLACEHOLDER = '/coming-soon-placeholder.png';
 const TABS = ['contact', 'test_drive', 'financing'];
 const TAB_LABELS = { contact: 'Enquire', test_drive: 'Test Drive', financing: 'Financing' };
 const TAB_ICONS = { contact: MessageSquare, test_drive: Calendar, financing: Zap };

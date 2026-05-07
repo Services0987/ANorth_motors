@@ -722,9 +722,22 @@ async def delete_lead(id: str, cu=Depends(get_current_user)):
 
 @api_router.get("/scraper/settings")
 async def get_scraper_settings(cu=Depends(get_current_user)):
-    return {"auto_sync": False, "last_sync": None}
+    settings = await db.settings.find_one({"type": "scraper"})
+    if not settings:
+        return {"auto_sync": False, "last_sync": None}
+    return {
+        "auto_sync": settings.get("auto_sync", False),
+        "last_sync": settings.get("last_sync")
+    }
 
-@api_router.post("/scraper/import-url")
+@api_router.post("/scraper/settings")
+async def save_scraper_settings(data: Dict[str, Any], cu=Depends(get_current_user)):
+    await db.settings.update_one(
+        {"type": "scraper"},
+        {"$set": {"auto_sync": data.get("auto_sync", False)}},
+        upsert=True
+    )
+    return {"status": "saved"}
 async def import_vehicle_from_url(data: Dict[str, str], cu=Depends(get_current_user)):
     raw_urls = data.get("url", "")
     urls = [u.strip() for u in raw_urls.split("\n") if u.strip()]

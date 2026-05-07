@@ -14,7 +14,7 @@ const SAFE_ICON = (Icon, props = {}) => {
   return <Icon {...props} />;
 };
 const API = '/api';
-const PLACEHOLDER = 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=200&q=40';
+const PLACEHOLDER = '/coming-soon-placeholder.png'; // Premium artistic placeholder
 
 const EMPTY_FORM = {
   title: '', make: '', model: '', year: new Date().getFullYear(), price: '',
@@ -86,7 +86,7 @@ export default function AdminInventory() {
       setVehicles(data.vehicles || []);
       setTotal(data.total || 0);
     } catch (err) { console.error(err); } finally { setLoading(false); }
-  }, [page, search]);
+  }, [page, search, limit]);
 
   const fetchScraperSettings = useCallback(async () => {
     try {
@@ -310,16 +310,6 @@ export default function AdminInventory() {
                 {SAFE_ICON(Trash2, { size: 11 })} Delete {selectedIds.length} Selected
               </button>
             )}
-            <div className="flex items-center gap-2 bg-[#0A0A0A] border border-white/10 px-2 py-1">
-              <span className="text-white/25 text-[9px] uppercase font-heading">Rows:</span>
-              <select 
-                value={limit} 
-                onChange={(e) => { setLimit(parseInt(e.target.value)); setPage(1); }}
-                className="bg-transparent text-white text-[10px] font-heading outline-none cursor-pointer"
-              >
-                <option value={20} className="bg-black">20</option>
-                <option value={50} className="bg-black">50</option>
-                <option value={100} className="bg-black">100</option>
                 <option value={500} className="bg-black">500</option>
               </select>
             </div>

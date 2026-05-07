@@ -9,6 +9,7 @@ import Footer from '../components/Footer';
 import VehicleCard from '../components/VehicleCard';
 
 const API = (process.env.REACT_APP_BACKEND_URL || '') + '/api';
+const PLACEHOLDER = '/coming-soon-placeholder.png';
 
 const SAFE_ICON = (Icon, props = {}) => {
   if (!Icon || (typeof Icon !== 'function' && typeof Icon !== 'object')) return null;

@@ -85,8 +85,10 @@ class NeuralKnowledge:
 
 def _sanitize(text):
     if not text: return ""
-    # Remove excessive whitespace and Team Ford branding
-    text = re.sub(r'\s+', ' ', str(text)).strip()
+    # Remove HTML entities like &nbsp; and multiple spaces
+    text = str(text).replace('&nbsp;', ' ')
+    text = re.sub(r'\s+', ' ', text).strip()
+    # Remove Team Ford branding
     return re.sub(r'(?i)team\s*ford', 'AutoNorth', text)
 
 def _parse_teamford_vehicle(h: Dict) -> Dict[str, Any]:
@@ -109,19 +111,14 @@ def _parse_teamford_vehicle(h: Dict) -> Dict[str, Any]:
 
     # Robust Image Construction (Cloudinary)
     images = []
-    # 1. Try photo_service_ids (Real photos)
     photo_ids = h.get("photo_service_ids") or []
     if isinstance(photo_ids, list) and photo_ids:
-        # Base URL for Team Ford (GoAuto) Cloudinary
-        # Cloud name is 'goauto-images', transformation and v1 prefix are required
         base_url = "https://res.cloudinary.com/goauto-images/image/upload/f_auto,c_fill,q_auto,w_1920/v1/"
         images = [f"{base_url}{pid}.jpg" for pid in photo_ids]
     
-    # 2. Fallback to images list
     if not images:
         images = [img.get("url") for img in h.get("images", []) if isinstance(img, dict) and img.get("url")]
     
-    # 3. Final fallback to thumbnail
     if not images and h.get("thumbnail_url"):
         images = [h.get("thumbnail_url")]
     
@@ -136,21 +133,27 @@ def _parse_teamford_vehicle(h: Dict) -> Dict[str, Any]:
     trim = h.get("published_trim") or h.get("trim") or ""
     
     # Cleaner Title Generation
-    # If trim is too long (contains features), truncate it
     clean_trim = trim
     if len(clean_trim) > 50:
-        # Try to find the first part before a comma
-        clean_trim = clean_trim.split(',')[0].strip()
+        clean_trim = clean_trim.split(',')[0].split(';')[0].strip()
     
     title = _sanitize(f"{year} {make} {model} {clean_trim}".strip())
     if not title or title == str(year):
         title = _sanitize(h.get("title") or f"{year} {make} {model}")
 
+    # Enhanced Engine Description
+    # Combine litres and config (e.g. 2.3L I4)
+    litres = h.get("engine_litres")
+    config = h.get("engine_config_name") or h.get("engine_description")
+    engine = f"{litres}L {config}" if litres and config else (config or str(litres or ""))
+    engine = _sanitize(engine)
+
     # Build description from published_notes if available for better data quality
     description = h.get("published_notes") or h.get("description") or h.get("comments")
     if description:
-        # Strip HTML tags
+        # Strip HTML tags and entities
         description = re.sub('<[^<]+?>', '', description)
+        description = description.replace('&nbsp;', ' ').replace('&amp;', '&')
         description = _sanitize(description)
     else:
         description = f"Certified premium {year} {make} {model} available at AutoNorth Motors. Schedule your test drive today!"
@@ -171,8 +174,8 @@ def _parse_teamford_vehicle(h: Dict) -> Dict[str, Any]:
         "drivetrain": h.get("drive_type_name") or h.get("drive_type_desc") or "",
         "exterior_color": h.get("exterior_colour_name") or h.get("exterior_color"),
         "interior_color": h.get("interior_colour_name") or h.get("interior_color"),
-        "engine": h.get("engine_description") or h.get("engine_config_name") or "",
-        "description": description[:1500], # Keep it reasonable
+        "engine": engine,
+        "description": description[:2000], 
         "features": [_sanitize(f.get("name")) for f in h.get("features", []) if isinstance(f, dict) and f.get("name")],
         "images": images,
         "status": "available",
