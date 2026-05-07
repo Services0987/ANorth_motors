@@ -18,30 +18,30 @@ from scraper import NeuralKnowledge, scrape_teamford_listing, sync_teamford_list
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title=\"AutoNorth Motors API\")
+app = FastAPI(title="AutoNorth Motors API")
 
 # Security
-SECRET_KEY = os.environ.get(\"JWT_SECRET\", \"autonorth-super-secret-2024-elite\")
-ALGORITHM = \"HS256\"
-pwd_context = CryptContext(schemes=[\"bcrypt\"], deprecated=\"auto\")
+SECRET_KEY = os.environ.get("JWT_SECRET", "autonorth-super-secret-2024-elite")
+ALGORITHM = "HS256"
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[\"*\"],
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=[\"*\"],
-    allow_headers=[\"*\"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Database
-MONGODB_URI = os.environ.get(\"MONGODB_URI\", \"mongodb://localhost:27017\")
+MONGODB_URI = os.environ.get("MONGODB_URI", "mongodb://localhost:27017")
 client = AsyncIOMotorClient(MONGODB_URI)
 db = client.autonorth
 
 # Models
 class Vehicle(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias=\"_id\")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias="_id")
     title: str
     make: str
     model: str
@@ -63,7 +63,7 @@ class Vehicle(BaseModel):
     description: str
     features: List[str] = []
     images: List[str] = []
-    status: str = \"available\" # available, sold, pending
+    status: str = "available" # available, sold, pending
     featured: bool = False
     show_on_home: bool = False
     is_on_special: bool = False
@@ -83,187 +83,187 @@ def create_access_token(data: dict):
     return jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
 
 async def get_current_user(request: Request):
-    token = request.cookies.get(\"auth_token\")
+    token = request.cookies.get("auth_token")
     if not token:
-        raise HTTPException(status_code=401, detail=\"Not authenticated\")
+        raise HTTPException(status_code=401, detail="Not authenticated")
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email = payload.get(\"sub\")
+        email = payload.get("sub")
         if email is None:
-            raise HTTPException(status_code=401, detail=\"Invalid token\")
+            raise HTTPException(status_code=401, detail="Invalid token")
         return email
     except JWTError:
-        raise HTTPException(status_code=401, detail=\"Invalid token\")
+        raise HTTPException(status_code=401, detail="Invalid token")
 
 # Routes
-@app.post(\"/api/auth/login\")
+@app.post("/api/auth/login")
 async def login(user_data: User):
-    admin_email = os.environ.get(\"ADMIN_EMAIL\", \"admin@autonorth.ca\")
-    admin_password = os.environ.get(\"ADMIN_PASSWORD\", \"autonorth2024\")
+    admin_email = os.environ.get("ADMIN_EMAIL", "admin@autonorth.ca")
+    admin_password = os.environ.get("ADMIN_PASSWORD", "autonorth2024")
     
     # Check against DB first
-    db_user = await db.users.find_one({\"email\": user_data.email})
+    db_user = await db.users.find_one({"email": user_data.email})
     
     if db_user:
-        if not pwd_context.verify(user_data.password, db_user[\"password\"]):
-            raise HTTPException(status_code=401, detail=\"Invalid credentials\")
+        if not pwd_context.verify(user_data.password, db_user["password"]):
+            raise HTTPException(status_code=401, detail="Invalid credentials")
     elif user_data.email == admin_email and user_data.password == admin_password:
         # Initial login - create user in DB
         await db.users.insert_one({
-            \"email\": admin_email,
-            \"password\": pwd_context.hash(admin_password)
+            "email": admin_email,
+            "password": pwd_context.hash(admin_password)
         })
     else:
-        raise HTTPException(status_code=401, detail=\"Invalid credentials\")
+        raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    token = create_access_token({\"sub\": user_data.email})
-    response = JSONResponse({\"message\": \"Login successful\"})
+    token = create_access_token({"sub": user_data.email})
+    response = JSONResponse({"message": "Login successful"})
     response.set_cookie(
-        key=\"auth_token\",
+        key="auth_token",
         value=token,
         httponly=True,
         max_age=86400,
-        samesite=\"lax\",
+        samesite="lax",
         secure=True # Set to True in production
     )
     return response
 
-@app.post(\"/api/auth/logout\")
+@app.post("/api/auth/logout")
 async def logout():
-    response = JSONResponse({\"message\": \"Logged out\"})
-    response.delete_cookie(\"auth_token\")
+    response = JSONResponse({"message": "Logged out"})
+    response.delete_cookie("auth_token")
     return response
 
-@app.get(\"/api/auth/me\")
+@app.get("/api/auth/me")
 async def me(user_email: str = Depends(get_current_user)):
-    return {\"email\": user_email}
+    return {"email": user_email}
 
-@app.put(\"/api/auth/profile\")
+@app.put("/api/auth/profile")
 async def update_profile(data: Dict[str, Any], user_email: str = Depends(get_current_user)):
     update_data = {}
-    if \"email\" in data: update_data[\"email\"] = data[\"email\"]
-    if \"password\" in data and data[\"password\"]: 
-        update_data[\"password\"] = pwd_context.hash(data[\"password\"])
+    if "email" in data: update_data["email"] = data["email"]
+    if "password" in data and data["password"]: 
+        update_data["password"] = pwd_context.hash(data["password"])
     
-    await db.users.update_one({\"email\": user_email}, {\"$set\": update_data})
-    return {\"message\": \"Profile updated\"}
+    await db.users.update_one({"email": user_email}, {"$set": update_data})
+    return {"message": "Profile updated"}
 
-@app.get(\"/api/vehicles\")
+@app.get("/api/vehicles")
 async def get_vehicles(
-    status: str = \"available\", 
+    status: str = "available", 
     limit: int = 100, 
     skip: int = 0,
     search: Optional[str] = None
 ):
     query = {}
-    if status != \"all\":
-        query[\"status\"] = status
+    if status != "all":
+        query["status"] = status
     
     if search:
-        query[\"$or\"] = [
-            {\"title\": {\"$regex\": search, \"$options\": \"i\"}},
-            {\"make\": {\"$regex\": search, \"$options\": \"i\"}},
-            {\"model\": {\"$regex\": search, \"$options\": \"i\"}},
-            {\"vin\": {\"$regex\": search, \"$options\": \"i\"}},
-            {\"stock_number\": {\"$regex\": search, \"$options\": \"i\"}}
+        query["$or"] = [
+            {"title": {"$regex": search, "$options": "i"}},
+            {"make": {"$regex": search, "$options": "i"}},
+            {"model": {"$regex": search, "$options": "i"}},
+            {"vin": {"$regex": search, "$options": "i"}},
+            {"stock_number": {"$regex": search, "$options": "i"}}
         ]
 
-    cursor = db.vehicles.find(query).sort(\"created_at\", -1).skip(skip).limit(limit)
+    cursor = db.vehicles.find(query).sort("created_at", -1).skip(skip).limit(limit)
     vehicles = await cursor.to_list(length=limit)
     total = await db.vehicles.count_documents(query)
     
     for v in vehicles:
-        v[\"_id\"] = str(v[\"_id\"])
-    return {\"vehicles\": vehicles, \"total\": total}
+        v["_id"] = str(v["_id"])
+    return {"vehicles": vehicles, "total": total}
 
-@app.post(\"/api/vehicles\")
+@app.post("/api/vehicles")
 async def create_vehicle(vehicle: Vehicle, user: str = Depends(get_current_user)):
     v_dict = vehicle.dict(by_alias=True)
     result = await db.vehicles.insert_one(v_dict)
-    return {\"id\": str(result.inserted_id)}
+    return {"id": str(result.inserted_id)}
 
-@app.put(\"/api/vehicles/{vehicle_id}\")
+@app.put("/api/vehicles/{vehicle_id}")
 async def update_vehicle(vehicle_id: str, data: Dict[str, Any], user: str = Depends(get_current_user)):
-    if \"_id\" in data: del data[\"_id\"]
-    data[\"updated_at\"] = datetime.now(timezone.utc)
-    await db.vehicles.update_one({\"_id\": vehicle_id}, {\"$set\": data})
-    return {\"message\": \"Vehicle updated\"}
+    if "_id" in data: del data["_id"]
+    data["updated_at"] = datetime.now(timezone.utc)
+    await db.vehicles.update_one({"_id": vehicle_id}, {"$set": data})
+    return {"message": "Vehicle updated"}
 
-@app.delete(\"/api/vehicles/{vehicle_id}\")
+@app.delete("/api/vehicles/{vehicle_id}")
 async def delete_vehicle(vehicle_id: str, user: str = Depends(get_current_user)):
-    await db.vehicles.delete_one({\"_id\": vehicle_id})
-    return {\"message\": \"Vehicle deleted\"}
+    await db.vehicles.delete_one({"_id": vehicle_id})
+    return {"message": "Vehicle deleted"}
 
-@app.delete(\"/api/vehicles/bulk/delete\")
+@app.delete("/api/vehicles/bulk/delete")
 async def bulk_delete(ids: List[str], user: str = Depends(get_current_user)):
-    await db.vehicles.delete_many({\"_id\": {\"$in\": ids}})
-    return {\"message\": f\"{len(ids)} vehicles deleted\"}
+    await db.vehicles.delete_many({"_id": {"$in": ids}})
+    return {"message": f"{len(ids)} vehicles deleted"}
 
 # AI Chat
-@app.post(\"/api/chat\")
+@app.post("/api/chat")
 async def chat(data: Dict[str, Any]):
-    msg = data.get(\"message\", \"\")
+    msg = data.get("message", "")
     # Get recent inventory for AI context
-    cursor = db.vehicles.find({\"status\": \"available\"}).sort(\"created_at\", -1).limit(50)
+    cursor = db.vehicles.find({"status": "available"}).sort("created_at", -1).limit(50)
     inventory = await cursor.to_list(length=50)
     
     response = NeuralKnowledge.generate_response(msg, inventory)
-    return {\"response\": response}
+    return {"response": response}
 
 # Scraper & Sync
-@app.get(\"/api/scraper/settings\")
+@app.get("/api/scraper/settings")
 async def get_settings():
-    settings = await db.settings.find_one({\"type\": \"scraper\"})
+    settings = await db.settings.find_one({"type": "scraper"})
     if not settings:
-        return {\"auto_sync\": False, \"last_sync\": None}
-    return {\"auto_sync\": settings.get(\"auto_sync\", False), \"last_sync\": settings.get(\"last_sync\")}
+        return {"auto_sync": False, "last_sync": None}
+    return {"auto_sync": settings.get("auto_sync", False), "last_sync": settings.get("last_sync")}
 
-@app.post(\"/api/scraper/settings\")
+@app.post("/api/scraper/settings")
 async def update_settings(settings: ScraperSettings, user: str = Depends(get_current_user)):
     await db.settings.update_one(
-        {\"type\": \"scraper\"},
-        {\"$set\": {\"auto_sync\": settings.auto_sync}},
+        {"type": "scraper"},
+        {"$set": {"auto_sync": settings.auto_sync}},
         upsert=True
     )
-    return {\"message\": \"Settings updated\"}
+    return {"message": "Settings updated"}
 
-@app.get(\"/api/scraper/sync/info\")
+@app.get("/api/scraper/sync/info")
 async def scraper_sync_info(user: str = Depends(get_current_user)):
     info = await get_sync_info()
     return info
 
-@app.post(\"/api/scraper/sync/batch\")
+@app.post("/api/scraper/sync/batch")
 async def scraper_sync_batch(page: int, user: str = Depends(get_current_user)):
     result = await sync_teamford_batch(page)
-    if result.get(\"count\", 0) > 0:
+    if result.get("count", 0) > 0:
         await db.settings.update_one(
-            {\"type\": \"scraper\"},
-            {\"$set\": {\"last_sync\": datetime.now(timezone.utc)}},
+            {"type": "scraper"},
+            {"$set": {"last_sync": datetime.now(timezone.utc)}},
             upsert=True
         )
     return result
 
-@app.post(\"/api/scraper/sync\")
+@app.post("/api/scraper/sync")
 async def trigger_sync(user: str = Depends(get_current_user)):
     # Legacy bulk sync - might timeout on Vercel
     result = await sync_teamford_listings()
-    if result.get(\"success\"):
+    if result.get("success"):
         await db.settings.update_one(
-            {\"type\": \"scraper\"},
-            {\"$set\": {\"last_sync\": datetime.now(timezone.utc)}},
+            {"type": "scraper"},
+            {"$set": {"last_sync": datetime.now(timezone.utc)}},
             upsert=True
         )
     return result
 
-@app.post(\"/api/scraper/import-url\")
+@app.post("/api/scraper/import-url")
 async def import_url(data: Dict[str, str], user: str = Depends(get_current_user)):
-    url = data.get(\"url\")
-    if not url: raise HTTPException(status_code=400, detail=\"URL required\")
+    url = data.get("url")
+    if not url: raise HTTPException(status_code=400, detail="URL required")
     vehicle = await scrape_teamford_listing(url)
-    if not vehicle: raise HTTPException(status_code=404, detail=\"Could not scrape vehicle\")
-    return {\"vehicle\": vehicle}
+    if not vehicle: raise HTTPException(status_code=404, detail="Could not scrape vehicle")
+    return {"vehicle": vehicle}
 
-@app.post(\"/api/vehicles/import\")
+@app.post("/api/vehicles/import")
 async def import_csv(file: UploadFile = File(...), user: str = Depends(get_current_user)):
     content = await file.read()
     df = pd.read_csv(io.BytesIO(content))
@@ -289,26 +289,26 @@ async def import_csv(file: UploadFile = File(...), user: str = Depends(get_curre
         )
         await db.vehicles.insert_one(v.dict(by_alias=True))
         imported += 1
-    return {\"imported\": imported}
+    return {"imported": imported}
 
 # General Settings (AI Provider etc)
-@app.get(\"/api/settings\")
+@app.get("/api/settings")
 async def get_general_settings(user: str = Depends(get_current_user)):
-    s = await db.settings.find_one({\"type\": \"general\"})
-    if not s: return {\"ai_provider\": \"local\", \"ai_api_key\": \"\"}
+    s = await db.settings.find_one({"type": "general"})
+    if not s: return {"ai_provider": "local", "ai_api_key": ""}
     return {
-        \"ai_provider\": s.get(\"ai_provider\", \"local\"),
-        \"ai_api_key\": s.get(\"ai_api_key\", \"\")
+        "ai_provider": s.get("ai_provider", "local"),
+        "ai_api_key": s.get("ai_api_key", "")
     }
 
-@app.put(\"/api/settings\")
+@app.put("/api/settings")
 async def update_general_settings(data: Dict[str, Any], user: str = Depends(get_current_user)):
     await db.settings.update_one(
-        {\"type\": \"general\"},
-        {\"$set\": {
-            \"ai_provider\": data.get(\"ai_provider\", \"local\"),
-            \"ai_api_key\": data.get(\"ai_api_key\", \"\")
+        {"type": "general"},
+        {"$set": {
+            "ai_provider": data.get("ai_provider", "local"),
+            "ai_api_key": data.get("ai_api_key", "")
         }},
         upsert=True
     )
-    return {\"message\": \"Settings updated\"}
+    return {"message": "Settings updated"}

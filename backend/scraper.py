@@ -15,11 +15,11 @@ ALGOLIA_API_KEY = "650a66d4bf074b5de276a2ecb945bf80"
 ALGOLIA_URL = f"https://{ALGOLIA_APP_ID}-dsn.algolia.net/1/indexes/*/queries"
 
 class NeuralKnowledge:
-    \"\"\"
+    """
     NEURAL KNOWLEDGE ENGINE:
     Acts as a high-intelligence 'Local Brain' that mimics advanced LLMs using 
     semantic pattern matching and inventory-aware synthesis.
-    \"\"\"
+    """
     @staticmethod
     def extract_intent(msg: str):
         msg = msg.lower()
@@ -100,7 +100,7 @@ def _clean_numeric(val):
     except: return 0
 
 def _parse_teamford_vehicle(h: Dict) -> Dict[str, Any]:
-    \"\"\"Helper to parse a single vehicle from Algolia hit with robust field mapping.\"\"\"
+    """Helper to parse a single vehicle from Algolia hit with robust field mapping."""
     # Robust Price Extraction
     price = 0
     price_fields = ["sort_price", "special_price", "list_price", "regular_price", "retail_price", "msrp"]
@@ -199,7 +199,7 @@ def _parse_teamford_vehicle(h: Dict) -> Dict[str, Any]:
     }
 
 async def get_sync_info() -> Dict[str, Any]:
-    \"\"\"Retrieves total counts and page info for syncing.\"\"\"
+    """Retrieves total counts and page info for syncing."""
     try:
         headers = {
             "x-algolia-api-key": ALGOLIA_API_KEY,
@@ -218,7 +218,7 @@ async def get_sync_info() -> Dict[str, Any]:
         return {"total_vehicles": 0, "hits_per_page": 100, "total_pages": 0}
 
 async def sync_teamford_batch(page: int) -> Dict[str, int]:
-    \"\"\"Syncs a single page (batch) of vehicles from Team Ford.\"\"\"
+    """Syncs a single page (batch) of vehicles from Team Ford."""
     logger.info(f"Processing batch page {page}...")
     try:
         headers = {
@@ -264,7 +264,7 @@ async def sync_teamford_batch(page: int) -> Dict[str, int]:
         return {"imported": 0, "updated": 0, "count": 0, "error": str(e)}
 
 async def scrape_teamford_inventory(limit: int = 2000) -> List[Dict[str, Any]]:
-    \"\"\"Legacy helper to scrape all inventory at once. Uses batches to avoid timeouts.\"\"\"
+    """Legacy helper to scrape all inventory at once. Uses batches to avoid timeouts."""
     info = await get_sync_info()
     total_pages = info.get("total_pages", 0)
     all_vehicles = []
@@ -292,7 +292,7 @@ async def scrape_teamford_inventory(limit: int = 2000) -> List[Dict[str, Any]]:
     return all_vehicles
 
 async def sync_teamford_listings() -> Dict[str, int]:
-    \"\"\"Sync all Team Ford listings to local database.\"\"\"
+    """Sync all Team Ford listings to local database."""
     logger.info("Initiating database sync...")
     try:
         vehicles = await scrape_teamford_inventory(limit=2000)
@@ -335,17 +335,17 @@ async def sync_teamford_listings() -> Dict[str, int]:
         return {"success": False, "imported": 0, "updated": 0, "deleted": 0}
 
 async def scrape_teamford_listing(url: str) -> Optional[Dict[str, Any]]:
-    \"\"\"Scrapes a single Team Ford vehicle listing page.\"\"\"
+    """Scrapes a single Team Ford vehicle listing page."""
     try:
         slug = url.rstrip('/').split('/')[-1]
-        algolia_headers = {\"x-algolia-api-key\": ALGOLIA_API_KEY, \"x-algolia-application-id\": ALGOLIA_APP_ID, \"Content-Type\": \"application/json\"}
+        algolia_headers = {"x-algolia-api-key": ALGOLIA_API_KEY, "x-algolia-application-id": ALGOLIA_APP_ID, "Content-Type": "application/json"}
         async with httpx.AsyncClient(timeout=30.0) as client:
-            payload = {\"requests\": [{\"indexName\": \"inventory\", \"params\": f\"query={slug}&hitsPerPage=1&filters=craft_site_ids%3A34\"}]}
+            payload = {"requests": [{"indexName": "inventory", "params": f"query={slug}&hitsPerPage=1&filters=craft_site_ids%3A34"}]}
             resp = await client.post(ALGOLIA_URL, json=payload, headers=algolia_headers)
             if resp.status_code == 200:
-                hits = resp.json().get(\"results\", [{}])[0].get(\"hits\", [])
+                hits = resp.json().get("results", [{}])[0].get("hits", [])
                 if hits: return _parse_teamford_vehicle(hits[0])
         return None
     except Exception as e:
-        logger.error(f\"Failed to scrape listing {url}: {e}\")
+        logger.error(f"Failed to scrape listing {url}: {e}")
         return None
