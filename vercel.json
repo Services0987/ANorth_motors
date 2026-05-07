@@ -1,14 +1,22 @@
 {
   "version": 2,
-  "framework": "create-react-app",
-  "buildCommand": "npm run build",
-  "outputDirectory": "build",
   "env": {
-    "PYTHON_VERSION": "3.12",
-    "ENABLE_VC_PYTHON_312": "1",
     "PYO3_USE_ABI3_FORWARD_COMPATIBILITY": "1",
     "DISABLE_ESLINT_PLUGIN": "true"
   },
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": { "distDir": "build" }
+    },
+    {
+      "src": "api/index.py",
+      "use": "@vercel/python",
+      "config": { "runtime": "python3.12" }
+    }
+
+  ],
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/index.py" },
     { "source": "/(.*)", "destination": "/index.html" }
