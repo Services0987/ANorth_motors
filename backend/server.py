@@ -750,7 +750,12 @@ async def sync_teamford_scraper(cu=Depends(get_current_user)):
     from scraper import sync_teamford_listings
     try:
         sync_result = await sync_teamford_listings()
-        return {"message": "Team Ford sync complete", "imported": sync_result.get("imported", 0), "updated": sync_result.get("updated", 0)}
+        return {
+            "message": "Team Ford sync complete", 
+            "added": sync_result.get("imported", 0), 
+            "updated": sync_result.get("updated", 0),
+            "deleted": sync_result.get("deleted", 0)
+        }
     except Exception as e:
         logger.error(f"Team Ford sync error: {e}")
         raise HTTPException(500, "Failed to sync with Team Ford")

@@ -4,7 +4,7 @@ import logging
 import asyncio
 import re
 from typing import Optional, Dict, Any, List
-from datetime import datetime
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -18,9 +18,7 @@ class NeuralKnowledge:
     NEURAL KNOWLEDGE ENGINE:
     Acts as a high-intelligence 'Local Brain' that mimics advanced LLMs using 
     semantic pattern matching and inventory-aware synthesis.
-    Works 100% autonomously without any external API costs.
     """
-    
     @staticmethod
     def extract_intent(msg: str):
         msg = msg.lower()
@@ -40,11 +38,8 @@ class NeuralKnowledge:
     @staticmethod
     def analyze_inventory(msg: str, inventory: List[Dict]):
         msg = msg.lower()
-        # Find Make matches
         makes = ["ford", "ram", "chevrolet", "toyota", "honda", "jeep", "dodge", "nissan", "hyundai", "kia", "bmw", "mercedes"]
         found_make = next((m for m in makes if m in msg), None)
-        
-        # Find Body Type matches
         types = ["truck", "suv", "sedan", "van", "coupe", "convertible"]
         found_type = next((t for t in types if t in msg), None)
         
@@ -56,23 +51,18 @@ class NeuralKnowledge:
         
         if not results:
             results = sorted(inventory, key=lambda x: x.get('price', 999999))[:3]
-            
         return results, found_make or found_type
 
     @staticmethod
     def generate_response(msg: str, inventory: List[Dict]):
         intent = NeuralKnowledge.extract_intent(msg)
         results, entity = NeuralKnowledge.analyze_inventory(msg, inventory)
-        
         if intent == "GREETING":
             return "Welcome to AutoNorth Motors! I'm your AI Automotive Specialist. I'm connected to our live Edmonton inventory—are you searching for a specific make, looking for a deal, or interested in financing?"
-
         if intent == "CONTACT":
             return "AutoNorth Motors is located at 9104 91 St NW, Edmonton, AB T6C 3N5. You can reach our sales floor directly at 825-605-5050. Would you like me to send these details to your phone?"
-
         if intent == "FINANCE":
             return "Our 'AutoNorth Credit Brain' analyzes your situation to find the lowest possible rates. We specialize in all credit types—from perfect to rebuilding. Most approvals happen in under 2 hours. Shall I start your application?"
-
         if intent == "DEAL":
             specials = [v for v in inventory if v.get('is_on_special')]
             if specials:
@@ -80,187 +70,36 @@ class NeuralKnowledge:
                 return f"I have a high-value deal right now: A {s['title']} originally priced higher, now available for ${s['price']:,.0f}. This is our top-tier special this week. Interest?"
             cheapest = sorted(inventory, key=lambda x: x.get('price', 0))[0]
             return f"The best entry-point in our current inventory is the {cheapest['title']} for only ${cheapest['price']:,.0f}. It's a great balance of value and reliability."
-
         if intent == "BOOKING":
             return "I can secure a VIP viewing and test drive for you. Which day this week works best? I'll coordinate everything with a product specialist."
-
         if intent == "INVENTORY_SEARCH" or entity:
             if results:
                 top = results[0]
                 others = len(results) - 1
                 resp = f"I've analyzed our live stock: The {top['title']} (priced at ${top['price']:,.0f}) perfectly matches your request. "
-                if others > 0:
-                    resp += f"I also have {others} other similar models available. "
+                if others > 0: resp += f"I also have {others} other similar models available. "
                 resp += "Would you like to see the full spec sheet or book a viewing?"
                 return resp
             return "I'm checking our incoming manifest. We receive new inventory daily. What specifically should I keep an eye out for?"
-
         return "I'm the AutoNorth Intelligence Engine. I can analyze our 500+ vehicle feed, explain financing options, or book your VIP test drive. How can I best serve you today?"
 
-async def scrape_teamford_inventory(limit: int = 2000) -> List[Dict[str, Any]]:
-    """
-    DEFINITIVE SYNC ENGINE: 
-    - Captures NEW, USED, FEATURED, and ON SPECIAL vehicles.
-    - Uses exact live facet filter structure.
-    """
-    try:
-        headers = {
-            "x-algolia-api-key": ALGOLIA_API_KEY,
-            "x-algolia-application-id": ALGOLIA_APP_ID,
-            "Content-Type": "application/json",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-            "Referer": "https://www.teamford.ca/"
-        }
-
-        all_vehicles = []
-        page = 0
-        hits_per_page = 100 
-        
-        def sanitize(text):
-            if not text: return ""
-            return re.sub(r'(?i)team\s*ford', 'AutoNorth', str(text))
-
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            while len(all_vehicles) < limit:
-                payload = {
-                    "requests": [
-                        {
-                            "indexName": "inventory",
-                            "params": f"aroundRadius=500000&filters=craft_site_ids%3A34&hitsPerPage={hits_per_page}&page={page}"
-                        }
-                    ]
-                }
-
-                resp = await client.post(ALGOLIA_URL, json=payload, headers=headers)
-                resp.raise_for_status()
-                data = resp.json()
-                
-                result = data.get("results", [{}])[0]
-                hits = result.get("hits", [])
-                nb_hits = result.get("nbHits", 0)
-                
-                if not hits:
-                    break
-
-                for h in hits:
-                    price = float(h.get("pricing", {}).get("sell_price", 0))
-                    if not price: price = float(h.get("list_price", 0))
-                    if not price: price = float(h.get("retail_price", 0))
-
-                    images = [img.get("url") for img in h.get("images", []) if img.get("url")]
-                    if not images and h.get("thumbnail_url"): images = [h.get("thumbnail_url")]
-
-                    vin = h.get("vin")
-                    stock = h.get("stock_number")
-                    if not vin and not stock: continue
-
-                    vehicle_doc = {
-                        "vin": vin,
-                        "stock_number": stock,
-                        "title": sanitize(f"{h.get('year')} {h.get('make')} {h.get('model')} {h.get('trim', '')}".strip()),
-                        "make": h.get("make"),
-                        "model": h.get("model"),
-                        "year": int(h.get("year", 2024)),
-                        "price": price,
-                        "mileage": int(h.get("odometer", 0)),
-                        "condition": h.get("stock_type", "used").lower(),
-                        "body_type": h.get("body_style") or h.get("body_type_category"),
-                        "fuel_type": h.get("fuel_type_category") or h.get("fuel_type", "Gas"),
-                        "transmission": h.get("transmission_description") or h.get("transmission", "Automatic"),
-                        "exterior_color": h.get("exterior_colour") or h.get("exterior_color"),
-                        "interior_color": h.get("interior_colour") or h.get("interior_color"),
-                        "engine": h.get("engine_description") or h.get("engine"),
-                async def scrape_teamford_listing(url: str) -> Optional[Dict[str, Any]]:
-    """
-    Scrapes a single Team Ford vehicle listing page or uses Algolia API to fetch by URL.
-    """
-    try:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Referer": "https://www.teamford.ca/"
-        }
-        
-        # Extract slug from URL
-        slug = url.rstrip('/').split('/')[-1]
-        
-        # Try Algolia API first for more reliable data
-        algolia_headers = {
-            "x-algolia-api-key": ALGOLIA_API_KEY,
-            "x-algolia-application-id": ALGOLIA_APP_ID,
-            "Content-Type": "application/json",
-        }
-        
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            # Search by slug in Algolia
-            payload = {
-                "requests": [{
-                    "indexName": "inventory",
-                    "params": f"query={slug}&hitsPerPage=1&filters=craft_site_ids%3A34"
-                }]
-            }
-            
-            resp = await client.post(ALGOLIA_URL, json=payload, headers=algolia_headers)
-            if resp.status_code == 200:
-                data = resp.json()
-                hits = data.get("results", [{}])[0].get("hits", [])
-                if hits:
-                    h = hits[0]
-                    return _parse_teamford_vehicle(h)
-            
-            # Fallback: scrape the URL directly
-            resp = await client.get(url, headers=headers)
-            resp.raise_for_status()
-            
-            # Basic parsing - in real implementation would use BeautifulSoup
-            html = resp.text
-            import re
-            title_match = re.search(r'<title>(.*?)</title>', html, re.IGNORECASE)
-            title = title_match.group(1) if title_match else "Unknown Vehicle"
-            
-            return {
-                "title": title,
-                "make": "",
-                "model": "",
-                "year": 2024,
-                "price": 0,
-                "mileage": 0,
-                "condition": "used",
-                "body_type": "Sedan",
-                "fuel_type": "Gas",
-                "transmission": "Automatic",
-                "drivetrain": "",
-                "exterior_color": "",
-                "interior_color": "",
-                "engine": "",
-                "vin": "",
-                "stock_number": "",
-                "description": f"Imported from Team Ford: {title}",
-                "features": [],
-                "images": [],
-                "status": "available",
-                "source": "teamford_url",
-                "source_url": url
-            }
-    except Exception as e:
-        logger.error(f"Failed to scrape listing {url}: {e}")
-        return None
-
+def _sanitize(text):
+    if not text: return ""
+    return re.sub(r'(?i)team\s*ford', 'AutoNorth', str(text))
 
 def _parse_teamford_vehicle(h: Dict) -> Dict[str, Any]:
     """Helper to parse a single vehicle from Algolia hit."""
-    def sanitize(text):
-        if not text: return ""
-        return re.sub(r'(?i)team\s*ford', 'AutoNorth', str(text))
-    
     price = float(h.get("pricing", {}).get("sell_price", 0))
     if not price: price = float(h.get("list_price", 0))
+    if not price: price = float(h.get("retail_price", 0))
     
     images = [img.get("url") for img in h.get("images", []) if img.get("url")]
+    if not images and h.get("thumbnail_url"): images = [h.get("thumbnail_url")]
     
     return {
         "vin": h.get("vin"),
         "stock_number": h.get("stock_number"),
-        "title": sanitize(f"{h.get('year')} {h.get('make')} {h.get('model')} {h.get('trim', '')}".strip()),
+        "title": _sanitize(f"{h.get('year')} {h.get('make')} {h.get('model')} {h.get('trim', '')}".strip()),
         "make": h.get("make"),
         "model": h.get("model"),
         "year": int(h.get("year", 2024)),
@@ -274,83 +113,96 @@ def _parse_teamford_vehicle(h: Dict) -> Dict[str, Any]:
         "exterior_color": h.get("exterior_colour") or h.get("exterior_color"),
         "interior_color": h.get("interior_colour") or h.get("interior_color"),
         "engine": h.get("engine_description") or h.get("engine"),
-        "description": sanitize(h.get("comments", f"Premium {h.get('make')} {h.get('model')} available at AutoNorth Motors.")),
-        "features": [sanitize(f.get("name")) for f in h.get("features", []) if f.get("name")],
+        "description": _sanitize(h.get("comments", f"Certified premium {h.get('make')} {h.get('model')} available at AutoNorth Motors.")),
+        "features": [_sanitize(f.get("name")) for f in h.get("features", []) if f.get("name")],
         "images": images,
         "status": "available",
-        "source": "teamford",
+        "source": "teamford_sync",
         "featured": h.get("is_featured", False),
         "is_on_special": h.get("is_on_special", False),
         "source_url": f"https://www.teamford.ca/vehicles/{h.get('slug')}" if h.get('slug') else ""
     }
 
+async def scrape_teamford_inventory(limit: int = 2000) -> List[Dict[str, Any]]:
+    """DEFINITIVE SYNC ENGINE: Captures vehicles from Team Ford live feed."""
+    try:
+        headers = {
+            "x-algolia-api-key": ALGOLIA_API_KEY,
+            "x-algolia-application-id": ALGOLIA_APP_ID,
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Referer": "https://www.teamford.ca/"
+        }
+        all_vehicles = []
+        page = 0
+        hits_per_page = 100 
+        
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            while len(all_vehicles) < limit:
+                payload = {"requests": [{"indexName": "inventory", "params": f"aroundRadius=500000&filters=craft_site_ids%3A34&hitsPerPage={hits_per_page}&page={page}"}]}
+                resp = await client.post(ALGOLIA_URL, json=payload, headers=headers)
+                resp.raise_for_status()
+                data = resp.json()
+                result = data.get("results", [{}])[0]
+                hits = result.get("hits", [])
+                nb_hits = result.get("nbHits", 0)
+                
+                if not hits: break
+                for h in hits:
+                    doc = _parse_teamford_vehicle(h)
+                    if doc["vin"] or doc["stock_number"]:
+                        all_vehicles.append(doc)
+                if len(all_vehicles) >= nb_hits or page >= 25: break
+                page += 1
+                await asyncio.sleep(0.3)
+        return all_vehicles
+    except Exception as e:
+        logger.error(f"Sync Engine Failure: {str(e)}")
+        return []
 
 async def sync_teamford_listings() -> Dict[str, int]:
-    """
-    Sync all Team Ford listings to local database.
-    Returns dict with 'imported' and 'updated' counts.
-    """
+    """Sync all Team Ford listings to local database."""
     try:
         vehicles = await scrape_teamford_inventory(limit=2000)
         imported = 0
         updated = 0
         
+        # Late import to avoid circular issues
         from server import db
         
         for v in vehicles:
             vin = v.get("vin")
             stock = v.get("stock_number")
+            if not vin and not stock: continue
             
-            if not vin and not stock:
-                continue
-                
-            # Check if vehicle already exists
             existing = None
-            if vin:
-                existing = await db.vehicles.find_one({"vin": vin})
-            if not existing and stock:
-                existing = await db.vehicles.find_one({"stock_number": stock})
+            if vin: existing = await db.vehicles.find_one({"vin": vin})
+            if not existing and stock: existing = await db.vehicles.find_one({"stock_number": stock})
             
             if existing:
-                # Update existing
-                await db.vehicles.update_one(
-                    {"_id": existing["_id"]},
-                    {"$set": {**v, "updated_at": datetime.now(timezone.utc)}}
-                )
+                await db.vehicles.update_one({"_id": existing["_id"]}, {"$set": {**v, "updated_at": datetime.now(timezone.utc)}})
                 updated += 1
             else:
-                # Insert new
                 v["created_at"] = datetime.now(timezone.utc)
                 await db.vehicles.insert_one(v)
                 imported += 1
-        
         return {"imported": imported, "updated": updated}
     except Exception as e:
         logger.error(f"Sync failed: {e}")
         return {"imported": 0, "updated": 0}
-                        "description": sanitize(h.get("comments", f"Certified premium {h.get('make')} {h.get('model')} available at AutoNorth Motors.")),
-                        "features": [sanitize(f.get("name")) for f in h.get("features", []) if f.get("name")],
-                        "images": images,
-                        "status": "available",
-                        "source": "teamford_sync",
-                        "featured": h.get("is_featured", False),
-                        "is_on_special": h.get("is_on_special", False),
-                        "source_url": f"https://www.teamford.ca/vehicles/{h.get('slug')}" if h.get('slug') else ""
-                    }
-                    
-                    all_vehicles.append(vehicle_doc)
-
-                if len(all_vehicles) >= nb_hits or page >= 25: 
-                    break
-                    
-                page += 1
-                await asyncio.sleep(0.3)
-
-        return all_vehicles
-
-    except Exception as e:
-        logger.error(f"Sync Engine Failure: {str(e)}")
-        return []
 
 async def scrape_teamford_listing(url: str) -> Optional[Dict[str, Any]]:
-    return None
+    """Scrapes a single Team Ford vehicle listing page."""
+    try:
+        slug = url.rstrip('/').split('/')[-1]
+        algolia_headers = {"x-algolia-api-key": ALGOLIA_API_KEY, "x-algolia-application-id": ALGOLIA_APP_ID, "Content-Type": "application/json"}
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            payload = {"requests": [{"indexName": "inventory", "params": f"query={slug}&hitsPerPage=1&filters=craft_site_ids%3A34"}]}
+            resp = await client.post(ALGOLIA_URL, json=payload, headers=algolia_headers)
+            if resp.status_code == 200:
+                hits = resp.json().get("results", [{}])[0].get("hits", [])
+                if hits: return _parse_teamford_vehicle(hits[0])
+        return None
+    except Exception as e:
+        logger.error(f"Failed to scrape listing {url}: {e}")
+        return None
