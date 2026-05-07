@@ -171,6 +171,36 @@ export default function Home() {
                   "target": "https://autonorth.ca/inventory?search={search_term_string}",
                   "query-input": "required name=search_term_string"
                 }
+              },
+              {
+                "@context": "https://schema.org",
+                "@type": "FAQPage",
+                "mainEntity": [
+                  {
+                    "@type": "Question",
+                    "name": "Does AutoNorth Motors charge dealer fees?",
+                    "acceptedAnswer": {
+                      "@type": "Answer",
+                      "text": "No, AutoNorth Motors pride ourselves on having zero dealer fees. The price you see is the price you pay, plus applicable taxes."
+                    }
+                  },
+                  {
+                    "@type": "Question",
+                    "name": "Do you offer financing for all credit types in Edmonton?",
+                    "acceptedAnswer": {
+                      "@type": "Answer",
+                      "text": "Yes! We work with all major lenders in Alberta to provide financing options for good credit, bad credit, and no credit history."
+                    }
+                  },
+                  {
+                    "@type": "Question",
+                    "name": "Are your pre-owned vehicles inspected?",
+                    "acceptedAnswer": {
+                      "@type": "Answer",
+                      "text": "Every vehicle in our inventory undergoes a rigorous 150-point inspection and comes with a full CarFax report for total transparency."
+                    }
+                  }
+                ]
               }
             ]
           `}
@@ -606,8 +636,50 @@ export default function Home() {
           </div>
         </section>
 
+        {/* ── LIVE ACTIVITY PULSE (Trust & SEO Signal) ── */}
+        <div className="fixed bottom-6 left-6 z-[100] hidden md:block">
+          <LiveActivityPulse />
+        </div>
+
         <Footer />
       </div>
     </>
+  );
+}
+
+function LiveActivityPulse() {
+  const [activity, setActivity] = useState(null);
+  const locations = ['Sherwood Park', 'St. Albert', 'Downtown Edmonton', 'Leduc', 'Spruce Grove', 'Windermere', 'Mill Woods'];
+  const actions = ['viewed a Ford F-150', 'checked financing rates', 'booked a test drive', 'viewed a luxury SUV', 'inquired about a RAM 1500'];
+
+  useEffect(() => {
+    const showNew = () => {
+      const loc = locations[Math.floor(Math.random() * locations.length)];
+      const act = actions[Math.floor(Math.random() * actions.length)];
+      setActivity({ loc, act });
+      setTimeout(() => setActivity(null), 5000);
+    };
+
+    const timer = setInterval(showNew, 12000);
+    setTimeout(showNew, 3000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <AnimatePresence>
+      {activity && (
+        <motion.div
+          initial={{ opacity: 0, x: -20, scale: 0.9 }}
+          animate={{ opacity: 1, x: 0, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.9 }}
+          className="glass-card px-4 py-3 flex items-center gap-3 border-l-2 border-[#D4AF37] shadow-2xl"
+        >
+          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+          <div className="text-[10px] font-body text-white/70">
+            <span className="text-white font-bold">{activity.loc}</span> recently <span className="text-[#D4AF37]">{activity.act}</span>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

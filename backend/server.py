@@ -636,8 +636,34 @@ async def get_rss_feed():
 async def list_leads(cu=Depends(get_current_user)):
     if "leads" not in (await db.list_collection_names()): return []
     docs = await db.leads.find({}).sort("created_at", -1).to_list(100)
-    for d in docs: d["_id"] = str(d["_id"])
+    for d in docs: d["id"] = str(d.pop("_id"))
     return docs
+
+@api_router.post("/bot-signal")
+async def bot_signal(data: dict):
+    """Log search engine crawler activity for visibility."""
+    ua = data.get("ua", "Unknown")
+    visit = {
+        "user_agent": ua,
+        "timestamp": datetime.now(),
+        "ip": "logged"
+    }
+    await db.bot_visits.insert_one(visit)
+    return {"status": "logged"}
+
+@api_router.get("/bot-visits")
+async def list_bot_visits(cu=Depends(get_current_user)):
+    """Allow admin to see when bots are crawling."""
+    docs = await db.bot_visits.find({}).sort("timestamp", -1).to_list(100)
+    for d in docs: d["id"] = str(d.pop("_id"))
+    return docs
+
+@api_router.post("/force-reindex")
+async def force_reindex(cu=Depends(get_current_user)):
+    """Manually signal to the system that a re-index is requested (updates sitemap timestamp)."""
+    # This conceptually signals the system to 'touch' all vehicles to update their lastmod
+    await db.vehicles.update_many({}, {"$set": {"updated_at": datetime.now()}})
+    return {"status": "Sitemap signal broadcasted. Expect re-indexing within 24-72 hours."}
 
 @api_router.post("/leads")
 async def create_lead(data: LeadCreate):
