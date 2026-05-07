@@ -85,13 +85,15 @@ class NeuralKnowledge:
 
 def _sanitize(text):
     if not text: return ""
-    return re.sub(r'(?i)team\s*ford', 'AutoNorth', str(text))
+    # Remove excessive whitespace and Team Ford branding
+    text = re.sub(r'\s+', ' ', str(text)).strip()
+    return re.sub(r'(?i)team\s*ford', 'AutoNorth', text)
 
 def _parse_teamford_vehicle(h: Dict) -> Dict[str, Any]:
     """Helper to parse a single vehicle from Algolia hit with robust field mapping."""
     # Robust Price Extraction
     price = 0
-    price_fields = ["special_price", "list_price", "regular_price", "retail_price", "msrp"]
+    price_fields = ["sort_price", "special_price", "list_price", "regular_price", "retail_price", "msrp"]
     for field in price_fields:
         val = h.get(field)
         if val:
@@ -101,14 +103,26 @@ def _parse_teamford_vehicle(h: Dict) -> Dict[str, Any]:
             except: continue
     
     if not price:
-        # Try nested pricing if available
         pricing = h.get("pricing") or {}
         if isinstance(pricing, dict):
             price = float(pricing.get("sell_price") or pricing.get("list_price") or 0)
 
-    # Robust Images
-    images = [img.get("url") for img in h.get("images", []) if isinstance(img, dict) and img.get("url")]
-    if not images and h.get("thumbnail_url"): images = [h.get("thumbnail_url")]
+    # Robust Image Construction (Cloudinary)
+    images = []
+    # 1. Try photo_service_ids (Real photos)
+    photo_ids = h.get("photo_service_ids") or []
+    if isinstance(photo_ids, list) and photo_ids:
+        # Base URL for Team Ford Cloudinary
+        base_url = "https://res.cloudinary.com/kraft-apps/image/upload/c_fill,f_auto,fl_lossy,q_auto,w_1920/"
+        images = [f"{base_url}{pid}" for pid in photo_ids]
+    
+    # 2. Fallback to images list
+    if not images:
+        images = [img.get("url") for img in h.get("images", []) if isinstance(img, dict) and img.get("url")]
+    
+    # 3. Final fallback to thumbnail
+    if not images and h.get("thumbnail_url"):
+        images = [h.get("thumbnail_url")]
     
     # Robust Identifiers
     vin = h.get("vin")
@@ -120,9 +134,25 @@ def _parse_teamford_vehicle(h: Dict) -> Dict[str, Any]:
     year = int(h.get("year") or 2024)
     trim = h.get("published_trim") or h.get("trim") or ""
     
-    title = _sanitize(f"{year} {make} {model} {trim}".strip())
+    # Cleaner Title Generation
+    # If trim is too long (contains features), truncate it
+    clean_trim = trim
+    if len(clean_trim) > 50:
+        # Try to find the first part before a comma
+        clean_trim = clean_trim.split(',')[0].strip()
+    
+    title = _sanitize(f"{year} {make} {model} {clean_trim}".strip())
     if not title or title == str(year):
-        title = _sanitize(h.get("title") or f"{year} Vehicle Listing")
+        title = _sanitize(h.get("title") or f"{year} {make} {model}")
+
+    # Build description from published_notes if available for better data quality
+    description = h.get("published_notes") or h.get("description") or h.get("comments")
+    if description:
+        # Strip HTML tags
+        description = re.sub('<[^<]+?>', '', description)
+        description = _sanitize(description)
+    else:
+        description = f"Certified premium {year} {make} {model} available at AutoNorth Motors. Schedule your test drive today!"
 
     return {
         "vin": vin,
@@ -141,7 +171,7 @@ def _parse_teamford_vehicle(h: Dict) -> Dict[str, Any]:
         "exterior_color": h.get("exterior_colour_name") or h.get("exterior_color"),
         "interior_color": h.get("interior_colour_name") or h.get("interior_color"),
         "engine": h.get("engine_description") or h.get("engine_config_name") or "",
-        "description": _sanitize(h.get("description") or h.get("comments") or f"Certified premium {make} {model} available at AutoNorth Motors."),
+        "description": description[:1500], # Keep it reasonable
         "features": [_sanitize(f.get("name")) for f in h.get("features", []) if isinstance(f, dict) and f.get("name")],
         "images": images,
         "status": "available",
