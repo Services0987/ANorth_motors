@@ -14,16 +14,10 @@
       "src": "api/index.py",
       "use": "@vercel/python",
       "config": { "runtime": "python3.12" }
-    },
-    {
-      "src": "api/test.py",
-      "use": "@vercel/python",
-      "config": { "runtime": "python3.12" }
     }
 
   ],
   "rewrites": [
-    { "source": "/api/test", "destination": "/api/test.py" },
     { "source": "/api/:path*", "destination": "/api/index.py" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
