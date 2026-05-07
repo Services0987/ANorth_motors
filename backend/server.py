@@ -13,6 +13,7 @@ import logging
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from scraper import NeuralKnowledge, scrape_teamford_listing, sync_teamford_listings, sync_teamford_batch, get_sync_info
+from bson import ObjectId
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -149,7 +150,7 @@ async def update_profile(data: Dict[str, Any], user_email: str = Depends(get_cur
     return {"message": "Profile updated"}
 
 
-from bson import ObjectId
+
 
 def to_id(id_str: str):
     try:
