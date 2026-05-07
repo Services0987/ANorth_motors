@@ -411,6 +411,7 @@ async def diagnostic_db():
             "probed_details": results,
             "current_env_db": DB_NAME,
             "mongo_url_set": bool(os.environ.get("MONGODB_URI") or os.environ.get("MONGO_URL")),
+            "admin_user_exists": await client["AutoNorth"]["users"].find_one({"email": "admin@autonorth.ca"}) is not None,
             "sample_vehicle": json.loads(json.dumps(await client["AutoNorth"]["vehicles"].find_one({}), default=str)) if await client["AutoNorth"]["vehicles"].find_one({}) else None
         }
     except Exception as e:
