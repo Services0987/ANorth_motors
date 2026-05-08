@@ -192,7 +192,10 @@ export default function ChatBot() {
         // The data is now securely in the Admin Dashboard.
       }
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Connection issue — please call us at 825-605-5050 or use the contact form.' }]);
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: 'I apologize, but my intelligence engine is experiencing a brief connection hiccup. \n\n Please call our Edmonton showroom directly at **825-605-5050** or use our contact form for immediate assistance. We are located at 9104 91 St NW.' 
+      }]);
     } finally {
       setThinking(false);
     }

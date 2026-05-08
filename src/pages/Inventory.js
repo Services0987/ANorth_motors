@@ -277,6 +277,17 @@ export default function Inventory() {
     }
   }, [filters, page, setSearchParams]);
 
+  // Search Intelligence: Log queries with debounce
+  useEffect(() => {
+    if (!filters.search || filters.search.length < 3) return;
+    
+    const handler = setTimeout(() => {
+      axios.post(`${API}/analytics/search/log`, { query: filters.search }).catch(() => {});
+    }, 2000); // 2 second debounce to capture intent without spamming
+
+    return () => clearTimeout(handler);
+  }, [filters.search]);
+
   useEffect(() => { fetchVehicles(); }, [fetchVehicles]);
 
   const updateFilter = (key, value) => { setFilters((prev) => ({ ...prev, [key]: value })); setPage(1); };

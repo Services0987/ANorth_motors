@@ -510,7 +510,8 @@ async def start_sync(background_tasks: BackgroundTasks, user: str = Depends(get_
     return {"message": "Sync started in background"}
 
 @app.post("/api/chatbot/message")
-async def chatbot_message(data: Dict[str, str]):
+@app.post("/api/chat")
+async def chatbot_message(data: Dict[str, Any], request: Request):
     msg = data.get("message", "")
     provider = "local"
     api_key = ""
@@ -523,8 +524,32 @@ async def chatbot_message(data: Dict[str, str]):
     inventory = await db.vehicles.find({"status": "available"}).limit(100).to_list(100)
     
     from scraper import NeuralKnowledge
-    response = NeuralKnowledge.generate_response(msg, inventory, provider, api_key)
+    response = await NeuralKnowledge.generate_response(msg, inventory, provider, api_key)
     return {"response": response}
+
+@app.post("/api/analytics/search/log")
+async def log_search(data: Dict[str, Any], request: Request):
+    query = data.get("query", "").strip()
+    if not query:
+        return {"status": "skipped"}
+    
+    await db.searches.insert_one({
+        "query": query,
+        "timestamp": datetime.now(timezone.utc),
+        "ip": request.client.host if request.client else "unknown",
+        "user_agent": request.headers.get("user-agent", "unknown")
+    })
+    return {"status": "logged"}
+
+@app.get("/api/analytics/searches")
+async def get_top_searches(user_email: str = Depends(get_current_user)):
+    pipeline = [
+        {"$group": {"_id": {"$toLower": "$query"}, "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 10}
+    ]
+    results = await db.searches.aggregate(pipeline).to_list(10)
+    return [{"term": r["_id"], "count": r["count"]} for r in results]
 
 @app.get("/api/auth/sessions")
 async def get_sessions(request: Request, user_email: str = Depends(get_current_user)):
@@ -563,10 +588,19 @@ async def get_analytics_summary(user_email: str = Depends(get_current_user)):
             "vin": v.get("vin", "N/A"),
             "count": v.get("views", 0)
         })
+    # Top Searches
+    search_pipeline = [
+        {"$group": {"_id": {"$toLower": "$query"}, "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 5}
+    ]
+    top_searches = await db.searches.aggregate(search_pipeline).to_list(5)
+
     return {
         "total_views": views_count,
         "conversion_rate": 2.4,
-        "top_vehicles": formatted_top
+        "top_vehicles": formatted_top,
+        "top_searches": [{"term": r["_id"], "count": r["count"]} for r in top_searches]
     }
 
 @app.post("/api/analytics/reset")

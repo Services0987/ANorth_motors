@@ -82,93 +82,142 @@ class NeuralKnowledge:
         return results, found_make or found_type
 
     @staticmethod
-    def generate_response(msg: str, inventory: List[Dict], provider: str = "local", api_key: str = ""):
+    async def generate_response(msg: str, inventory: List[Dict], provider: str = "local", api_key: str = ""):
         """
         GENERATE RESPONSE:
-        Enhanced to support multi-provider intelligence with local pattern fallback.
+        High-performance intelligence engine with multi-provider support 
+        and deep Edmonton/Alberta location awareness.
         """
         intent = NeuralKnowledge.extract_intent(msg)
         results, entity = NeuralKnowledge.analyze_inventory(msg, inventory)
         
+        # 1. LOCATION CONTEXT LAYER (Edmonton/Alberta specific)
+        loc_context = ""
+        msg_l = msg.lower()
+        if any(w in msg_l for w in ["edmonton", "alberta", "ab", "local", "near me"]):
+            loc_context = (
+                "AutoNorth Motors is proud to serve Edmonton and the surrounding Alberta region. "
+                "We are located right off 91 St NW, making us easily accessible from Sherwood Park, St. Albert, and Leduc. "
+                "All our vehicles are 'Alberta Ready'—they undergo a rigorous inspection to ensure they can handle our tough winters. "
+            )
+        
+        # 2. WINTER READINESS ADVICE
+        winter_advice = ""
+        if any(w in msg_l for w in ["winter", "snow", "cold", "ice", "winter tires"]):
+            winter_advice = (
+                "For Edmonton winters, we highly recommend AWD or 4WD vehicles. "
+                "Many of our units come with block heaters pre-installed, and we can facilitate "
+                "winter tire packages for any vehicle you choose. "
+            )
+
         # Local logic for quick replies or fallback
         local_resp = ""
         if intent == "GREETING":
-            local_resp = "Welcome to AutoNorth Motors! I'm your AI Automotive Specialist. I'm connected to our live Edmonton inventory—are you searching for a specific make, looking for a deal, or interested in financing?"
+            local_resp = f"Welcome to AutoNorth Motors! {loc_context}I'm your AI Automotive Specialist. I'm connected to our live Edmonton inventory—are you searching for a specific make, looking for a deal, or interested in financing?"
         elif intent == "CONTACT":
             local_resp = "AutoNorth Motors is located at 9104 91 St NW, Edmonton, AB T6C 3N5. You can reach our sales floor directly at 825-605-5050. Would you like me to send these details to your phone?"
         elif intent == "FINANCE":
-            local_resp = "Our 'AutoNorth Credit Brain' analyzes your situation to find the lowest possible rates. We specialize in all credit types—from perfect to rebuilding. Shall I start your application?"
+            local_resp = "Our 'AutoNorth Credit Brain' analyzes your situation to find the lowest possible rates in Alberta. We specialize in all credit types—from perfect to rebuilding. Shall I start your application?"
         
         if local_resp and provider == "local":
             return local_resp
 
+        # Context-aware prompt for AI providers
+        v_context = json.dumps([{k: v for k, v in res.items() if k != '_id'} for res in results[:5]])
+        system_prompt = f"""You are the AutoNorth Motors AI Specialist, an elite automotive concierge in Edmonton, Alberta.
+        
+        Current Intent: {intent}
+        Location Context: {loc_context} {winter_advice}
+        Relevant Inventory: {v_context}
+        
+        Instructions:
+        - Be professional, helpful, and luxury-oriented.
+        - Emphasize that we serve Edmonton, Sherwood Park, St. Albert, and the greater Alberta area.
+        - Mention specific vehicle highlights (price, mileage, features) if they match the user's query.
+        - If the user asks about winter performance, mention 4WD/AWD and block heaters.
+        - Always drive the user towards a test drive, showroom visit, or call (825-605-5050).
+        - Keep responses concise (max 3-4 sentences) unless listing vehicles.
+        """
+
+        # 3. OPENROUTER PROVIDER
+        if provider == "openrouter" and api_key:
+            try:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    resp = await client.post(
+                        "https://openrouter.ai/api/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {api_key}",
+                            "Content-Type": "application/json",
+                            "HTTP-Referer": "https://autonorth.ca",
+                            "X-Title": "AutoNorth AI"
+                        },
+                        json={
+                            "model": "openai/gpt-3.5-turbo", # Default fast model, can be made dynamic
+                            "messages": [
+                                {"role": "system", "content": system_prompt},
+                                {"role": "user", "content": msg}
+                            ]
+                        }
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        return data['choices'][0]['message']['content']
+            except Exception as e:
+                logger.error(f"OpenRouter error: {e}")
+
+        # 4. GEMINI PROVIDER
         if provider == "gemini" and api_key:
             try:
                 import google.generativeai as genai
                 genai.configure(api_key=api_key)
                 model = genai.GenerativeModel('gemini-pro')
-                
-                # Context-aware prompt
-                v_context = json.dumps([{k: v for k, v in res.items() if k != '_id'} for res in results[:5]])
-                prompt = f"""You are the AutoNorth Motors AI Specialist. 
-                User Message: "{msg}"
-                Current Intent: {intent}
-                Relevant Inventory Context: {v_context}
-                
-                Instructions:
-                - Be professional, helpful, and luxury-oriented.
-                - If specific vehicles are in context, mention their highlights (price, mileage).
-                - Always try to drive the user towards a test drive or enquiry.
-                - Keep responses concise but informative.
-                """
-                response = model.generate_content(prompt)
+                response = model.generate_content(f"{system_prompt}\n\nUser Message: {msg}")
                 return response.text
             except Exception as e:
                 logger.error(f"Gemini error: {e}")
-                # Fallback to local synthesis
         
-        if intent == "CONFIRMATION" and provider == "local":
+        # 5. LOCAL SYNTHESIS FALLBACK
+        if intent == "CONFIRMATION":
             return "That's great! I'll get that set up for you. Please leave your name and phone number, or call us directly at 825-605-5050 to finalize the details. Is there anything else I can help you with?"
 
         if results and (intent == "INVENTORY_SEARCH" or entity or intent == "DEAL"):
             top = results[0]
             others = len(results) - 1
             
-            # Synthesis of vehicle data
             v_info = f"{top.get('year')} {top.get('make')} {top.get('model')}"
             price = top.get('price', 0)
             price_info = f"${price:,.0f}" if price > 0 else "Contact for Price"
             mileage_info = f"{top.get('mileage', 0):,} km"
             
-            if price == 0 and others > 0: # Try to find one with a price if the top is $0
+            if price == 0 and others > 0:
                 top = next((v for v in results if v.get('price', 0) > 0), top)
                 v_info = f"{top.get('year')} {top.get('make')} {top.get('model')}"
                 price_info = f"${top.get('price', 0):,.0f}"
                 mileage_info = f"{top.get('mileage', 0):,} km"
 
-            resp = f"I've found a great match in our live inventory: A **{v_info}** with {mileage_info}, priced at **{price_info}**. "
+            resp = f"I've found a great match in our live Edmonton inventory: A **{v_info}** with {mileage_info}, priced at **{price_info}**. "
             if top.get('features'):
                 f_str = ", ".join(top['features'][:3])
                 resp += f"Key features include: {f_str}. "
             
             if others > 0:
-                resp += f"I also have {others} other {entity or 'vehicles'} that might interest you. "
+                resp += f"I also have {others} other {entity or 'vehicles'} available in Alberta that might interest you. "
             
-            resp += "\n\nWould you like to see more details, or shall I book a VIP test drive for you?"
+            resp += f"\n\n{winter_advice}Would you like to see more details, or shall I book a VIP test drive at our showroom?"
             return resp
 
         if intent == "DEAL":
             specials = [v for v in inventory if v.get('is_on_special')]
             if specials:
                 s = specials[0]
-                return f"I have an exclusive AutoNorth special: A **{s['title']}** for only **${s['price']:,.0f}**. This unit is moving fast. Would you like to reserve it for a viewing?"
+                return f"I have an exclusive AutoNorth special: A **{s['title']}** for only **${s['price']:,.0f}**. This unit is moving fast in the Edmonton market. Would you like to reserve it?"
             cheapest = sorted(inventory, key=lambda x: x.get('price', 0))[0]
-            return f"The best value entry in our current inventory is the {cheapest['title']} for only ${cheapest['price']:,.0f}. It's passed our full 150-point inspection. Interest?"
+            return f"The best value entry in our current inventory is the {cheapest['title']} for only ${cheapest['price']:,.0f}. It's passed our full 150-point Alberta safety inspection. Interest?"
 
         if intent == "BOOKING":
-            return "I can secure a priority test drive for you. Which day this week works best? I'll coordinate everything with our concierge team."
+            return "I can secure a priority test drive for you at our Edmonton location. Which day this week works best? I'll coordinate everything with our concierge team."
 
-        return "I'm the AutoNorth Intelligence Engine. I can analyze our live vehicle feed, explain financing options, or book your VIP test drive. How can I best serve you today?"
+        return f"{loc_context}I'm the AutoNorth Intelligence Engine. I can analyze our live vehicle feed, explain financing options, or book your VIP test drive in Edmonton. How can I best serve you today?"
 
 
 def _sanitize(text):
