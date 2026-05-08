@@ -736,9 +736,16 @@ async def unblock_ip(ip: str, user_email: str = Depends(get_current_user)):
 
 @app.post("/api/auth/sessions/terminate")
 async def terminate_session(session_id: str = None, user_email: str = Depends(get_current_user)):
-    if session_id and session_id != "current":
-        await db.sessions.delete_one({"_id": to_id(session_id)})
-    return {"status": "success", "message": "Session terminated"}
+    try:
+        if session_id and session_id != "current":
+            logger.info(f"Terminating session: {session_id}")
+            # Try both string and ObjectId match
+            await db.sessions.delete_one({"_id": to_id(session_id)})
+            await db.sessions.delete_one({"id": session_id})
+        return {"status": "success", "message": "Session terminated"}
+    except Exception as e:
+        logger.error(f"Termination error: {e}")
+        return {"status": "error", "message": str(e)}
 
 @app.get("/api/analytics/summary")
 async def get_analytics_summary(user_email: str = Depends(get_current_user)):
