@@ -20,11 +20,16 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="AutoNorth Motors API")
 
-# Database (Must be before scraper import to avoid circular issues)
+# Database
 MONGODB_URI = os.environ.get("MONGODB_URI") or os.environ.get("MONGO_URL") or "mongodb://localhost:27017"
-DB_NAME = os.environ.get("DB_NAME", "autonorth")
+DB_NAME = os.environ.get("DB_NAME", "AutoNorth")
 client = AsyncIOMotorClient(MONGODB_URI)
 db = client[DB_NAME]
+
+# Security
+SECRET_KEY = os.environ.get("JWT_SECRET", "autonorth-super-secret-2024-elite")
+ALGORITHM = "HS256"
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 async def ensure_default_admin():
     try:
@@ -36,20 +41,20 @@ async def ensure_default_admin():
                 "email": admin_email,
                 "password": pwd_context.hash(admin_pass),
                 "role": "admin",
-                "created_at": datetime.utcnow()
+                "created_at": datetime.now(timezone.utc)
             })
-            print(f"Default admin {admin_email} created.")
+            logger.info(f"Default admin {admin_email} created.")
+        else:
+            logger.info(f"Admin {admin_email} already exists.")
     except Exception as e:
-        print(f"Failed to ensure admin: {e}")
+        logger.error(f"Failed to ensure admin: {e}")
 
 @app.on_event("startup")
 async def startup_event():
-    await ensure_default_admin()
-
-# Security
-SECRET_KEY = os.environ.get("JWT_SECRET", "autonorth-super-secret-2024-elite")
-ALGORITHM = "HS256"
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    try:
+        await ensure_default_admin()
+    except Exception as e:
+        logger.error(f"Startup error: {e}")
 
 # CORS
 app.add_middleware(
