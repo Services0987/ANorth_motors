@@ -76,7 +76,7 @@ async def ensure_default_admin():
         logger.error(f"Default admin error: {e}")
 
 # Models
-class User(BaseModel):
+class LoginRequest(BaseModel):
     email: str
     password: str
 
@@ -153,34 +153,62 @@ async def health():
     return {"status": "healthy", "db": DB_NAME, "db_connection": db_status}
 
 @app.post("/api/auth/login")
-async def login(user: User):
+async def login(user: LoginRequest, request: Request):
     try:
-        # Vercel fallback: ensure admin exists on login attempt in case startup didn't run
-        await ensure_default_admin()
-        
+        # Check database connection robustness
+        try:
+            await db.command("ping")
+        except Exception as e:
+            logger.error(f"Login Database Ping failed: {e}")
+            raise HTTPException(status_code=503, detail="Service temporarily unavailable. Please try again in a moment.")
+
         db_user = await db.users.find_one({"email": user.email})
-        if not db_user or not pwd_context.verify(user.password, db_user["password"]):
+        if not db_user:
+            # Fallback: ensure default admin exists if this is a fresh deployment
+            await ensure_default_admin()
+            db_user = await db.users.find_one({"email": user.email})
+            if not db_user:
+                logger.error(f"Login Failure: User {user.email} not found.")
+                raise HTTPException(status_code=401, detail="Invalid credentials")
+
+        # Verify password with support for legacy 'password_hash' and current 'password' fields
+        stored_password = db_user.get("password") or db_user.get("password_hash")
+        if not stored_password:
+            logger.error(f"Login Failure: No password stored for {user.email}")
+            raise HTTPException(status_code=401, detail="Account configuration error. Please contact support.")
+
+        try:
+            is_valid = pwd_context.verify(user.password, stored_password)
+        except Exception as e:
+            logger.error(f"Password verification error for {user.email}: {e}")
+            raise HTTPException(status_code=401, detail="Authentication failed.")
+
+        if not is_valid:
+            logger.error(f"Login Failure: Incorrect password for {user.email}")
             raise HTTPException(status_code=401, detail="Invalid credentials")
-        
+            
         token = create_token({"sub": user.email})
         
-        # Record session in DB
-        await db.sessions.insert_one({
-            "ip": request.client.host if request.client else "unknown",
-            "user_agent": request.headers.get("user-agent", "unknown"),
-            "created_at": datetime.now(timezone.utc),
-            "status": "active",
-            "user": user.email
-        })
+        # Record session in DB (Wrapped in try-except to prevent blocking login if session tracking fails)
+        try:
+            await db.sessions.insert_one({
+                "ip": request.client.host if request.client else "unknown",
+                "user_agent": request.headers.get("user-agent", "unknown"),
+                "created_at": datetime.now(timezone.utc),
+                "status": "active",
+                "user": user.email
+            })
+        except Exception as e:
+            logger.warning(f"Non-critical: Failed to record session for {user.email}: {e}")
 
         response = JSONResponse({"message": "Login successful", "user": {"email": user.email, "role": db_user.get("role", "admin")}})
         response.set_cookie(key="auth_token", value=token, httponly=True, samesite="lax", secure=True)
         return response
-    except HTTPException as e:
-        raise e
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Login error: {e}")
-        return JSONResponse({"detail": f"Server Error: {str(e)}"}, status_code=500)
+        logger.error(f"Unexpected login error: {str(e)}")
+        raise HTTPException(status_code=500, detail="An internal error occurred during login.")
 
 @app.post("/api/auth/logout")
 async def logout():

@@ -5,6 +5,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const API = '/api';
 
+const SAFE_ICON = (Icon, props = {}) => {
+  if (!Icon) return null;
+  const Component = Icon;
+  return <Component {...props} />;
+};
+
 export default function SecurityModal({ isOpen, onClose }) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -96,7 +102,7 @@ export default function SecurityModal({ isOpen, onClose }) {
             <p className="text-white/30 text-[10px] uppercase tracking-widest mt-1 font-body">Manage credentials and provider intelligence</p>
           </div>
           <button onClick={onClose} className="text-white/20 hover:text-white transition-colors">
-            <X size={20} />
+            {SAFE_ICON(X, { size: 20 })}
           </button>
         </div>
 

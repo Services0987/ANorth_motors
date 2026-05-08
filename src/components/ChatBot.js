@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  MessageSquare, X, Phone, Send, Bot, User, Loader2 as Loader, 
+  MessageSquare, X, Phone, Send, Bot, User, Loader, 
   BrainCircuit, ChevronDown, PhoneCall, CheckCircle, ExternalLink
 } from 'lucide-react';
 import axios from 'axios';
@@ -260,7 +260,7 @@ export default function ChatBot() {
                     <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                       <div className={`flex items-start gap-3 max-w-[90%] ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
                         <div className={`w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-sm ${msg.role === 'user' ? 'bg-white/5 border border-white/10' : 'bg-[#D4AF37]'}`}>
-                          {msg.role === 'user' ? <User size={14} className="text-white/40" /> : <Bot size={14} className="text-black" />}
+                          {msg.role === 'user' ? SAFE_ICON(User, { size: 14, className: "text-white/40" }) : SAFE_ICON(Bot, { size: 14, className: "text-black" })}
                         </div>
                         <div id={`msg-${i}`} className={`px-4 py-3 rounded-xl border transition-all ${
                           msg.role === 'user' 
@@ -275,7 +275,7 @@ export default function ChatBot() {
                   {thinking && (
                     <div className="flex justify-start">
                       <div className="flex items-center gap-2 px-4 py-3 bg-white/[0.03] border border-white/5 rounded-xl">
-                        <Loader size={12} className="animate-spin text-[#D4AF37]" />
+                        {SAFE_ICON(Loader, { size: 12, className: "animate-spin text-[#D4AF37]" })}
                         <span className="text-white/30 text-[10px] uppercase tracking-widest font-bold">Specialist is thinking...</span>
                       </div>
                     </div>
