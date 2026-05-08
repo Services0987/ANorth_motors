@@ -646,7 +646,10 @@ async def chatbot_message(data: Dict[str, Any], request: Request):
     
     logger.info(f"Chatbot utilizing provider: {provider} (Key present: {bool(api_key)})")
 
-    inventory = await db.vehicles.find({"status": "available"}).limit(100).to_list(100)
+    # Better inventory context for AI (case-insensitive status check)
+    inventory = await db.vehicles.find({
+        "status": {"$in": [None, "available", "Available", "AVAILABLE"]}
+    }).limit(200).to_list(200)
     
     from scraper import NeuralKnowledge
     try:

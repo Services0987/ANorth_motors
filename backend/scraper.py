@@ -244,7 +244,14 @@ def _parse_teamford_vehicle(h: Dict) -> Dict[str, Any]:
     engine = f"{litres}L {config}" if litres and config else (config or str(litres or ""))
     engine = _sanitize(engine)
 
-    # Build description from published_notes if available for better data quality
+    # Deal Detection
+    is_special = bool(h.get("special_price") or h.get("is_on_special") or h.get("featured"))
+    if not is_special and price > 0:
+        # If price is significantly below regular price, mark as special
+        reg = _clean_numeric(h.get("regular_price") or h.get("list_price") or 0)
+        if reg > price * 1.05: is_special = True
+
+    # Build description
     description = h.get("published_notes") or h.get("description") or h.get("comments")
     if description:
         # Strip HTML tags and entities
@@ -275,11 +282,11 @@ def _parse_teamford_vehicle(h: Dict) -> Dict[str, Any]:
         "features": [_sanitize(f.get("name")) for f in h.get("features", []) if isinstance(f, dict) and f.get("name")],
 
         "images": images,
-        "status": "available",
+        "status": "Available",
+        "is_on_special": is_special,
         "source": "teamford_sync",
         "featured": h.get("is_featured", False),
         "show_on_home": True, # Ensure vehicles appear on the home page by default
-        "is_on_special": h.get("is_on_special", False),
         "source_url": f"https://www.teamford.ca/vehicles/{h.get('slug')}" if h.get('slug') else "",
         "created_at": datetime.now(timezone.utc),
         "updated_at": datetime.now(timezone.utc)
