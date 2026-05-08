@@ -242,6 +242,18 @@ export default function Inventory() {
   });
 
   const collectionRef = useRef(null);
+  const lastLoggedSearch = useRef('');
+
+  // Search Intelligence Logging
+  useEffect(() => {
+    if (!filters.search || filters.search === lastLoggedSearch.current) return;
+    const timer = setTimeout(() => {
+      axios.post(`${API}/analytics/search/log`, { query: filters.search }, { withCredentials: true })
+        .catch(err => console.error("Search log failed:", err));
+      lastLoggedSearch.current = filters.search;
+    }, 1500); // Debounce logging
+    return () => clearTimeout(timer);
+  }, [filters.search]);
 
   const fetchVehicles = useCallback(async () => {
     setLoading(true);
