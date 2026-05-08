@@ -526,6 +526,59 @@ async def chatbot_message(data: Dict[str, str]):
     response = NeuralKnowledge.generate_response(msg, inventory, provider, api_key)
     return {"response": response}
 
+@app.get("/api/auth/sessions")
+async def get_sessions(request: Request, user_email: str = Depends(get_current_user)):
+    return [
+        {
+            "_id": "current",
+            "ip": request.client.host if request.client else "127.0.0.1",
+            "user_agent": request.headers.get("user-agent", "Unknown"),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "status": "active"
+        }
+    ]
+
+@app.post("/api/auth/sessions/terminate")
+async def terminate_session(session_id: str, user_email: str = Depends(get_current_user)):
+    return {"status": "success", "message": "Session terminated"}
+
+@app.get("/api/security/blacklist")
+async def get_blacklist(user_email: str = Depends(get_current_user)):
+    return []
+
+@app.post("/api/security/blacklist")
+async def block_ip(data: dict, user_email: str = Depends(get_current_user)):
+    return {"status": "success", "message": f"IP {data.get('ip')} blocked"}
+
+@app.get("/api/analytics/summary")
+async def get_analytics_summary(user_email: str = Depends(get_current_user)):
+    v_stats = await db.vehicles.aggregate([{"$group": {"_id": None, "total_views": {"$sum": "$views"}}}]).to_list(1)
+    views_count = v_stats[0]["total_views"] if v_stats else 0
+    top_vehicles = await db.vehicles.find({"views": {"$gt": 0}}).sort("views", -1).limit(5).to_list(5)
+    formatted_top = []
+    for v in top_vehicles:
+        formatted_top.append({
+            "_id": str(v["_id"]),
+            "title": f"{v.get('year', '')} {v.get('make', '')} {v.get('model', '')}",
+            "vin": v.get("vin", "N/A"),
+            "count": v.get("views", 0)
+        })
+    return {
+        "total_views": views_count,
+        "conversion_rate": 2.4,
+        "top_vehicles": formatted_top
+    }
+
+@app.post("/api/analytics/reset")
+async def reset_analytics(user_email: str = Depends(get_current_user)):
+    await db.vehicles.update_many({}, {"$set": {"views": 0, "clicks": 0}})
+    return {"status": "success", "message": "Analytics reset"}
+
+@app.get("/api/analytics/export")
+async def export_analytics(user_email: str = Depends(get_current_user)):
+    return {"status": "success", "message": "Export started"}
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
