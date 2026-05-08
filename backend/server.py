@@ -23,13 +23,14 @@ app = FastAPI(title="AutoNorth Motors API")
 
 # Database
 MONGODB_URI = os.environ.get("MONGODB_URI") or os.environ.get("MONGO_URL") or "mongodb://localhost:27017"
+DB_NAME = os.environ.get("DB_NAME", "AutoNorth")
 client = AsyncIOMotorClient(MONGODB_URI)
-db = client["AutoNorth"]
+db = client[DB_NAME]
 
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production, restrict this
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -55,6 +56,7 @@ async def ensure_default_admin():
                 "role": "admin",
                 "created_at": datetime.now(timezone.utc)
             })
+            logger.info("Created default admin.")
     except Exception as e:
         logger.error(f"Default admin error: {e}")
 
@@ -129,16 +131,31 @@ def to_id(id_str: str):
 
 # Routes
 
+@app.get("/api/health")
+async def health():
+    # Simple check to see if DB is responsive
+    try:
+        await db.command("ping")
+        db_status = "connected"
+    except:
+        db_status = "disconnected"
+    return {"status": "healthy", "db": DB_NAME, "db_connection": db_status}
+
 @app.post("/api/auth/login")
 async def login(user: User):
     try:
+        # Vercel fallback: ensure admin exists on login attempt in case startup didn't run
+        await ensure_default_admin()
+        
         db_user = await db.users.find_one({"email": user.email})
         if not db_user or not pwd_context.verify(user.password, db_user["password"]):
             raise HTTPException(status_code=401, detail="Invalid credentials")
         
         token = create_token({"sub": user.email})
         response = JSONResponse({"message": "Login successful", "user": {"email": user.email, "role": db_user.get("role", "admin")}})
-        response.set_cookie(key="auth_token", value=token, httponly=True, samesite="lax")
+        # In Vercel, secure=True is often required for cross-site cookies, 
+        # but since we are same-origin (rewritten), lax should be okay.
+        response.set_cookie(key="auth_token", value=token, httponly=True, samesite="lax", secure=True)
         return response
     except HTTPException as e:
         raise e
@@ -158,7 +175,6 @@ async def me(user_email: str = Depends(get_current_user)):
 
 @app.get("/api/auth/sessions")
 async def get_sessions(user_email: str = Depends(get_current_user)):
-    # Enhanced mock for UI integrity with actual session-like data
     return [
         {
             "_id": "sess_001",
@@ -187,7 +203,8 @@ async def get_vehicles(
     fuel_type: Optional[str] = None,
     condition: Optional[str] = None,
     min_price: Optional[float] = None,
-    max_price: Optional[float] = None
+    max_price: Optional[float] = None,
+    show_on_home: Optional[str] = None
 ):
     query = {}
     
@@ -211,19 +228,30 @@ async def get_vehicles(
     if make: query["make"] = {"$regex": f"^{make}$", "$options": "i"}
     
     if body_type:
-        if body_type.lower() == "truck":
-            query["body_type"] = {"$regex": "(truck|pickup|crew cab|extended cab)", "$options": "i"}
-        elif body_type.lower() == "suv":
-            query["body_type"] = {"$regex": "(suv|crossover|sport utility)", "$options": "i"}
-        elif body_type.lower() == "sedan":
-            query["body_type"] = {"$regex": "(sedan|coupe|hardtop)", "$options": "i"}
+        # Alias Mapping for Body Types
+        bt_aliases = {
+            "truck": ["truck", "pickup", "crew", "ext", "cab"],
+            "suv": ["suv", "crossover", "utility", "sport"],
+            "sedan": ["sedan", "coupe", "hardtop"]
+        }
+        target = body_type.lower()
+        if target in bt_aliases:
+            pattern = "|".join(bt_aliases[target])
+            query["body_type"] = {"$regex": f"({pattern})", "$options": "i"}
         else:
             query["body_type"] = {"$regex": f"^{body_type}$", "$options": "i"}
             
     if fuel_type: query["fuel_type"] = {"$regex": f"^{fuel_type}$", "$options": "i"}
     if condition: query["condition"] = {"$regex": f"^{condition}$", "$options": "i"}
     
-    # 4. Price
+    # 4. Show on Home
+    if show_on_home is not None:
+        if show_on_home.lower() == "true":
+            query["show_on_home"] = {"$ne": False}
+        else:
+            query["show_on_home"] = False
+
+    # 5. Price
     if min_price is not None or max_price is not None:
         p_q = {}
         if min_price is not None: p_q["$gte"] = min_price
@@ -231,7 +259,7 @@ async def get_vehicles(
         query["price"] = p_q
 
     total = await db.vehicles.count_documents(query)
-    vehicles = await db.vehicles.find(query).skip(skip).limit(limit).to_list(limit)
+    vehicles = await db.vehicles.find(query).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
     
     for v in vehicles: v["_id"] = str(v["_id"])
     return {"vehicles": vehicles, "total": total}
@@ -248,6 +276,30 @@ async def get_vehicle(vehicle_id: str):
     
     v["_id"] = str(v["_id"])
     return v
+
+@app.post("/api/vehicles")
+async def create_vehicle(vehicle: Vehicle, user: str = Depends(get_current_user)):
+    v_dict = vehicle.dict(by_alias=True)
+    if "_id" in v_dict: del v_dict["_id"]
+    result = await db.vehicles.insert_one(v_dict)
+    return {"id": str(result.inserted_id)}
+
+@app.put("/api/vehicles/{vehicle_id}")
+async def update_vehicle(vehicle_id: str, data: Dict[str, Any], user: str = Depends(get_current_user)):
+    if "_id" in data: del data["_id"]
+    await db.vehicles.update_one({"_id": to_id(vehicle_id)}, {"$set": data})
+    return {"message": "Vehicle updated"}
+
+@app.delete("/api/vehicles/{vehicle_id}")
+async def delete_vehicle(vehicle_id: str, user: str = Depends(get_current_user)):
+    await db.vehicles.delete_one({"_id": to_id(vehicle_id)})
+    return {"message": "Vehicle deleted"}
+
+@app.delete("/api/vehicles/bulk/delete")
+async def bulk_delete(ids: List[str], user: str = Depends(get_current_user)):
+    obj_ids = [to_id(i) for i in ids]
+    await db.vehicles.delete_many({"_id": {"$in": obj_ids}})
+    return {"message": f"{len(ids)} vehicles deleted"}
 
 @app.delete("/api/vehicles/bulk/clear")
 async def clear_vehicles(user: str = Depends(get_current_user)):
@@ -271,7 +323,6 @@ async def get_stats(user: str = Depends(get_current_user)):
     available_vehicles = await db.vehicles.count_documents({"status": {"$in": [None, "available", "Available"]}})
     total_leads = await db.leads.count_documents({})
     
-    # Simple analytics aggregation
     v_stats = await db.vehicles.aggregate([{"$group": {"_id": None, "total_views": {"$sum": "$views"}}}]).to_list(1)
     views = v_stats[0]["total_views"] if v_stats else 0
     
@@ -280,11 +331,9 @@ async def get_stats(user: str = Depends(get_current_user)):
         "available_vehicles": available_vehicles,
         "total_leads": total_leads,
         "total_views": views,
-        "total_clicks": int(views * 0.34), # Estimation for UI
+        "total_clicks": int(views * 0.34),
         "inventory_health": 100 if total_vehicles > 0 else 0
     }
-
-# Sync Logic (Abbreviated for brevity, focusing on stability)
 
 @app.get("/api/scraper/sync/status")
 async def get_sync_status():
@@ -316,11 +365,8 @@ async def run_sync_task():
 async def start_sync(background_tasks: BackgroundTasks, user: str = Depends(get_current_user)):
     if SYNC_PROGRESS["status"] == "running":
         return {"message": "Sync already in progress"}
-    
-    # Reset progress
     global SYNC_PROGRESS
     SYNC_PROGRESS = {"status": "idle", "processed": 0, "total": 0, "imported": 0, "updated": 0, "current_page": 0, "total_pages": 0}
-    
     background_tasks.add_task(run_sync_task)
     return {"message": "Sync started in background"}
 
@@ -330,13 +376,11 @@ async def chatbot_message(data: Dict[str, str]):
     provider = "local"
     api_key = ""
     
-    # Check settings for AI provider
     settings = await db.settings.find_one({"type": "general"})
     if settings:
         provider = settings.get("ai_provider", "local")
         api_key = settings.get("ai_api_key", "")
 
-    # Fetch recent inventory for context
     inventory = await db.vehicles.find({"status": "available"}).limit(100).to_list(100)
     
     from scraper import NeuralKnowledge
