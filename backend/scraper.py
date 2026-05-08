@@ -40,36 +40,16 @@ class NeuralKnowledge:
     @staticmethod
     def analyze_inventory(msg: str, inventory: List[Dict]):
         msg = msg.lower()
-        
-        # Filter out $0 vehicles or placeholders
-        clean_inv = [v for v in inventory if v.get('price', 0) > 100]
-        if not clean_inv: clean_inv = inventory # Fallback if everything is $0
-        
+        # Find Make matches
         makes = ["ford", "ram", "chevrolet", "toyota", "honda", "jeep", "dodge", "nissan", "hyundai", "kia", "bmw", "mercedes"]
         found_make = next((m for m in makes if m in msg), None)
         
-        # Smart Type Mapping
-        types = {
-            "truck": ["truck", "pickup", "crew", "ext", "cab"],
-            "suv": ["suv", "crossover", "utility", "sport"],
-            "sedan": ["sedan", "coupe", "hardtop"],
-            "van": ["van", "minivan"],
-            "ev": ["electric", "ev", "lightning", "tesla"]
-        }
-        found_type = None
-        type_keywords = []
-        for k, aliases in types.items():
-            if any(a in msg for a in aliases):
-                found_type = k
-                type_keywords = aliases
-                break
+        # Find Body Type matches
+        types = ["truck", "suv", "sedan", "van", "coupe", "convertible"]
+        found_type = next((t for t in types if t in msg), None)
         
         results = []
         if found_make:
-            results = [v for v in clean_inv if found_make in v.get('make', '').lower()]
-        
-        if found_type:
-            type_results = [v for v in clean_inv if any(kw in v.get('body_type', '').lower() or kw in v.get('title', '').lower() for kw in type_keywords)]
             results = [v for v in inventory if found_make in v.get('make', '').lower()]
         elif found_type:
             results = [v for v in inventory if found_type in v.get('body_type', '').lower() or found_type in v.get('title', '').lower()]
