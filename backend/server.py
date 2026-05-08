@@ -28,8 +28,8 @@ db = client[DB_NAME]
 
 async def ensure_default_admin():
     try:
-        admin_email = os.environ.get("ADMIN_EMAIL", "admin@autonorth.ca")
-        admin_pass = os.environ.get("ADMIN_PASSWORD", "AdminPassword123!")
+        admin_email = "admin@autonorth.ca"
+        admin_pass = "AdminPassword123!"
         exists = await db.users.find_one({"email": admin_email})
         if not exists:
             await db.users.insert_one({
@@ -127,17 +127,17 @@ async def get_current_user(request: Request):
 # Routes
 @app.post("/api/auth/login")
 async def login(user_data: User):
-    admin_email = os.environ.get("ADMIN_EMAIL", "admin@autonorth.ca")
-    admin_password = os.environ.get("ADMIN_PASSWORD", "AdminPassword123!")
+    admin_email = "admin@autonorth.ca"
+    admin_password = "AdminPassword123!" # Hardcoded for recovery
     
     # Check against DB first
     db_user = await db.users.find_one({"email": user_data.email})
     
     if db_user:
-        # If it's the admin and password doesn't match, try to reset/verify against env
+        # If it's the admin and password doesn't match, try to reset/verify against recovery password
         if user_data.email == admin_email and not pwd_context.verify(user_data.password, db_user["password"]):
             if user_data.password == admin_password:
-                # Password matches current environment default - update DB
+                # Password matches recovery default - update DB
                 await db.users.update_one(
                     {"email": admin_email},
                     {"$set": {"password": pwd_context.hash(admin_password)}}
