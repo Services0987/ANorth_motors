@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  MessageSquare, X, Phone, Send, Bot, User, Loader, 
+  MessageSquare, X, Phone, Send, Bot, User, RefreshCw, 
   BrainCircuit, ChevronDown, PhoneCall, CheckCircle, ExternalLink
 } from 'lucide-react';
 import axios from 'axios';
@@ -275,7 +275,7 @@ export default function ChatBot() {
                   {thinking && (
                     <div className="flex justify-start">
                       <div className="flex items-center gap-2 px-4 py-3 bg-white/[0.03] border border-white/5 rounded-xl">
-                        {SAFE_ICON(Loader, { size: 12, className: "animate-spin text-[#D4AF37]" })}
+                        {SAFE_ICON(RefreshCw, { size: 12, className: "animate-spin text-[#D4AF37]" })}
                         <span className="text-white/30 text-[10px] uppercase tracking-widest font-bold">Specialist is thinking...</span>
                       </div>
                     </div>
