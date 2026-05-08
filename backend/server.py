@@ -418,26 +418,6 @@ async def update_general_settings(data: Dict[str, Any], user: str = Depends(get_
     )
     return {"message": "Settings updated"}
 
-@app.get("/api/diag/users")
-async def diag_users():
-    try:
-        users = await db.users.find({}, {"password": 0}).to_list(length=100)
-        for u in users:
-            u["_id"] = str(u["_id"])
-            if "created_at" in u: u["created_at"] = str(u["created_at"])
-        return {"users": users}
-    except Exception as e:
-        return {"error": str(e)}
-
-@app.get("/api/diag/reset-admin")
-async def diag_reset_admin():
-    try:
-        res = await db.users.delete_many({"email": "admin@autonorth.ca"})
-        await ensure_default_admin()
-        return {"message": "Admin user deleted and recreated", "deleted_count": res.deleted_count}
-    except Exception as e:
-        return {"error": str(e)}
-
 @app.get("/api/health")
 async def health():
     return {"status": "healthy", "db": DB_NAME}
