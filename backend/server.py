@@ -29,7 +29,7 @@ db = client[DB_NAME]
 async def ensure_default_admin():
     try:
         admin_email = os.environ.get("ADMIN_EMAIL", "admin@autonorth.ca")
-        admin_pass = os.environ.get("ADMIN_PASSWORD", "admin123")
+        admin_pass = os.environ.get("ADMIN_PASSWORD", "AdminPassword123!")
         exists = await db.users.find_one({"email": admin_email})
         if not exists:
             await db.users.insert_one({
@@ -128,7 +128,7 @@ async def get_current_user(request: Request):
 @app.post("/api/auth/login")
 async def login(user_data: User):
     admin_email = os.environ.get("ADMIN_EMAIL", "admin@autonorth.ca")
-    admin_password = os.environ.get("ADMIN_PASSWORD", "autonorth2024")
+    admin_password = os.environ.get("ADMIN_PASSWORD", "AdminPassword123!")
     
     # Check against DB first
     db_user = await db.users.find_one({"email": user_data.email})
