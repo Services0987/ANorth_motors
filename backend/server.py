@@ -134,13 +134,25 @@ async def login(user_data: User):
     db_user = await db.users.find_one({"email": user_data.email})
     
     if db_user:
-        if not pwd_context.verify(user_data.password, db_user["password"]):
+        # If it's the admin and password doesn't match, try to reset/verify against env
+        if user_data.email == admin_email and not pwd_context.verify(user_data.password, db_user["password"]):
+            if user_data.password == admin_password:
+                # Password matches current environment default - update DB
+                await db.users.update_one(
+                    {"email": admin_email},
+                    {"$set": {"password": pwd_context.hash(admin_password)}}
+                )
+            else:
+                raise HTTPException(status_code=401, detail="Invalid credentials")
+        elif not pwd_context.verify(user_data.password, db_user["password"]):
             raise HTTPException(status_code=401, detail="Invalid credentials")
     elif user_data.email == admin_email and user_data.password == admin_password:
         # Initial login - create user in DB
         await db.users.insert_one({
             "email": admin_email,
-            "password": pwd_context.hash(admin_password)
+            "password": pwd_context.hash(admin_password),
+            "role": "admin",
+            "created_at": datetime.utcnow()
         })
     else:
         raise HTTPException(status_code=401, detail="Invalid credentials")
