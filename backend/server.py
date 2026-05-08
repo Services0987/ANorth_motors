@@ -57,7 +57,9 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000", 
         "https://autonorth.ca", 
-        "https://www.autonorth.ca", 
+        "https://www.autonorth.ca",
+        "https://autonorthab.ca",
+        "https://www.autonorthab.ca",
         "https://anorth-motors.vercel.app",
         "https://anorth-motors-git-main-smmservices0987-9344s-projects.vercel.app"
     ],
@@ -127,42 +129,53 @@ async def get_current_user(request: Request):
 # Routes
 @app.post("/api/auth/login")
 async def login(user_data: User):
-    admin_email = "admin@autonorth.ca"
-    admin_password = "AdminPassword123!" # Hardcoded for recovery
-    
-    # Check against DB first
-    db_user = await db.users.find_one({"email": user_data.email})
-    
-    if db_user:
-        # If it's the admin and password doesn't match, try to reset/verify against recovery password
-        if user_data.email == admin_email and not pwd_context.verify(user_data.password, db_user["password"]):
-            if user_data.password == admin_password:
-                # Password matches recovery default - update DB
-                await db.users.update_one(
-                    {"email": admin_email},
-                    {"$set": {"password": pwd_context.hash(admin_password)}}
-                )
-            else:
+    try:
+        admin_email = "admin@autonorth.ca"
+        admin_password = "AdminPassword123!" # Hardcoded for recovery
+        
+        # Check against DB first
+        db_user = await db.users.find_one({"email": user_data.email})
+        
+        if db_user:
+            # If it's the admin and password doesn't match, try to reset/verify against recovery password
+            if user_data.email == admin_email and not pwd_context.verify(user_data.password, db_user["password"]):
+                if user_data.password == admin_password:
+                    # Password matches recovery default - update DB
+                    await db.users.update_one(
+                        {"email": admin_email},
+                        {"$set": {"password": pwd_context.hash(admin_password)}}
+                    )
+                else:
+                    raise HTTPException(status_code=401, detail="Invalid credentials")
+            elif not pwd_context.verify(user_data.password, db_user["password"]):
                 raise HTTPException(status_code=401, detail="Invalid credentials")
-        elif not pwd_context.verify(user_data.password, db_user["password"]):
+        elif user_data.email == admin_email and user_data.password == admin_password:
+            # Initial login - create user in DB
+            await db.users.insert_one({
+                "email": admin_email,
+                "password": pwd_context.hash(admin_password),
+                "role": "admin",
+                "created_at": datetime.now(timezone.utc)
+            })
+        else:
             raise HTTPException(status_code=401, detail="Invalid credentials")
-    elif user_data.email == admin_email and user_data.password == admin_password:
-        # Initial login - create user in DB
-        await db.users.insert_one({
-            "email": admin_email,
-            "password": pwd_context.hash(admin_password),
-            "role": "admin",
-            "created_at": datetime.utcnow()
-        })
-    else:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    token = create_access_token({"sub": user_data.email})
-    response = JSONResponse({"message": "Login successful"})
-    response.set_cookie(
-        key="auth_token",
-        value=token,
-        httponly=True,
+        token = create_access_token({"sub": user_data.email})
+        response = JSONResponse({"message": "Login successful"})
+        response.set_cookie(
+            key="auth_token",
+            value=token,
+            httponly=True,
+            max_age=86400,
+            samesite="lax",
+            secure=True
+        )
+        return response
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Login error: {e}")
+        return JSONResponse({"detail": f"Server Error: {str(e)}"}, status_code=500)
         max_age=86400,
         samesite="lax",
         secure=True # Set to True in production
