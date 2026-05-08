@@ -1,7 +1,8 @@
 import os
 import json
-from fastapi import FastAPI, HTTPException, Request, Depends, UploadFile, File
+from fastapi import FastAPI, HTTPException, Request, Depends, UploadFile, File, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+
 from fastapi.responses import JSONResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field
@@ -30,6 +31,10 @@ db = client[DB_NAME]
 SECRET_KEY = os.environ.get("JWT_SECRET", "autonorth-super-secret-2024-elite")
 ALGORITHM = "HS256"
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Global Background Task State
+SYNC_PROGRESS = {"status": "idle", "processed": 0, "total": 0, "imported": 0, "updated": 0, "current_page": 0, "total_pages": 0}
+
 
 async def ensure_default_admin():
     try:
@@ -113,6 +118,22 @@ class User(BaseModel):
 class ScraperSettings(BaseModel):
     auto_sync: bool = False
     last_sync: Optional[datetime] = None
+
+class Lead(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias="_id")
+    lead_type: str # contact, test_drive, financing, trade_in
+    name: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    message: Optional[str] = None
+    vehicle_id: Optional[str] = None
+    vehicle_title: Optional[str] = None
+    status: str = "new" # new, contacted, qualified, closed
+    preferred_date: Optional[str] = None
+    preferred_time: Optional[str] = None
+    down_payment: Optional[float] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 
 # Auth Helpers
 def create_access_token(data: dict):
@@ -271,6 +292,17 @@ async def get_vehicles(
         v["_id"] = str(v["_id"])
     return {"vehicles": vehicles, "total": total}
 
+@app.get("/api/vehicles/{vehicle_id}")
+async def get_vehicle(vehicle_id: str):
+    v = await db.vehicles.find_one({"_id": to_id(vehicle_id)})
+    if not v:
+        # Fallback for stock number lookup if ID fails
+        v = await db.vehicles.find_one({"stock_number": vehicle_id})
+        if not v: raise HTTPException(status_code=404, detail="Vehicle not found")
+    v["_id"] = str(v["_id"])
+    return v
+
+
 @app.post("/api/vehicles")
 async def create_vehicle(vehicle: Vehicle, user: str = Depends(get_current_user)):
     v_dict = vehicle.dict(by_alias=True)
@@ -303,12 +335,73 @@ async def bulk_delete(ids: List[str], user: str = Depends(get_current_user)):
 async def chat(data: Dict[str, Any]):
     from scraper import NeuralKnowledge
     msg = data.get("message", "")
-    # Get recent inventory for AI context
-    cursor = db.vehicles.find({"status": "available"}).sort("created_at", -1).limit(50)
-    inventory = await cursor.to_list(length=50)
     
-    response = NeuralKnowledge.generate_response(msg, inventory)
+    # Get AI Settings
+    s = await db.settings.find_one({"type": "general"})
+    provider = s.get("ai_provider", "local") if s else "local"
+    api_key = s.get("ai_api_key", "") if s else ""
+
+    # Get recent inventory for AI context
+    cursor = db.vehicles.find({"status": "available"}).sort("created_at", -1).limit(100)
+    inventory = await cursor.to_list(length=100)
+    
+    response = NeuralKnowledge.generate_response(msg, inventory, provider=provider, api_key=api_key)
     return {"response": response}
+
+
+# Leads
+@app.get("/api/leads")
+async def get_leads(user: str = Depends(get_current_user)):
+    cursor = db.leads.find().sort("created_at", -1)
+    leads = await cursor.to_list(length=1000)
+    for l in leads: l["_id"] = str(l["_id"])
+    return leads
+
+@app.post("/api/leads")
+async def create_lead(lead: Lead):
+    l_dict = lead.dict(by_alias=True)
+    if "_id" in l_dict: del l_dict["_id"]
+    l_dict["created_at"] = datetime.now(timezone.utc)
+    result = await db.leads.insert_one(l_dict)
+    return {"id": str(result.inserted_id)}
+
+@app.put("/api/leads/{lead_id}")
+async def update_lead(lead_id: str, data: Dict[str, Any], user: str = Depends(get_current_user)):
+    if "_id" in data: del data["_id"]
+    await db.leads.update_one({"_id": to_id(lead_id)}, {"$set": data})
+    return {"message": "Lead updated"}
+
+@app.delete("/api/leads/{lead_id}")
+async def delete_lead(lead_id: str, user: str = Depends(get_current_user)):
+    await db.leads.delete_one({"_id": to_id(lead_id)})
+    return {"message": "Lead deleted"}
+
+@app.post("/api/leads/clear")
+async def clear_leads(user: str = Depends(get_current_user)):
+    await db.leads.delete_many({})
+    return {"message": "All leads cleared"}
+
+# Stats
+@app.get("/api/stats")
+async def get_stats(user: str = Depends(get_current_user)):
+    total_vehicles = await db.vehicles.count_documents({})
+    available = await db.vehicles.count_documents({"status": "available"})
+    total_leads = await db.leads.count_documents({})
+    new_leads = await db.leads.count_documents({"status": "new"})
+    
+    # Simple analytics stubs
+    total_views = await db.vehicles.aggregate([{"$group": {"_id": None, "total": {"$sum": "$views"}}}]).to_list(1)
+    views = total_views[0]["total"] if total_views else 0
+    
+    return {
+        "total_vehicles": total_vehicles,
+        "available_vehicles": available,
+        "total_leads": total_leads,
+        "new_leads": new_leads,
+        "total_views": views,
+        "inventory_health": 100 if total_vehicles > 0 else 0
+    }
+
 
 # Scraper & Sync
 @app.get("/api/scraper/settings")
@@ -418,6 +511,59 @@ async def update_general_settings(data: Dict[str, Any], user: str = Depends(get_
     )
     return {"message": "Settings updated"}
 
+@app.post("/api/scraper/sync/start")
+async def start_background_sync(background_tasks: BackgroundTasks, user: str = Depends(get_current_user)):
+    global SYNC_PROGRESS
+    if SYNC_PROGRESS["status"] == "running":
+        return {"message": "Sync already in progress"}
+    
+    from scraper import get_sync_info
+    info = await get_sync_info()
+    
+    SYNC_PROGRESS = {
+        "status": "running",
+        "processed": 0,
+        "total": info.get("total_vehicles", 0),
+        "imported": 0,
+        "updated": 0,
+        "current_page": 0,
+        "total_pages": info.get("total_pages", 0),
+        "start_time": datetime.now(timezone.utc).isoformat()
+    }
+    
+    background_tasks.add_task(run_sync_task)
+    return {"message": "Sync started", "info": info}
+
+@app.get("/api/scraper/sync/status")
+async def get_sync_status(user: str = Depends(get_current_user)):
+    return SYNC_PROGRESS
+
+async def run_sync_task():
+    global SYNC_PROGRESS
+    from scraper import sync_teamford_batch
+    try:
+        for p in range(SYNC_PROGRESS["total_pages"]):
+            SYNC_PROGRESS["current_page"] = p + 1
+            res = await sync_teamford_batch(p)
+            SYNC_PROGRESS["imported"] += res.get("imported", 0)
+            SYNC_PROGRESS["updated"] += res.get("updated", 0)
+            SYNC_PROGRESS["processed"] += res.get("count", 0)
+        
+        SYNC_PROGRESS["status"] = "completed"
+        SYNC_PROGRESS["end_time"] = datetime.now(timezone.utc).isoformat()
+        
+        # Update last sync in DB
+        await db.settings.update_one(
+            {"type": "scraper"},
+            {"$set": {"last_sync": datetime.now(timezone.utc)}},
+            upsert=True
+        )
+    except Exception as e:
+        logger.error(f"Background sync failed: {e}")
+        SYNC_PROGRESS["status"] = "failed"
+        SYNC_PROGRESS["error"] = str(e)
+
 @app.get("/api/health")
+
 async def health():
     return {"status": "healthy", "db": DB_NAME}

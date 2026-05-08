@@ -99,7 +99,45 @@ export default function AdminInventory() {
     } catch (err) { console.error(err); }
   }, []);
 
-  useEffect(() => { fetchVehicles(); fetchScraperSettings(); }, [fetchVehicles, fetchScraperSettings]);
+  const fetchSyncStatus = useCallback(async () => {
+
+    try {
+      const { data } = await axios.get(`${API}/scraper/sync/status`, { withCredentials: true });
+      if (data.status === 'running') {
+        setScraperLoading(true);
+        setSyncProgress(Math.round((data.current_page / (data.total_pages || 1)) * 100));
+        setSyncStats({
+          imported: data.imported,
+          updated: data.updated,
+          processed: data.processed,
+          currentBatch: data.current_page,
+          totalBatches: data.total_pages
+        });
+      } else if (scraperLoading && data.status === 'completed') {
+        setScraperLoading(false);
+        setSyncStatus({ added: data.imported, updated: data.updated });
+        fetchVehicles();
+        fetchScraperSettings();
+      } else if (data.status === 'failed') {
+        setScraperLoading(false);
+        alert("Sync failed: " + data.error);
+      }
+    } catch (err) { console.error(err); }
+  }, [scraperLoading, fetchVehicles, fetchScraperSettings]);
+
+  useEffect(() => {
+    fetchVehicles();
+    fetchScraperSettings();
+  }, [fetchVehicles, fetchScraperSettings]);
+
+  useEffect(() => {
+    let interval;
+    if (scraperLoading) {
+      interval = setInterval(fetchSyncStatus, 2000);
+    }
+    return () => clearInterval(interval);
+  }, [scraperLoading, fetchSyncStatus]);
+
 
   const setF = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const openAdd = () => { setForm({ ...EMPTY_FORM }); setEditing(null); setShowModal(true); };
@@ -193,45 +231,16 @@ export default function AdminInventory() {
     setSyncStats({ imported: 0, updated: 0, processed: 0, currentBatch: 0, totalBatches: 0 });
     
     try { 
-      const infoResp = await axios.get(`${API}/scraper/sync/info`, { withCredentials: true });
-      const { total_pages } = infoResp.data;
-      
-      if (!total_pages) {
-         alert("No vehicles found to sync.");
-         setScraperLoading(false);
-         return;
-      }
-      
-      setSyncStats(prev => ({ ...prev, totalBatches: total_pages }));
-      
-      let totalImported = 0;
-      let totalUpdated = 0;
-      let totalProcessed = 0;
-      
-      for (let i = 0; i < total_pages; i++) {
-        setSyncStats(prev => ({ ...prev, currentBatch: i + 1 }));
-        const { data } = await axios.post(`${API}/scraper/sync/batch?page=${i}`, {}, { withCredentials: true });
-        
-        totalImported += (data.imported || 0);
-        totalUpdated += (data.updated || 0);
-        totalProcessed += (data.count || 0);
-        
-        setSyncStats(prev => ({ 
-          ...prev, 
-          imported: totalImported, 
-          updated: totalUpdated, 
-          processed: totalProcessed 
-        }));
-        setSyncProgress(Math.round(((i + 1) / total_pages) * 100));
-      }
-      
-      setSyncStatus({ added: totalImported, updated: totalUpdated });
-      fetchVehicles(); 
-      fetchScraperSettings(); 
+      await axios.post(`${API}/scraper/sync/start`, {}, { withCredentials: true });
+      // Polling will handle the rest
     }
-    catch (err) { console.error(err); alert("Sync failed. Check logs."); } 
-    finally { setScraperLoading(false); }
+    catch (err) { 
+      console.error(err); 
+      setScraperLoading(false);
+      alert("Could not start sync."); 
+    } 
   };
+
 
   const handleUrlImport = async () => {
     if (!scraperUrl) return; setScraperLoading(true);
