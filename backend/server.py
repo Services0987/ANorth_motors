@@ -14,12 +14,26 @@ from pydantic import BaseModel, Field
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from bson import ObjectId
+from contextlib import asynccontextmanager
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="AutoNorth Motors API")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Ensure default admin exists
+    try:
+        await ensure_default_admin()
+        logger.info("Lifespan startup: Admin check complete.")
+    except Exception as e:
+        logger.error(f"Lifespan startup error: {e}")
+    
+    yield
+    # Shutdown logic if needed
+    logger.info("Lifespan shutdown.")
+
+app = FastAPI(title="AutoNorth Motors API", lifespan=lifespan)
 
 # Database
 MONGODB_URI = os.environ.get("MONGODB_URI") or os.environ.get("MONGO_URL") or "mongodb://localhost:27017"
@@ -50,6 +64,7 @@ async def ensure_default_admin():
         admin_pass = "AdminPassword123!"
         exists = await db.users.find_one({"email": admin_email})
         if not exists:
+            # Check for both password and password_hash to support legacy and new schemas
             await db.users.insert_one({
                 "email": admin_email,
                 "password": pwd_context.hash(admin_pass),
@@ -59,10 +74,6 @@ async def ensure_default_admin():
             logger.info("Created default admin.")
     except Exception as e:
         logger.error(f"Default admin error: {e}")
-
-@app.on_event("startup")
-async def startup():
-    await ensure_default_admin()
 
 # Models
 class User(BaseModel):
@@ -172,6 +183,19 @@ async def logout():
 @app.get("/api/auth/me")
 async def me(user_email: str = Depends(get_current_user)):
     return {"email": user_email}
+
+@app.put("/api/auth/profile")
+async def update_profile(data: Dict[str, Any], user_email: str = Depends(get_current_user)):
+    # Update admin credentials
+    update_data = {}
+    if "email" in data:
+        update_data["email"] = data["email"]
+    if "password" in data:
+        update_data["password"] = pwd_context.hash(data["password"])
+    
+    if update_data:
+        await db.users.update_one({"email": user_email}, {"$set": update_data})
+    return {"message": "Profile updated"}
 
 @app.get("/api/auth/sessions")
 async def get_sessions(user_email: str = Depends(get_current_user)):
@@ -306,6 +330,31 @@ async def clear_vehicles(user: str = Depends(get_current_user)):
     await db.vehicles.delete_many({})
     return {"message": "All vehicles cleared"}
 
+@app.post("/api/vehicles/import")
+async def import_vehicles_csv(file: UploadFile = File(...), user: str = Depends(get_current_user)):
+    import pandas as pd
+    contents = await file.read()
+    df = pd.read_csv(io.BytesIO(contents))
+    vehicles = df.to_dict('records')
+    
+    imported = 0
+    for v in vehicles:
+        # Clean data
+        if 'price' in v: v['price'] = float(str(v['price']).replace('$', '').replace(',', '') or 0)
+        if 'year' in v: v['year'] = int(v['year'] or 2024)
+        if 'mileage' in v: v['mileage'] = int(str(v['mileage']).replace(',', '') or 0)
+        if 'images' in v and isinstance(v['images'], str): v['images'] = [i.strip() for i in v['images'].split(',')]
+        if 'features' in v and isinstance(v['features'], str): v['features'] = [f.strip() for f in v['features'].split(',')]
+        
+        v['created_at'] = datetime.now(timezone.utc)
+        v['updated_at'] = v['created_at']
+        v['status'] = v.get('status', 'available')
+        
+        await db.vehicles.insert_one(v)
+        imported += 1
+        
+    return {"message": f"Successfully imported {imported} vehicles"}
+
 @app.post("/api/leads")
 async def create_lead(lead: Lead):
     res = await db.leads.insert_one(lead.dict(by_alias=True))
@@ -313,30 +362,120 @@ async def create_lead(lead: Lead):
 
 @app.get("/api/leads")
 async def get_leads(user: str = Depends(get_current_user)):
-    leads = await db.leads.find().sort("created_at", -1).to_list(100)
+    leads = await db.leads.find().sort("created_at", -1).to_list(1000)
     for l in leads: l["_id"] = str(l["_id"])
     return leads
+
+@app.post("/api/leads/clear")
+async def clear_leads(user: str = Depends(get_current_user)):
+    await db.leads.delete_many({})
+    return {"message": "All leads cleared"}
+
+@app.get("/api/leads/export")
+async def export_leads(user: str = Depends(get_current_user)):
+    import csv
+    leads = await db.leads.find().sort("created_at", -1).to_list(2000)
+    
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=["name", "email", "phone", "lead_type", "vehicle_title", "status", "created_at"])
+    writer.writeheader()
+    for l in leads:
+        writer.writerow({
+            "name": l.get("name"),
+            "email": l.get("email"),
+            "phone": l.get("phone"),
+            "lead_type": l.get("lead_type"),
+            "vehicle_title": l.get("vehicle_title"),
+            "status": l.get("status"),
+            "created_at": l.get("created_at").isoformat() if l.get("created_at") else ""
+        })
+    
+    return JSONResponse(
+        content={"csv": output.getvalue()},
+        headers={"Content-Disposition": "attachment; filename=leads.csv"}
+    )
 
 @app.get("/api/stats")
 async def get_stats(user: str = Depends(get_current_user)):
     total_vehicles = await db.vehicles.count_documents({})
-    available_vehicles = await db.vehicles.count_documents({"status": {"$in": [None, "available", "Available"]}})
+    available_vehicles = await db.vehicles.count_documents({"status": {"$in": [None, "available", "Available", "AVAILABLE"]}})
     total_leads = await db.leads.count_documents({})
+    new_leads = await db.leads.count_documents({"status": "new"})
     
     v_stats = await db.vehicles.aggregate([{"$group": {"_id": None, "total_views": {"$sum": "$views"}}}]).to_list(1)
     views = v_stats[0]["total_views"] if v_stats else 0
     
     return {
         "total_vehicles": total_vehicles,
+        "available": available_vehicles, # Match frontend
         "available_vehicles": available_vehicles,
         "total_leads": total_leads,
+        "new_leads": new_leads,
+        "recent_leads": new_leads, # Match frontend dashboard
         "total_views": views,
         "total_clicks": int(views * 0.34),
         "inventory_health": 100 if total_vehicles > 0 else 0
     }
 
+@app.get("/api/scraper/settings")
+async def get_scraper_settings(user: str = Depends(get_current_user)):
+    settings = await db.settings.find_one({"type": "scraper"})
+    if not settings:
+        return {"auto_sync": False, "last_sync": None}
+    settings["_id"] = str(settings["_id"])
+    if "last_sync" in settings and isinstance(settings["last_sync"], datetime):
+        settings["last_sync"] = settings["last_sync"].isoformat()
+    return settings
+
+@app.post("/api/scraper/settings")
+async def update_scraper_settings(settings: ScraperSettings, user: str = Depends(get_current_user)):
+    await db.settings.update_one(
+        {"type": "scraper"},
+        {"$set": {"auto_sync": settings.auto_sync, "updated_at": datetime.now(timezone.utc)}},
+        upsert=True
+    )
+    return {"message": "Scraper settings updated"}
+
+@app.post("/api/scraper/import-url")
+async def import_from_url(data: Dict[str, str], user: str = Depends(get_current_user)):
+    url = data.get("url")
+    if not url: raise HTTPException(status_code=400, detail="URL is required")
+    
+    from scraper import scrape_teamford_listing
+    v = await scrape_teamford_listing(url)
+    if not v: raise HTTPException(status_code=404, detail="Could not extract vehicle from URL")
+    
+    # Check if exists
+    existing = await db.vehicles.find_one({"vin": v["vin"]}) if v.get("vin") else None
+    if not existing and v.get("stock_number"):
+        existing = await db.vehicles.find_one({"stock_number": v["stock_number"]})
+    
+    if existing:
+        await db.vehicles.update_one({"_id": existing["_id"]}, {"$set": v})
+        return {"message": "Vehicle updated", "vehicle": v, "id": str(existing["_id"])}
+    else:
+        res = await db.vehicles.insert_one(v)
+        return {"message": "Vehicle imported", "vehicle": v, "id": str(res.inserted_id)}
+
+@app.get("/api/settings")
+async def get_general_settings(user: str = Depends(get_current_user)):
+    s = await db.settings.find_one({"type": "general"})
+    if not s: return {"ai_provider": "local", "ai_api_key": ""}
+    s["_id"] = str(s["_id"])
+    return s
+
+@app.put("/api/settings")
+async def update_general_settings(data: Dict[str, Any], user: str = Depends(get_current_user)):
+    if "_id" in data: del data["_id"]
+    await db.settings.update_one(
+        {"type": "general"},
+        {"$set": {**data, "updated_at": datetime.now(timezone.utc)}},
+        upsert=True
+    )
+    return {"message": "General settings updated"}
+
 @app.get("/api/scraper/sync/status")
-async def get_sync_status():
+async def get_sync_status(user: str = Depends(get_current_user)):
     return SYNC_PROGRESS
 
 async def run_sync_task():
@@ -363,9 +502,9 @@ async def run_sync_task():
 
 @app.post("/api/scraper/sync/start")
 async def start_sync(background_tasks: BackgroundTasks, user: str = Depends(get_current_user)):
+    global SYNC_PROGRESS
     if SYNC_PROGRESS["status"] == "running":
         return {"message": "Sync already in progress"}
-    global SYNC_PROGRESS
     SYNC_PROGRESS = {"status": "idle", "processed": 0, "total": 0, "imported": 0, "updated": 0, "current_page": 0, "total_pages": 0}
     background_tasks.add_task(run_sync_task)
     return {"message": "Sync started in background"}
