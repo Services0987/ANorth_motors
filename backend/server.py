@@ -628,15 +628,14 @@ async def start_sync(background_tasks: BackgroundTasks, user: str = Depends(get_
 @app.post("/api/chat")
 async def chatbot_message(data: Dict[str, Any], request: Request):
     msg = data.get("message", "")
-    provider = "local"
-    api_key = ""
-    model = ""
+    # Load AI Settings from DB with environment fallbacks
+    s = await db.settings.find_one({"type": "general"}) or {}
+    provider_raw = s.get("ai_provider") or os.environ.get("AI_PROVIDER") or "local"
+    provider = str(provider_raw).lower()
+    api_key = s.get("ai_api_key") or os.environ.get("AI_API_KEY")
+    model = s.get("ai_model") or os.environ.get("AI_MODEL")
     
-    settings = await db.settings.find_one({"type": "general"})
-    if settings:
-        provider = settings.get("ai_provider", "local")
-        api_key = settings.get("ai_api_key", "")
-        model = settings.get("ai_model", "")
+    logger.info(f"Chatbot utilizing provider: {provider} (Key present: {bool(api_key)})")
 
     inventory = await db.vehicles.find({"status": "available"}).limit(100).to_list(100)
     

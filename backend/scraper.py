@@ -155,7 +155,7 @@ class NeuralKnowledge:
                             "X-Title": "AutoNorth AI"
                         },
                         json={
-                            "model": model or "google/gemini-flash-1.5-free",
+                            "model": model or "openrouter/auto",
                             "messages": [
                                 {"role": "system", "content": system_prompt},
                                 {"role": "user", "content": msg}
@@ -170,19 +170,45 @@ class NeuralKnowledge:
             except Exception as e:
                 logger.error(f"OpenRouter exception: {str(e)}")
 
-        # 4. GEMINI PROVIDER
+        # 4. CLAUDE PROVIDER
+        if provider == "claude" and api_key:
+            try:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    resp = await client.post(
+                        "https://api.anthropic.com/v1/messages",
+                        headers={
+                            "x-api-key": api_key,
+                            "anthropic-version": "2023-06-01",
+                            "content-type": "application/json"
+                        },
+                        json={
+                            "model": model or "claude-3-haiku-20240307",
+                            "max_tokens": 1024,
+                            "system": system_prompt,
+                            "messages": [{"role": "user", "content": msg}]
+                        }
+                    )
+                    if resp.status_code == 200:
+                        return resp.json()["content"][0]["text"]
+                    else:
+                        logger.error(f"Claude returned {resp.status_code}: {resp.text}")
+            except Exception as e:
+                logger.error(f"Claude exception: {str(e)}")
+
+        # 5. GEMINI PROVIDER
         if provider == "gemini" and api_key:
             try:
-                import google.generativeai as genai
-                genai.configure(api_key=api_key)
-                model_instance = genai.GenerativeModel(model or 'gemini-1.5-flash')
-                response = model_instance.generate_content(f"{system_prompt}\n\nUser Message: {msg}")
+                from google import genai
+                client = genai.Client(api_key=api_key)
+                response = client.models.generate_content(
+                    model=model or 'gemini-1.5-flash',
+                    contents=f"{system_prompt}\n\nUser Message: {msg}"
+                )
                 return response.text
             except Exception as e:
                 logger.error(f"Gemini exception: {str(e)}")
 
-        
-        # 5. LOCAL SYNTHESIS FALLBACK
+        # 6. LOCAL SYNTHESIS FALLBACK
         if intent == "CONFIRMATION":
             return "That's great! I'll get that set up for you. Please leave your name and phone number, or call us directly at 825-605-5050 to finalize the details. Is there anything else I can help you with?"
 
