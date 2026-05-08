@@ -158,9 +158,13 @@ class NeuralKnowledge:
         # 5. GEMINI PROVIDER
         if provider == "gemini" and api_key:
             try:
-                from google import genai
-                client = genai.Client(api_key=api_key)
-                response = client.models.generate_content(model=model or 'gemini-1.5-flash', contents=f"{system_prompt}\n\nUser Message: {msg}")
+                import google.generativeai as genai
+                genai.configure(api_key=api_key)
+                # Use model name or default
+                model_name = model if model else 'gemini-1.5-flash'
+                # Note: system_instruction is supported in newer versions of the old SDK too
+                gm = genai.GenerativeModel(model_name=model_name)
+                response = gm.generate_content(f"{system_prompt}\n\nUser Message: {msg}")
                 return response.text
             except Exception as e:
                 logger.error(f"Gemini exception: {str(e)}")
