@@ -138,6 +138,8 @@ class NeuralKnowledge:
         - Always drive the user towards a test drive, showroom visit, or call (825-605-5050).
         - Keep responses concise (max 3-4 sentences) unless listing vehicles.
         - Use markdown for bolding vehicle names and prices.
+        - STRICT FORMATTING RULE: When mentioning a vehicle, ALWAYS use this link format: [Year Make Model](/vehicle/STOCK_NUMBER_OR_ID).
+        - If no stock number is available, use the VIN or a descriptive name.
         """
 
         # 3. OPENROUTER PROVIDER

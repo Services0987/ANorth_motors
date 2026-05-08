@@ -332,28 +332,93 @@ async def clear_vehicles(user: str = Depends(get_current_user)):
 
 @app.post("/api/vehicles/import")
 async def import_vehicles_csv(file: UploadFile = File(...), user: str = Depends(get_current_user)):
-    import pandas as pd
+    import csv
     contents = await file.read()
-    df = pd.read_csv(io.BytesIO(contents))
-    vehicles = df.to_dict('records')
+    decoded = contents.decode("utf-8-sig", errors="ignore")
+    reader = csv.DictReader(io.StringIO(decoded))
     
+    # Fuzzy mapping helper
+    def get_val(row, aliases):
+        for alias in aliases:
+            for key in row.keys():
+                k = str(key).lower().strip().replace(" ", "_").replace("#", "")
+                if k == alias.lower().replace(" ", "_").replace("#", ""):
+                    return str(row[key]).strip()
+        return ""
+
     imported = 0
-    for v in vehicles:
-        # Clean data
-        if 'price' in v: v['price'] = float(str(v['price']).replace('$', '').replace(',', '') or 0)
-        if 'year' in v: v['year'] = int(v['year'] or 2024)
-        if 'mileage' in v: v['mileage'] = int(str(v['mileage']).replace(',', '') or 0)
-        if 'images' in v and isinstance(v['images'], str): v['images'] = [i.strip() for i in v['images'].split(',')]
-        if 'features' in v and isinstance(v['features'], str): v['features'] = [f.strip() for f in v['features'].split(',')]
-        
-        v['created_at'] = datetime.now(timezone.utc)
-        v['updated_at'] = v['created_at']
-        v['status'] = v.get('status', 'available')
-        
-        await db.vehicles.insert_one(v)
-        imported += 1
-        
-    return {"message": f"Successfully imported {imported} vehicles"}
+    updated = 0
+    
+    for row in reader:
+        try:
+            vin = get_val(row, ["vin", "vehicle identification number", "vin#"])
+            stock = get_val(row, ["stock_number", "stock", "stk", "stk#", "stock#", "inventory_id"])
+            
+            if not vin and not stock: continue
+
+            # Extract fields with fallback aliases
+            title = get_val(row, ["title", "headline", "name", "vehicle"])
+            make = get_val(row, ["make", "brand", "manufacturer"])
+            model = get_val(row, ["model", "series"])
+            year_val = get_val(row, ["year", "model_year"])
+            price_val = get_val(row, ["price", "msrp", "retail_price", "sale_price"])
+            mileage_val = get_val(row, ["mileage", "miles", "kms", "odometer"])
+            images_val = get_val(row, ["images", "photos", "image_urls", "urls"])
+            body = get_val(row, ["body_type", "body", "style", "type"])
+            cond = get_val(row, ["condition", "status", "stock_type"])
+            desc = get_val(row, ["description", "notes", "comments", "details"])
+            fuel = get_val(row, ["fuel_type", "fuel", "gas_type"])
+            trans = get_val(row, ["transmission", "trans", "gearbox"])
+            ext_color = get_val(row, ["exterior_color", "color", "ext_color", "exterior"])
+            int_color = get_val(row, ["interior_color", "int_color", "interior"])
+            eng = get_val(row, ["engine", "motor", "engine_size"])
+            drive = get_val(row, ["drivetrain", "drive", "awd_fwd_rwd"])
+
+            # Image cleaning
+            import re
+            imgs = [img.strip() for img in re.split(r'[\s\n]+|,\s*(?=http)', images_val) if img.strip() and img.startswith("http")]
+
+            v = {
+                "title": title if title else f"{year_val} {make} {model}".strip(),
+                "make": make,
+                "model": model,
+                "year": int(year_val) if year_val.isdigit() else 2024,
+                "price": float(re.sub(r'[^\d.]', '', price_val)) if price_val else 0.0,
+                "mileage": int(re.sub(r'[^\d]', '', mileage_val)) if mileage_val else 0,
+                "condition": cond.lower() if cond else "used",
+                "body_type": body if body else "Sedan",
+                "fuel_type": fuel,
+                "transmission": trans,
+                "exterior_color": ext_color,
+                "interior_color": int_color,
+                "engine": eng,
+                "drivetrain": drive,
+                "vin": vin,
+                "stock_number": stock,
+                "description": desc,
+                "images": imgs,
+                "status": "available",
+                "updated_at": datetime.now(timezone.utc)
+            }
+
+            # Smart Upsert
+            query = {}
+            if vin: query = {"vin": vin}
+            elif stock: query = {"stock_number": stock}
+            
+            existing = await db.vehicles.find_one(query)
+            if existing:
+                await db.vehicles.update_one({"_id": existing["_id"]}, {"$set": v})
+                updated += 1
+            else:
+                v["created_at"] = datetime.now(timezone.utc)
+                v["views"] = 0
+                await db.vehicles.insert_one(v)
+                imported += 1
+        except Exception as e:
+            logger.error(f"CSV Row error: {e}")
+            
+    return {"message": f"Successfully processed {imported + updated} vehicles", "imported": imported, "updated": updated}
 
 @app.post("/api/leads")
 async def create_lead(lead: Lead):
@@ -471,8 +536,9 @@ async def import_from_url(data: Dict[str, str], user: str = Depends(get_current_
 @app.get("/api/settings")
 async def get_general_settings(user: str = Depends(get_current_user)):
     s = await db.settings.find_one({"type": "general"})
-    if not s: return {"ai_provider": "local", "ai_api_key": ""}
+    if not s: return {"ai_provider": "local", "ai_api_key": "", "ai_health": "online"}
     s["_id"] = str(s["_id"])
+    if "ai_health" not in s: s["ai_health"] = "online"
     return s
 
 @app.put("/api/settings")
@@ -537,8 +603,28 @@ async def chatbot_message(data: Dict[str, Any], request: Request):
     inventory = await db.vehicles.find({"status": "available"}).limit(100).to_list(100)
     
     from scraper import NeuralKnowledge
-    response = await NeuralKnowledge.generate_response(msg, inventory, provider, api_key, model)
-    return {"response": response}
+    try:
+        response = await NeuralKnowledge.generate_response(msg, inventory, provider, api_key, model)
+        # Simple lead detection
+        import re
+        lead_detected = bool(re.search(r'[\w\.-]+@[\w\.-]+\.\w+|(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}', msg))
+        if lead_detected:
+            # Optionally log as a lead
+            await db.leads.insert_one({
+                "name": "Chat Visitor",
+                "phone": re.findall(r'(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}', msg)[0] if re.search(r'(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}', msg) else "Via Chat",
+                "message": f"Lead captured during AI conversation: {msg}",
+                "lead_type": "chat",
+                "status": "new",
+                "created_at": datetime.now(timezone.utc)
+            })
+        
+        await db.settings.update_one({"type": "general"}, {"$set": {"ai_health": "online", "last_active": datetime.now(timezone.utc)}})
+        return {"response": response, "lead_captured": lead_detected}
+    except Exception as e:
+        logger.error(f"Chat error: {e}")
+        await db.settings.update_one({"type": "general"}, {"$set": {"ai_health": "error", "ai_error": str(e)}})
+        return {"response": "I'm having a technical moment. Please call us at 825-605-5050."}
 
 @app.post("/api/analytics/search/log")
 async def log_search(data: Dict[str, Any], request: Request):
