@@ -128,7 +128,9 @@ export default function AdminInventory() {
   useEffect(() => {
     fetchVehicles();
     fetchScraperSettings();
-  }, [fetchVehicles, fetchScraperSettings]);
+    // Check if sync is already running on mount
+    fetchSyncStatus();
+  }, [fetchVehicles, fetchScraperSettings, fetchSyncStatus]);
 
   useEffect(() => {
     let interval;
@@ -216,6 +218,16 @@ export default function AdminInventory() {
       await axios.delete(`${API}/vehicles/bulk/delete`, { data: selectedIds, withCredentials: true });
       setSelectedIds([]); fetchVehicles();
     } catch (err) { console.error(err); }
+  };
+
+  const handleClearAll = async () => {
+    if (!window.confirm("WARNING: This will delete ALL vehicles from the inventory. This action cannot be undone. Proceed?")) return;
+    setLoading(true);
+    try {
+      await axios.delete(`${API}/vehicles/bulk/clear`, { withCredentials: true });
+      fetchVehicles();
+    } catch (err) { alert("Failed to clear inventory"); }
+    finally { setLoading(false); }
   };
 
   const toggleAutoSync = async () => {
@@ -310,10 +322,15 @@ export default function AdminInventory() {
                     </button>
                  </div>
                  <div className="flex flex-col items-end gap-2">
-                    <button onClick={handleSyncNow} disabled={scraperLoading} className="btn-gold px-4 py-2 text-[10px] font-heading tracking-widest uppercase flex items-center gap-2">
-                       {SAFE_ICON(RefreshCw, { size: 11, className: scraperLoading ? 'animate-spin' : '' })} 
-                       {scraperLoading ? 'Syncing...' : 'Sync TeamFord'}
-                    </button>
+                    <div className="flex gap-2">
+                        <button onClick={handleClearAll} disabled={scraperLoading} className="px-3 py-2 text-[9px] font-heading tracking-widest uppercase border border-red-500/30 text-red-400 hover:bg-red-500 hover:text-white transition-all">
+                           Clear All
+                        </button>
+                        <button onClick={handleSyncNow} disabled={scraperLoading} className="btn-gold px-4 py-2 text-[10px] font-heading tracking-widest uppercase flex items-center gap-2">
+                           {SAFE_ICON(RefreshCw, { size: 11, className: scraperLoading ? 'animate-spin' : '' })} 
+                           {scraperLoading ? 'Syncing...' : 'Sync TeamFord'}
+                        </button>
+                    </div>
                     {syncStatus && !scraperLoading && (
                       <p className="text-emerald-400 text-[9px] font-heading uppercase tracking-widest animate-fade-in">
                         Success: {syncStatus.added} added, {syncStatus.updated} updated

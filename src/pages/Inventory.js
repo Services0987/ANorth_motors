@@ -232,13 +232,13 @@ export default function Inventory() {
   const limit = 20;
 
   const [filters, setFilters] = useState({
-    search:    '',
+    search:    searchParams.get('search')    || '',
     condition: searchParams.get('condition') || '',
     make:      searchParams.get('make')      || '',
     body_type: searchParams.get('body_type') || '',
     fuel_type: searchParams.get('fuel_type') || '',
-    min_price: '',
-    max_price: '',
+    min_price: searchParams.get('min_price') || '',
+    max_price: searchParams.get('max_price') || '',
   });
 
   const collectionRef = useRef(null);
@@ -246,18 +246,21 @@ export default function Inventory() {
   const fetchVehicles = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (filters.search)    params.append('search',    filters.search);
-      if (filters.condition) params.append('condition', filters.condition);
-      if (filters.make)      params.append('make',      filters.make);
-      if (filters.body_type) params.append('body_type', filters.body_type);
-      if (filters.fuel_type) params.append('fuel_type', filters.fuel_type);
-      if (filters.min_price) params.append('min_price', filters.min_price);
-      if (filters.max_price) params.append('max_price', filters.max_price);
-      params.append('limit', limit.toString());
-      params.append('skip',  ((page - 1) * limit).toString());
+    const params = new URLSearchParams();
+    if (filters.search)    params.set('search',    filters.search);
+    if (filters.condition) params.set('condition', filters.condition);
+    if (filters.make)      params.set('make',      filters.make);
+    if (filters.body_type) params.set('body_type', filters.body_type);
+    if (filters.fuel_type) params.set('fuel_type', filters.fuel_type);
+    if (filters.min_price) params.set('min_price', filters.min_price);
+    if (filters.max_price) params.set('max_price', filters.max_price);
+    params.set('page',  page.toString());
+    
+    // Sync to URL without triggering a full page reload
+    setSearchParams(params, { replace: true });
 
-      const { data } = await axios.get(`${API}/vehicles?${params}`);
+    try {
+      const { data } = await axios.get(`${API}/vehicles?${params.toString()}&limit=${limit}&skip=${(page - 1) * limit}`);
       setVehicles(data.vehicles || []);
       setTotal(data.total || 0);
       

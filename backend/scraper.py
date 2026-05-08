@@ -29,7 +29,8 @@ class NeuralKnowledge:
             "FINANCE": r"\b(finance|credit|loan|approve|monthly|payments|rate|interest|down payment)\b",
             "CONTACT": r"\b(location|where|address|phone|number|contact|call|email)\b",
             "BOOKING": r"\b(book|schedule|test drive|view|visit|appointment)\b",
-            "DEAL": r"\b(deal|best price|special|discount|offer|cheapest|lowest)\b"
+            "DEAL": r"\b(deal|best price|special|discount|offer|cheapest|lowest)\b",
+            "CONFIRMATION": r"\b(yes|yeah|sure|ok|okay|please|book it|do it)\b"
         }
         for intent, pattern in patterns.items():
             if re.search(pattern, msg):
@@ -39,19 +40,45 @@ class NeuralKnowledge:
     @staticmethod
     def analyze_inventory(msg: str, inventory: List[Dict]):
         msg = msg.lower()
+        
+        # Filter out $0 vehicles or placeholders
+        clean_inv = [v for v in inventory if v.get('price', 0) > 100]
+        if not clean_inv: clean_inv = inventory # Fallback if everything is $0
+        
         makes = ["ford", "ram", "chevrolet", "toyota", "honda", "jeep", "dodge", "nissan", "hyundai", "kia", "bmw", "mercedes"]
         found_make = next((m for m in makes if m in msg), None)
-        types = ["truck", "suv", "sedan", "van", "coupe", "convertible"]
-        found_type = next((t for t in types if t in msg), None)
+        
+        # Smart Type Mapping
+        types = {
+            "truck": ["truck", "pickup", "crew", "ext", "cab"],
+            "suv": ["suv", "crossover", "utility", "sport"],
+            "sedan": ["sedan", "coupe", "hardtop"],
+            "van": ["van", "minivan"],
+            "ev": ["electric", "ev", "lightning", "tesla"]
+        }
+        found_type = None
+        type_keywords = []
+        for k, aliases in types.items():
+            if any(a in msg for a in aliases):
+                found_type = k
+                type_keywords = aliases
+                break
         
         results = []
         if found_make:
-            results = [v for v in inventory if found_make in v.get('make', '').lower()]
-        elif found_type:
-            results = [v for v in inventory if found_type in v.get('body_type', '').lower() or found_type in v.get('title', '').lower()]
+            results = [v for v in clean_inv if found_make in v.get('make', '').lower()]
+        
+        if found_type:
+            type_results = [v for v in clean_inv if any(kw in v.get('body_type', '').lower() or kw in v.get('title', '').lower() for kw in type_keywords)]
+            if results: # If we have a make, filter those results by type
+                results = [v for v in results if v in type_results]
+            else:
+                results = type_results
         
         if not results:
-            results = sorted(inventory, key=lambda x: x.get('price', 999999))[:3]
+            # Fallback to cheapest high-quality matches
+            results = sorted(clean_inv, key=lambda x: x.get('price', 999999))[:3]
+            
         return results, found_make or found_type
 
     @staticmethod
@@ -75,28 +102,59 @@ class NeuralKnowledge:
         if local_resp and provider == "local":
             return local_resp
 
-        # If cloud provider is requested, we could call external APIs here.
-        # For now, we'll enhance the 'local' synthesis to be much smarter 
-        # by building a structured response with vehicle data.
+        if provider == "gemini" and api_key:
+            try:
+                import google.generativeai as genai
+                genai.configure(api_key=api_key)
+                model = genai.GenerativeModel('gemini-pro')
+                
+                # Context-aware prompt
+                v_context = json.dumps([{k: v for k, v in res.items() if k != '_id'} for res in results[:5]])
+                prompt = f"""You are the AutoNorth Motors AI Specialist. 
+                User Message: "{msg}"
+                Current Intent: {intent}
+                Relevant Inventory Context: {v_context}
+                
+                Instructions:
+                - Be professional, helpful, and luxury-oriented.
+                - If specific vehicles are in context, mention their highlights (price, mileage).
+                - Always try to drive the user towards a test drive or enquiry.
+                - Keep responses concise but informative.
+                """
+                response = model.generate_content(prompt)
+                return response.text
+            except Exception as e:
+                logger.error(f"Gemini error: {e}")
+                # Fallback to local synthesis
         
-        if results and (intent == "INVENTORY_SEARCH" or entity):
+        if intent == "CONFIRMATION" and provider == "local":
+            return "That's great! I'll get that set up for you. Please leave your name and phone number, or call us directly at 825-605-5050 to finalize the details. Is there anything else I can help you with?"
+
+        if results and (intent == "INVENTORY_SEARCH" or entity or intent == "DEAL"):
             top = results[0]
             others = len(results) - 1
             
             # Synthesis of vehicle data
-            v_info = f"{top['year']} {top['make']} {top['model']}"
-            price_info = f"${top['price']:,.0f}"
-            mileage_info = f"{top['mileage']:,} km"
+            v_info = f"{top.get('year')} {top.get('make')} {top.get('model')}"
+            price = top.get('price', 0)
+            price_info = f"${price:,.0f}" if price > 0 else "Contact for Price"
+            mileage_info = f"{top.get('mileage', 0):,} km"
             
-            resp = f"I've found a perfect match in our live inventory: A **{v_info}** with only {mileage_info}, priced at **{price_info}**. "
+            if price == 0 and others > 0: # Try to find one with a price if the top is $0
+                top = next((v for v in results if v.get('price', 0) > 0), top)
+                v_info = f"{top.get('year')} {top.get('make')} {top.get('model')}"
+                price_info = f"${top.get('price', 0):,.0f}"
+                mileage_info = f"{top.get('mileage', 0):,} km"
+
+            resp = f"I've found a great match in our live inventory: A **{v_info}** with {mileage_info}, priced at **{price_info}**. "
             if top.get('features'):
                 f_str = ", ".join(top['features'][:3])
-                resp += f"It features {f_str}. "
+                resp += f"Key features include: {f_str}. "
             
             if others > 0:
-                resp += f"I also have {others} other similar {entity or 'vehicles'} available right now. "
+                resp += f"I also have {others} other {entity or 'vehicles'} that might interest you. "
             
-            resp += "Would you like to see the full spec sheet, or shall I book a VIP test drive for you?"
+            resp += "\n\nWould you like to see more details, or shall I book a VIP test drive for you?"
             return resp
 
         if intent == "DEAL":
