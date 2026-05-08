@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Car, Users, LogOut, Menu, X, ChevronRight, Settings, BarChart3, Bell, BellOff } from 'lucide-react';
+import { LayoutDashboard, Car, Users, LogOut, Menu, X, ChevronRight, Settings, BarChart3, Bell, BellOff, Shield } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
+import SecurityModal from './SecurityModal';
 
 const SAFE_ICON = (Icon, props = {}) => {
   if (!Icon) return null;
@@ -16,7 +17,7 @@ const navItems = [
   { to: '/admin/inventory', icon: Car, label: 'Inventory' },
   { to: '/admin/leads', icon: Users, label: 'Leads' },
   { to: '/admin/analytics', icon: BarChart3, label: 'Intelligence' },
-  { to: '/admin/settings', icon: Settings, label: 'Settings' },
+  { to: '/admin/security', icon: Shield, label: 'Security' },
 ];
 
 export const SafeLink = ({ to, children, ...props }) => {
@@ -29,6 +30,7 @@ export default function AdminLayout({ children, title }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [securityModalOpen, setSecurityModalOpen] = useState(false);
 
   // Notifications State
   const [notificationsEnabled, setNotificationsEnabled] = useState(() => localStorage.getItem('admin_alerts') !== 'false');
@@ -138,13 +140,13 @@ export default function AdminLayout({ children, title }) {
               <p className="text-white/50 text-xs font-body truncate">{user?.email}</p>
               <p className="text-white/20 text-[10px] font-body uppercase tracking-wider">Administrator</p>
             </div>
-            <Link 
-              to="/admin/settings"
+            <button 
+              onClick={() => setSecurityModalOpen(true)}
               className="text-white/20 hover:text-[#D4AF37] transition-colors p-1"
-              title="System Settings"
+              title="Intelligence & Security Engine"
             >
               <Settings size={16} />
-            </Link>
+            </button>
           </div>
           <button
             onClick={handleLogout}
@@ -205,6 +207,8 @@ export default function AdminLayout({ children, title }) {
           {children}
         </main>
       </div>
+
+      <SecurityModal isOpen={securityModalOpen} onClose={() => setSecurityModalOpen(false)} />
     </div>
   );
 }

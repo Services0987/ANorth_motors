@@ -17,7 +17,7 @@ const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const AdminInventory = lazy(() => import('./pages/AdminInventory'));
 const AdminLeads = lazy(() => import('./pages/AdminLeads'));
 const AdminAnalytics = lazy(() => import('./pages/AdminAnalytics'));
-const AdminSettings = lazy(() => import('./pages/AdminSettings'));
+const AdminSecurity = lazy(() => import('./pages/AdminSecurity'));
 const Showroom = lazy(() => import('./components/Showroom'));
 
 // Loading fallback with premium aesthetic
@@ -59,7 +59,7 @@ function AppContent() {
           <Route path="/admin/inventory" element={<ProtectedRoute><AdminInventory /></ProtectedRoute>} />
           <Route path="/admin/leads" element={<ProtectedRoute><AdminLeads /></ProtectedRoute>} />
           <Route path="/admin/analytics" element={<ProtectedRoute><AdminAnalytics /></ProtectedRoute>} />
-          <Route path="/admin/settings" element={<ProtectedRoute><AdminSettings /></ProtectedRoute>} />
+          <Route path="/admin/security" element={<ProtectedRoute><AdminSecurity /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
