@@ -651,37 +651,48 @@ async def chatbot_message(data: Dict[str, Any], request: Request):
     from scraper import NeuralKnowledge
     try:
         response = await NeuralKnowledge.generate_response(msg, inventory, provider, api_key, model)
-        # Simple lead detection
+        
+        # Robust Lead Detection
         import re
-        lead_detected = bool(re.search(r'[\w\.-]+@[\w\.-]+\.\w+|(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}', msg))
-        if lead_detected:
-            # Optionally log as a lead
-            await db.leads.insert_one({
-                "name": "Chat Visitor",
-                "phone": re.findall(r'(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}', msg)[0] if re.search(r'(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}', msg) else "Via Chat",
-                "message": f"Lead captured during AI conversation: {msg}",
+        # Detect Phone Numbers or Emails
+        email_pattern = r'[\w\.-]+@[\w\.-]+\.\w+'
+        phone_pattern = r'(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}'
+        
+        has_email = re.search(email_pattern, msg)
+        has_phone = re.search(phone_pattern, msg)
+        
+        if has_email or has_phone:
+            lead_info = {
+                "name": "Chat Lead",
+                "phone": has_phone.group(0) if has_phone else "N/A",
+                "email": has_email.group(0) if has_email else "N/A",
+                "message": f"Auto-captured during AI chat: {msg}",
                 "lead_type": "chat",
                 "status": "new",
                 "created_at": datetime.now(timezone.utc)
-            })
-        
-        # Market Intelligence Logging: Capture search queries from chat messages
-        search_terms = re.findall(r'\b(ford|ram|chevrolet|toyota|honda|jeep|dodge|nissan|suv|truck|sedan|van)\b', msg.lower())
-        if search_terms:
+            }
+            await db.leads.insert_one(lead_info)
+            logger.info(f"Lead captured from chat: {lead_info['phone']} / {lead_info['email']}")
+
+        # Market Intelligence: Log search terms found in message
+        makes_list = ["ford", "ram", "chevrolet", "toyota", "honda", "jeep", "dodge", "nissan", "hyundai", "kia", "suv", "truck"]
+        found_terms = [w for w in makes_list if w in msg.lower()]
+        if found_terms:
             await db.searches.insert_one({
-                "query": " ".join(search_terms),
+                "query": " ".join(found_terms),
                 "timestamp": datetime.now(timezone.utc),
-                "ip": request.client.host if request.client else "unknown",
-                "source": "chatbot"
+                "source": "chatbot_ai",
+                "ip": request.client.host if request.client else "127.0.0.1"
             })
 
         await db.settings.update_one({"type": "general"}, {"$set": {"ai_health": "online", "last_active": datetime.now(timezone.utc)}})
-        return {"response": response, "lead_captured": lead_detected}
+        return {"response": response}
+
     except Exception as e:
         import traceback
         logger.error(f"Chat error: {e}\n{traceback.format_exc()}")
         await db.settings.update_one({"type": "general"}, {"$set": {"ai_health": "error", "ai_error": str(e)}})
-        return {"response": "I'm having a technical moment. Please call us at 825-605-5050."}
+        return {"response": "I'm having a technical moment. Please call us at 825-605-5050 or visit our Edmonton showroom."}
 
 @app.post("/api/analytics/search/log")
 async def log_search(data: Dict[str, Any], request: Request):

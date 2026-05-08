@@ -70,14 +70,12 @@ class NeuralKnowledge:
         
         if found_type:
             type_results = [v for v in clean_inv if any(kw in v.get('body_type', '').lower() or kw in v.get('title', '').lower() for kw in type_keywords)]
-            if results: # If we have a make, filter those results by type
-                results = [v for v in results if v in type_results]
-            else:
-                results = type_results
+            results = [v for v in inventory if found_make in v.get('make', '').lower()]
+        elif found_type:
+            results = [v for v in inventory if found_type in v.get('body_type', '').lower() or found_type in v.get('title', '').lower()]
         
-        if not results:
-            # Fallback to cheapest high-quality matches
-            results = sorted(clean_inv, key=lambda x: x.get('price', 999999))[:3]
+        if not results and inventory:
+            results = sorted(inventory, key=lambda x: x.get('price', 999999))[:3]
             
         return results, found_make or found_type
 
@@ -92,36 +90,47 @@ class NeuralKnowledge:
         results, entity = NeuralKnowledge.analyze_inventory(msg, inventory)
         
         # 1. LOCATION CONTEXT LAYER (Edmonton/Alberta specific)
-        loc_context = ""
-        msg_l = msg.lower()
-        if any(w in msg_l for w in ["edmonton", "alberta", "ab", "local", "near me"]):
-            loc_context = (
-                "AutoNorth Motors is proud to serve Edmonton and the surrounding Alberta region. "
-                "We are located right off 91 St NW, making us easily accessible from Sherwood Park, St. Albert, and Leduc. "
-                "All our vehicles are 'Alberta Ready'—they undergo a rigorous inspection to ensure they can handle our tough winters. "
-            )
+        loc_context = "AutoNorth Motors is located at 9104 91 St NW, Edmonton, AB T6C 3N5. "
+        winter_advice = "For Edmonton winters, we highly recommend AWD or 4WD vehicles. "
         
-        # 2. WINTER READINESS ADVICE
-        winter_advice = ""
-        if any(w in msg_l for w in ["winter", "snow", "cold", "ice", "winter tires"]):
-            winter_advice = (
-                "For Edmonton winters, we highly recommend AWD or 4WD vehicles. "
-                "Many of our units come with block heaters pre-installed, and we can facilitate "
-                "winter tire packages for any vehicle you choose. "
-            )
+        # 2. LOCAL BRAIN (Priority Local Synthesis)
+        if provider == "local" or not api_key:
+            if intent == "GREETING":
+                return "Welcome to AutoNorth Motors! I'm your AI Automotive Specialist. I'm connected to our live Edmonton inventory—are you searching for a specific make, looking for a deal, or interested in financing?"
+            
+            if intent == "CONTACT":
+                return f"{loc_context}You can reach our sales floor directly at 825-605-5050. Would you like me to send these details to your phone?"
+            
+            if intent == "FINANCE":
+                return "Our 'AutoNorth Credit Brain' analyzes your situation to find the lowest possible rates in Alberta. We specialize in all credit types—from perfect to rebuilding. Shall I start your application?"
+            
+            if intent == "DEAL":
+                specials = [v for v in inventory if v.get('is_on_special')]
+                if specials:
+                    s = specials[0]
+                    return f"I have a high-value deal right now: A {s.get('title')} originally priced higher, now available for ${s.get('price', 0):,.0f}. This is our top-tier special this week. Interest?"
+                if inventory:
+                    cheapest = sorted(inventory, key=lambda x: x.get('price', 0))[0]
+                    return f"The best entry-point in our current inventory is the {cheapest.get('title')} for only ${cheapest.get('price', 0):,.0f}. It's a great balance of value and reliability."
+                return "I'm checking our incoming manifest. We receive new inventory daily. What specifically should I keep an eye out for?"
 
-        # Local logic for quick replies or fallback
-        local_resp = ""
-        if intent == "GREETING":
-            local_resp = f"Welcome to AutoNorth Motors! {loc_context}I'm your AI Automotive Specialist. I'm connected to our live Edmonton inventory—are you searching for a specific make, looking for a deal, or interested in financing?"
-        elif intent == "CONTACT":
-            local_resp = "AutoNorth Motors is located at 9104 91 St NW, Edmonton, AB T6C 3N5. You can reach our sales floor directly at 825-605-5050. Would you like me to send these details to your phone?"
-        elif intent == "FINANCE":
-            local_resp = "Our 'AutoNorth Credit Brain' analyzes your situation to find the lowest possible rates in Alberta. We specialize in all credit types—from perfect to rebuilding. Shall I start your application?"
-        
-        if local_resp and provider == "local":
-            return local_resp
+            if intent == "BOOKING":
+                return "I can secure a VIP viewing and test drive for you. Which day this week works best? I'll coordinate everything with a product specialist."
 
+            if intent == "INVENTORY_SEARCH" or entity:
+                if results:
+                    top = results[0]
+                    others = len(results) - 1
+                    resp = f"I've analyzed our live stock: The **{top.get('title')}** (priced at **${top.get('price', 0):,.0f}**) perfectly matches your request. "
+                    if others > 0:
+                        resp += f"I also have {others} other similar models available. "
+                    resp += "\n\nWould you like to see the full spec sheet or book a viewing at our Edmonton showroom?"
+                    return resp
+                return "I'm checking our incoming manifest. We receive new inventory daily. What specifically should I keep an eye out for?"
+
+            return "I'm the AutoNorth Intelligence Engine. I can analyze our vehicle feed, explain financing options, or book your VIP test drive in Edmonton. How can I best serve you today?"
+
+        # 3. GLOBAL BRAIN (AI Providers)
         # Context-aware prompt for AI providers
         v_context = json.dumps([{k: v for k, v in res.items() if k != '_id'} for res in results[:5]])
         system_prompt = f"""You are the AutoNorth Motors AI Specialist, an elite automotive concierge in Edmonton, Alberta.
@@ -134,12 +143,8 @@ class NeuralKnowledge:
         - Be professional, helpful, and luxury-oriented.
         - Emphasize that we serve Edmonton, Sherwood Park, St. Albert, and the greater Alberta area.
         - Mention specific vehicle highlights (price, mileage, features) if they match the user's query.
-        - If the user asks about winter performance, mention 4WD/AWD and block heaters.
-        - Always drive the user towards a test drive, showroom visit, or call (825-605-5050).
-        - Keep responses concise (max 3-4 sentences) unless listing vehicles.
-        - Use markdown for bolding vehicle names and prices.
-        - STRICT FORMATTING RULE: When mentioning a vehicle, ALWAYS use this link format: [Year Make Model](/vehicle/STOCK_NUMBER_OR_ID).
-        - If no stock number is available, use the VIN or a descriptive name.
+        - ALWAYS use this link format for vehicles: [Year Make Model](/vehicle/ID).
+        - Use markdown for bolding and tables. Always drive the user towards a test drive or call (825-605-5050).
         """
 
         # 3. OPENROUTER PROVIDER
@@ -148,25 +153,11 @@ class NeuralKnowledge:
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     resp = await client.post(
                         "https://openrouter.ai/api/v1/chat/completions",
-                        headers={
-                            "Authorization": f"Bearer {api_key}",
-                            "Content-Type": "application/json",
-                            "HTTP-Referer": "https://autonorth.ca",
-                            "X-Title": "AutoNorth AI"
-                        },
-                        json={
-                            "model": model or "openrouter/auto",
-                            "messages": [
-                                {"role": "system", "content": system_prompt},
-                                {"role": "user", "content": msg}
-                            ]
-                        }
+                        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json", "HTTP-Referer": "https://autonorth.ca", "X-Title": "AutoNorth AI"},
+                        json={"model": model or "openrouter/auto", "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": msg}]}
                     )
                     if resp.status_code == 200:
-                        data = resp.json()
-                        return data['choices'][0]['message']['content']
-                    else:
-                        logger.error(f"OpenRouter returned {resp.status_code}: {resp.text}")
+                        return resp.json()['choices'][0]['message']['content']
             except Exception as e:
                 logger.error(f"OpenRouter exception: {str(e)}")
 
@@ -176,22 +167,11 @@ class NeuralKnowledge:
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     resp = await client.post(
                         "https://api.anthropic.com/v1/messages",
-                        headers={
-                            "x-api-key": api_key,
-                            "anthropic-version": "2023-06-01",
-                            "content-type": "application/json"
-                        },
-                        json={
-                            "model": model or "claude-3-haiku-20240307",
-                            "max_tokens": 1024,
-                            "system": system_prompt,
-                            "messages": [{"role": "user", "content": msg}]
-                        }
+                        headers={"x-api-key": api_key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
+                        json={"model": model or "claude-3-haiku-20240307", "max_tokens": 1024, "system": system_prompt, "messages": [{"role": "user", "content": msg}]}
                     )
                     if resp.status_code == 200:
                         return resp.json()["content"][0]["text"]
-                    else:
-                        logger.error(f"Claude returned {resp.status_code}: {resp.text}")
             except Exception as e:
                 logger.error(f"Claude exception: {str(e)}")
 
@@ -200,62 +180,12 @@ class NeuralKnowledge:
             try:
                 from google import genai
                 client = genai.Client(api_key=api_key)
-                response = client.models.generate_content(
-                    model=model or 'gemini-1.5-flash',
-                    contents=f"{system_prompt}\n\nUser Message: {msg}"
-                )
+                response = client.models.generate_content(model=model or 'gemini-1.5-flash', contents=f"{system_prompt}\n\nUser Message: {msg}")
                 return response.text
             except Exception as e:
                 logger.error(f"Gemini exception: {str(e)}")
 
-        # 6. LOCAL SYNTHESIS FALLBACK
-        if intent == "CONFIRMATION":
-            return "That's great! I'll get that set up for you. Please leave your name and phone number, or call us directly at 825-605-5050 to finalize the details. Is there anything else I can help you with?"
-
-        if results and (intent == "INVENTORY_SEARCH" or entity or intent == "DEAL"):
-            top = results[0]
-            others = len(results) - 1
-            
-            v_info = f"{top.get('year')} {top.get('make')} {top.get('model')}"
-            price = top.get('price', 0)
-            price_info = f"${price:,.0f}" if price > 0 else "Contact for Price"
-            mileage_info = f"{top.get('mileage', 0):,} km"
-            
-            if price == 0 and others > 0:
-                top = next((v for v in results if v.get('price', 0) > 0), top)
-                v_info = f"{top.get('year')} {top.get('make')} {top.get('model')}"
-                price_info = f"${top.get('price', 0):,.0f}"
-                mileage_info = f"{top.get('mileage', 0):,} km"
-
-            resp = f"I've found a great match in our live Edmonton inventory: A **{v_info}** with {mileage_info}, priced at **{price_info}**. "
-            if top.get('features'):
-                f_str = ", ".join(top['features'][:3])
-                resp += f"Key features include: {f_str}. "
-            
-            if others > 0:
-                resp += f"I also have {others} other {entity or 'vehicles'} available in Alberta that might interest you. "
-            
-            resp += f"\n\n{winter_advice}Would you like to see more details, or shall I book a VIP test drive at our showroom?"
-            return resp
-
-        if intent == "DEAL":
-            specials = [v for v in inventory if v.get('is_on_special')]
-            if specials:
-                s = specials[0]
-                return f"I have an exclusive AutoNorth special: A **{s['title']}** for only **${s['price']:,.0f}**. This unit is moving fast in the Edmonton market. Would you like to reserve it?"
-            cheapest = sorted(inventory, key=lambda x: x.get('price', 0))[0]
-            return f"The best value entry in our current inventory is the {cheapest['title']} for only ${cheapest['price']:,.0f}. It's passed our full 150-point Alberta safety inspection. Interest?"
-
-        if intent == "BOOKING":
-            return "I can secure a priority test drive for you at our Edmonton location. Which day this week works best? I'll coordinate everything with our concierge team."
-
-        return (
-            f"I'm the AutoNorth Intelligence Engine, specialized in the Edmonton and Alberta automotive market. "
-            f"While I process your request, I can tell you that we have {len(inventory)} premium vehicles available today. "
-            f"I can help you browse specific makes, calculate financing, or even book a VIP test drive at our showroom off 91 St NW. "
-            f"What specific vehicle information can I provide to help you find your next car today?"
-        )
-
+        return "I'm having trouble connecting to my cloud memory, but I'm still here to help! AutoNorth is located at 9104 91 St NW, Edmonton. Call us at 825-605-5050 for immediate assistance."
 
 def _sanitize(text):
     if not text: return ""
