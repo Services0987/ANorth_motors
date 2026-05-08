@@ -246,20 +246,19 @@ export default function Inventory() {
   const fetchVehicles = useCallback(async () => {
     setLoading(true);
     try {
-    const params = new URLSearchParams();
-    if (filters.search)    params.set('search',    filters.search);
-    if (filters.condition) params.set('condition', filters.condition);
-    if (filters.make)      params.set('make',      filters.make);
-    if (filters.body_type) params.set('body_type', filters.body_type);
-    if (filters.fuel_type) params.set('fuel_type', filters.fuel_type);
-    if (filters.min_price) params.set('min_price', filters.min_price);
-    if (filters.max_price) params.set('max_price', filters.max_price);
-    params.set('page',  page.toString());
-    
-    // Sync to URL without triggering a full page reload
-    setSearchParams(params, { replace: true });
+      const params = new URLSearchParams();
+      if (filters.search)    params.set('search',    filters.search);
+      if (filters.condition) params.set('condition', filters.condition);
+      if (filters.make)      params.set('make',      filters.make);
+      if (filters.body_type) params.set('body_type', filters.body_type);
+      if (filters.fuel_type) params.set('fuel_type', filters.fuel_type);
+      if (filters.min_price) params.set('min_price', filters.min_price);
+      if (filters.max_price) params.set('max_price', filters.max_price);
+      params.set('page',  page.toString());
+      
+      // Sync to URL without triggering a full page reload
+      setSearchParams(params, { replace: true });
 
-    try {
       const { data } = await axios.get(`${API}/vehicles?${params.toString()}&limit=${limit}&skip=${(page - 1) * limit}`);
       setVehicles(data.vehicles || []);
       setTotal(data.total || 0);
@@ -271,8 +270,12 @@ export default function Inventory() {
         const offsetPosition = elementPosition + window.pageYOffset - offset;
         window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
       }
-    } catch (err) { console.error(err); } finally { setLoading(false); }
-  }, [filters, page]);
+    } catch (err) { 
+      console.error(err); 
+    } finally { 
+      setLoading(false); 
+    }
+  }, [filters, page, setSearchParams]);
 
   useEffect(() => { fetchVehicles(); }, [fetchVehicles]);
 
