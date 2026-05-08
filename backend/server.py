@@ -163,9 +163,17 @@ async def login(user: User):
             raise HTTPException(status_code=401, detail="Invalid credentials")
         
         token = create_token({"sub": user.email})
+        
+        # Record session in DB
+        await db.sessions.insert_one({
+            "ip": request.client.host if request.client else "unknown",
+            "user_agent": request.headers.get("user-agent", "unknown"),
+            "created_at": datetime.now(timezone.utc),
+            "status": "active",
+            "user": user.email
+        })
+
         response = JSONResponse({"message": "Login successful", "user": {"email": user.email, "role": db_user.get("role", "admin")}})
-        # In Vercel, secure=True is often required for cross-site cookies, 
-        # but since we are same-origin (rewritten), lax should be okay.
         response.set_cookie(key="auth_token", value=token, httponly=True, samesite="lax", secure=True)
         return response
     except HTTPException as e:
@@ -198,23 +206,25 @@ async def update_profile(data: Dict[str, Any], user_email: str = Depends(get_cur
     return {"message": "Profile updated"}
 
 @app.get("/api/auth/sessions")
-async def get_sessions(user_email: str = Depends(get_current_user)):
-    return [
-        {
-            "_id": "sess_001",
-            "ip": "192.168.1.101",
-            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0",
+async def get_sessions(request: Request, user_email: str = Depends(get_current_user)):
+    # Find active sessions in DB
+    sessions = await db.sessions.find().sort("created_at", -1).to_list(100)
+    
+    # If no sessions found in DB (e.g. fresh migration), at least return current
+    if not sessions:
+        return [{
+            "_id": "current",
+            "ip": request.client.host if request.client else "127.0.0.1",
+            "user_agent": request.headers.get("user-agent", "Unknown"),
             "created_at": datetime.now(timezone.utc).isoformat(),
             "status": "active"
-        },
-        {
-            "_id": "sess_002",
-            "ip": "172.20.10.4",
-            "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4_1 like Mac OS X) AppleWebKit/605.1.15",
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "status": "active"
-        }
-    ]
+        }]
+    
+    for s in sessions:
+        s["_id"] = str(s["_id"])
+        if isinstance(s.get("created_at"), datetime):
+            s["created_at"] = s["created_at"].isoformat()
+    return sessions
 
 @app.get("/api/vehicles")
 async def get_vehicles(
@@ -619,6 +629,16 @@ async def chatbot_message(data: Dict[str, Any], request: Request):
                 "created_at": datetime.now(timezone.utc)
             })
         
+        # Market Intelligence Logging: Capture search queries from chat messages
+        search_terms = re.findall(r'\b(ford|ram|chevrolet|toyota|honda|jeep|dodge|nissan|suv|truck|sedan|van)\b', msg.lower())
+        if search_terms:
+            await db.searches.insert_one({
+                "query": " ".join(search_terms),
+                "timestamp": datetime.now(timezone.utc),
+                "ip": request.client.host if request.client else "unknown",
+                "source": "chatbot"
+            })
+
         await db.settings.update_one({"type": "general"}, {"$set": {"ai_health": "online", "last_active": datetime.now(timezone.utc)}})
         return {"response": response, "lead_captured": lead_detected}
     except Exception as e:
@@ -640,39 +660,37 @@ async def log_search(data: Dict[str, Any], request: Request):
     })
     return {"status": "logged"}
 
-@app.get("/api/analytics/searches")
-async def get_top_searches(user_email: str = Depends(get_current_user)):
-    pipeline = [
-        {"$group": {"_id": {"$toLower": "$query"}, "count": {"$sum": 1}}},
-        {"$sort": {"count": -1}},
-        {"$limit": 10}
-    ]
-    results = await db.searches.aggregate(pipeline).to_list(10)
-    return [{"term": r["_id"], "count": r["count"]} for r in results]
+@app.get("/api/auth/blacklist")
+async def get_blacklist(user_email: str = Depends(get_current_user)):
+    blacklist = await db.blacklist.find().sort("created_at", -1).to_list(100)
+    for b in blacklist: b["_id"] = str(b["_id"])
+    return blacklist
 
-@app.get("/api/auth/sessions")
-async def get_sessions(request: Request, user_email: str = Depends(get_current_user)):
-    return [
-        {
-            "_id": "current",
-            "ip": request.client.host if request.client else "127.0.0.1",
-            "user_agent": request.headers.get("user-agent", "Unknown"),
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "status": "active"
-        }
-    ]
+@app.post("/api/auth/blacklist")
+async def block_ip(data: dict, user_email: str = Depends(get_current_user)):
+    ip = data.get("ip")
+    if not ip: raise HTTPException(status_code=400, detail="IP is required")
+    await db.blacklist.update_one(
+        {"ip": ip},
+        {"$set": {
+            "ip": ip,
+            "reason": data.get("reason", "Manual block"),
+            "created_at": datetime.now(timezone.utc)
+        }},
+        upsert=True
+    )
+    return {"status": "success", "message": f"IP {ip} blocked"}
+
+@app.delete("/api/auth/blacklist")
+async def unblock_ip(ip: str, user_email: str = Depends(get_current_user)):
+    await db.blacklist.delete_one({"ip": ip})
+    return {"status": "success", "message": f"IP {ip} unblocked"}
 
 @app.post("/api/auth/sessions/terminate")
-async def terminate_session(session_id: str, user_email: str = Depends(get_current_user)):
+async def terminate_session(session_id: str = None, user_email: str = Depends(get_current_user)):
+    if session_id and session_id != "current":
+        await db.sessions.delete_one({"_id": to_id(session_id)})
     return {"status": "success", "message": "Session terminated"}
-
-@app.get("/api/security/blacklist")
-async def get_blacklist(user_email: str = Depends(get_current_user)):
-    return []
-
-@app.post("/api/security/blacklist")
-async def block_ip(data: dict, user_email: str = Depends(get_current_user)):
-    return {"status": "success", "message": f"IP {data.get('ip')} blocked"}
 
 @app.get("/api/analytics/summary")
 async def get_analytics_summary(user_email: str = Depends(get_current_user)):
@@ -695,9 +713,12 @@ async def get_analytics_summary(user_email: str = Depends(get_current_user)):
     ]
     top_searches = await db.searches.aggregate(search_pipeline).to_list(5)
 
+    leads_count = await db.leads.count_documents({})
+    conversion_rate = (leads_count / views_count * 100) if views_count > 0 else 0
+
     return {
         "total_views": views_count,
-        "conversion_rate": 2.4,
+        "conversion_rate": conversion_rate,
         "top_vehicles": formatted_top,
         "top_searches": [{"term": r["_id"], "count": r["count"]} for r in top_searches]
     }

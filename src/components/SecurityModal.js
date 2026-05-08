@@ -87,7 +87,7 @@ export default function SecurityModal({ isOpen, onClose }) {
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="bg-[#0A0A0A] border border-white/10 w-full max-w-md shadow-2xl relative overflow-hidden"
+        className="bg-[#0A0A0A] border border-white/10 w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl relative custom-scrollbar"
       >
         {/* Header */}
         <div className="p-6 border-b border-white/5 flex items-center justify-between">

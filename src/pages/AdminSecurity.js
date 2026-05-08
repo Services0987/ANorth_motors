@@ -32,6 +32,10 @@ export default function AdminSecurity() {
   }, []);
 
   const terminateSession = async (id) => {
+    if (id === 'current') {
+      alert("You cannot terminate your current session. Please use the logout button in the sidebar.");
+      return;
+    }
     try {
       await axios.post(`${API}/auth/sessions/terminate?session_id=${id}`, {}, { withCredentials: true });
       fetchData();

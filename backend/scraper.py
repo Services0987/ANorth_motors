@@ -223,7 +223,12 @@ class NeuralKnowledge:
         if intent == "BOOKING":
             return "I can secure a priority test drive for you at our Edmonton location. Which day this week works best? I'll coordinate everything with our concierge team."
 
-        return f"{loc_context}I'm the AutoNorth Intelligence Engine. I can analyze our live vehicle feed, explain financing options, or book your VIP test drive in Edmonton. How can I best serve you today?"
+        return (
+            f"I'm the AutoNorth Intelligence Engine, specialized in the Edmonton and Alberta automotive market. "
+            f"While I process your request, I can tell you that we have {len(inventory)} premium vehicles available today. "
+            f"I can help you browse specific makes, calculate financing, or even book a VIP test drive at our showroom off 91 St NW. "
+            f"What specific vehicle information can I provide to help you find your next car today?"
+        )
 
 
 def _sanitize(text):
