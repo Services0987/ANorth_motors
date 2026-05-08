@@ -58,6 +58,24 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # Global Background Task State
 SYNC_PROGRESS = {"status": "idle", "processed": 0, "total": 0, "imported": 0, "updated": 0, "current_page": 0, "total_pages": 0}
 
+@app.get("/api/health")
+async def health_check():
+    try:
+        v_count = await db.vehicles.count_documents({})
+        l_count = await db.leads.count_documents({})
+        s = await db.settings.find_one({"type": "general"}) or {}
+        return {
+            "status": "online",
+            "db": "connected",
+            "vehicles": v_count,
+            "leads": l_count,
+            "ai_provider": s.get("ai_provider", "local"),
+            "ai_key_set": bool(s.get("ai_api_key")),
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 async def ensure_default_admin():
     try:
         admin_email = "admin@autonorth.ca"
@@ -142,15 +160,6 @@ def to_id(id_str: str):
 
 # Routes
 
-@app.get("/api/health")
-async def health():
-    # Simple check to see if DB is responsive
-    try:
-        await db.command("ping")
-        db_status = "connected"
-    except:
-        db_status = "disconnected"
-    return {"status": "healthy", "db": DB_NAME, "db_connection": db_status}
 
 @app.post("/api/auth/login")
 async def login(user: LoginRequest, request: Request):
@@ -693,9 +702,15 @@ async def chatbot_message(data: Dict[str, Any], request: Request):
 
     except Exception as e:
         import traceback
-        logger.error(f"Chat error: {e}\n{traceback.format_exc()}")
+        err_msg = traceback.format_exc()
+        logger.error(f"Chatbot Critical Failure: {err_msg}")
         await db.settings.update_one({"type": "general"}, {"$set": {"ai_health": "error", "ai_error": str(e)}})
-        return {"response": "I'm having a technical moment. Please call us at 825-605-5050 or visit our Edmonton showroom."}
+        return {
+            "status": "error", 
+            "response": "I'm having a brief technical moment. Please call us at 825-605-5050 or visit our Edmonton showroom.",
+            "message": "I apologize, but my intelligence engine is experiencing a brief connection hiccup.",
+            "debug": str(e) if os.environ.get("DEBUG") else None
+        }
 
 @app.post("/api/analytics/search/log")
 async def log_search(data: Dict[str, Any], request: Request):

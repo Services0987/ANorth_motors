@@ -93,10 +93,11 @@ export default function ChatBot() {
 
     try {
       const { data } = await axios.post(`${API}/chat`, { message: msgToSend });
-      setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
+      const botResponse = data.response || data.message || "I'm having a technical moment. Please call us at 825-605-5050.";
+      setMessages(prev => [...prev, { role: 'bot', content: botResponse }]);
       if (data.lead_captured) setLeadCaptured(true);
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Connection issue — please call our Edmonton floor at 825-605-5050.' }]);
+      setMessages(prev => [...prev, { role: 'bot', content: 'Connection issue — please call our Edmonton floor at 825-605-5050.' }]);
     } finally {
       setThinking(false);
     }
