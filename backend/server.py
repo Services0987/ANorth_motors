@@ -405,6 +405,15 @@ async def get_stats(user: str = Depends(get_current_user)):
     v_stats = await db.vehicles.aggregate([{"$group": {"_id": None, "total_views": {"$sum": "$views"}}}]).to_list(1)
     views = v_stats[0]["total_views"] if v_stats else 0
     
+    # Top 5 most viewed vehicles
+    top_vehicles = await db.vehicles.find({"status": {"$in": [None, "available", "Available"]}}).sort("views", -1).limit(5).to_list(5)
+    for tv in top_vehicles: tv["_id"] = str(tv["_id"])
+
+    # Top 5 search terms
+    pipeline = [{"$group": {"_id": {"$toLower": "$query"}, "count": {"$sum": 1}}}, {"$sort": {"count": -1}}, {"$limit": 5}]
+    search_results = await db.searches.aggregate(pipeline).to_list(5)
+    top_searches = [{"term": r["_id"], "count": r["count"]} for r in search_results]
+
     return {
         "total_vehicles": total_vehicles,
         "available": available_vehicles, # Match frontend
@@ -414,7 +423,9 @@ async def get_stats(user: str = Depends(get_current_user)):
         "recent_leads": new_leads, # Match frontend dashboard
         "total_views": views,
         "total_clicks": int(views * 0.34),
-        "inventory_health": 100 if total_vehicles > 0 else 0
+        "inventory_health": 100 if total_vehicles > 0 else 0,
+        "top_vehicles": top_vehicles,
+        "top_searches": top_searches
     }
 
 @app.get("/api/scraper/settings")
@@ -515,16 +526,18 @@ async def chatbot_message(data: Dict[str, Any], request: Request):
     msg = data.get("message", "")
     provider = "local"
     api_key = ""
+    model = ""
     
     settings = await db.settings.find_one({"type": "general"})
     if settings:
         provider = settings.get("ai_provider", "local")
         api_key = settings.get("ai_api_key", "")
+        model = settings.get("ai_model", "")
 
     inventory = await db.vehicles.find({"status": "available"}).limit(100).to_list(100)
     
     from scraper import NeuralKnowledge
-    response = await NeuralKnowledge.generate_response(msg, inventory, provider, api_key)
+    response = await NeuralKnowledge.generate_response(msg, inventory, provider, api_key, model)
     return {"response": response}
 
 @app.post("/api/analytics/search/log")

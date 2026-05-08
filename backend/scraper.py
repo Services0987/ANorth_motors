@@ -82,7 +82,7 @@ class NeuralKnowledge:
         return results, found_make or found_type
 
     @staticmethod
-    async def generate_response(msg: str, inventory: List[Dict], provider: str = "local", api_key: str = ""):
+    async def generate_response(msg: str, inventory: List[Dict], provider: str = "local", api_key: str = "", model: str = ""):
         """
         GENERATE RESPONSE:
         High-performance intelligence engine with multi-provider support 
@@ -137,6 +137,7 @@ class NeuralKnowledge:
         - If the user asks about winter performance, mention 4WD/AWD and block heaters.
         - Always drive the user towards a test drive, showroom visit, or call (825-605-5050).
         - Keep responses concise (max 3-4 sentences) unless listing vehicles.
+        - Use markdown for bolding vehicle names and prices.
         """
 
         # 3. OPENROUTER PROVIDER
@@ -152,7 +153,7 @@ class NeuralKnowledge:
                             "X-Title": "AutoNorth AI"
                         },
                         json={
-                            "model": "openai/gpt-3.5-turbo", # Default fast model, can be made dynamic
+                            "model": model or "google/gemini-flash-1.5-free",
                             "messages": [
                                 {"role": "system", "content": system_prompt},
                                 {"role": "user", "content": msg}
@@ -162,19 +163,22 @@ class NeuralKnowledge:
                     if resp.status_code == 200:
                         data = resp.json()
                         return data['choices'][0]['message']['content']
+                    else:
+                        logger.error(f"OpenRouter returned {resp.status_code}: {resp.text}")
             except Exception as e:
-                logger.error(f"OpenRouter error: {e}")
+                logger.error(f"OpenRouter exception: {str(e)}")
 
         # 4. GEMINI PROVIDER
         if provider == "gemini" and api_key:
             try:
                 import google.generativeai as genai
                 genai.configure(api_key=api_key)
-                model = genai.GenerativeModel('gemini-pro')
-                response = model.generate_content(f"{system_prompt}\n\nUser Message: {msg}")
+                model_instance = genai.GenerativeModel(model or 'gemini-1.5-flash')
+                response = model_instance.generate_content(f"{system_prompt}\n\nUser Message: {msg}")
                 return response.text
             except Exception as e:
-                logger.error(f"Gemini error: {e}")
+                logger.error(f"Gemini exception: {str(e)}")
+
         
         # 5. LOCAL SYNTHESIS FALLBACK
         if intent == "CONFIRMATION":
@@ -474,6 +478,7 @@ async def sync_teamford_listings() -> Dict[str, int]:
                 # Insert new
                 v["created_at"] = datetime.now(timezone.utc)
                 v["updated_at"] = v["created_at"]
+                v["views"] = 0
                 await db.vehicles.insert_one(v)
                 imported += 1
         
