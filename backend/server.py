@@ -498,6 +498,15 @@ async def export_leads(user: str = Depends(get_current_user)):
         headers={"Content-Disposition": "attachment; filename=leads.csv"}
     )
 
+@app.get("/api/public/stats")
+async def get_public_stats():
+    # Publicly accessible stats for the chatbot
+    try:
+        count = await db.vehicles.count_documents({"status": {"$in": [None, "available", "Available"]}})
+        return {"inventoryCount": count}
+    except:
+        return {"inventoryCount": 0}
+
 @app.get("/api/stats")
 async def get_stats(user: str = Depends(get_current_user)):
     total_vehicles = await db.vehicles.count_documents({})
@@ -669,7 +678,8 @@ async def chatbot_message(data: Dict[str, Any], request: Request):
         await db.settings.update_one({"type": "general"}, {"$set": {"ai_health": "online", "last_active": datetime.now(timezone.utc)}})
         return {"response": response, "lead_captured": lead_detected}
     except Exception as e:
-        logger.error(f"Chat error: {e}")
+        import traceback
+        logger.error(f"Chat error: {e}\n{traceback.format_exc()}")
         await db.settings.update_one({"type": "general"}, {"$set": {"ai_health": "error", "ai_error": str(e)}})
         return {"response": "I'm having a technical moment. Please call us at 825-605-5050."}
 

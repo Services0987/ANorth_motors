@@ -304,7 +304,7 @@ export default function AdminInventory() {
               </div>
            </div>
            
-           {scraperLoading && syncProgress > 0 && (
+           {scraperLoading && (
               <div className="mb-6 px-1 animate-fade-in bg-white/[0.02] p-4 border border-white/[0.05] rounded-sm">
                 <div className="flex justify-between items-end mb-2">
                   <div>

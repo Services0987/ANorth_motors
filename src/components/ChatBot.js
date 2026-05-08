@@ -72,8 +72,8 @@ export default function ChatBot() {
 
   // Load Inventory Info
   useEffect(() => {
-    axios.get(`${API}/stats`).then(({ data }) => {
-      setInventoryCount(data.total_vehicles || 0);
+    axios.get(`${API}/public/stats`).then(({ data }) => {
+      setInventoryCount(data.inventoryCount || 0);
     }).catch(() => {});
   }, []);
 
