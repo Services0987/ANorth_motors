@@ -181,11 +181,6 @@ async def login(user_data: User):
     except Exception as e:
         logger.error(f"Login error: {e}")
         return JSONResponse({"detail": f"Server Error: {str(e)}"}, status_code=500)
-        max_age=86400,
-        samesite="lax",
-        secure=True # Set to True in production
-    )
-    return response
 
 @app.post("/api/auth/logout")
 async def logout():
