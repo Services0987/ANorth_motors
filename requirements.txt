@@ -9,7 +9,6 @@ passlib[bcrypt]==1.7.4
 pyjwt==2.8.0
 python-dotenv==1.0.1
 python-multipart==0.0.9
-google-genai
 google-generativeai
 beautifulsoup4==4.12.3
 requests==2.31.0
