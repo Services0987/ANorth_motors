@@ -37,7 +37,7 @@ app = FastAPI(title="AutoNorth Motors API", lifespan=lifespan)
 
 # Database
 MONGODB_URI = os.environ.get("MONGODB_URI") or os.environ.get("MONGO_URL") or "mongodb://localhost:27017"
-DB_NAME = os.environ.get("DB_NAME", "AutoNorth")
+DB_NAME = os.environ.get("DB_NAME", "autonorth")
 client = AsyncIOMotorClient(MONGODB_URI)
 db = client[DB_NAME]
 
@@ -699,7 +699,10 @@ async def chatbot_message(data: Dict[str, Any], request: Request):
             })
 
         await db.settings.update_one({"type": "general"}, {"$set": {"ai_health": "online", "last_active": datetime.now(timezone.utc)}})
-        return {"response": response}
+        return {
+            "response": response,
+            "lead_captured": bool(has_email or has_phone)
+        }
 
     except Exception as e:
         import traceback

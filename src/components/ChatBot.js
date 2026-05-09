@@ -35,7 +35,7 @@ export default function ChatBot() {
       } catch (e) { console.error("Session restore failed", e); }
     }
     return [{ 
-      role: 'assistant', 
+      role: 'bot', 
       content: 'Welcome to AutoNorth Motors. I am your AI Specialist, connected to our live Edmonton inventory. How can I assist you today?' 
     }];
   });
@@ -116,11 +116,20 @@ export default function ChatBot() {
       let clean = line
         .replace(/<br\s*\/?>/gi, ' ')
         .replace(/&nbsp;/gi, ' ')
-        .replace(/\\?\*/g, '')
-        .replace(/^#+\s*/, '')
         .trim();
 
       if (!clean && !line.includes('|')) return <div key={idx} className="h-2" />;
+
+      // 2. Bold Text Handling (preserve **text**)
+      const renderWithBold = (text) => {
+        const parts = text.split(/(\*\*.*?\*\*)/g);
+        return parts.map((part, pidx) => {
+          if (part.startsWith('**') && part.endsWith('**')) {
+            return <strong key={pidx} className="text-[#D4AF37] font-bold">{part.slice(2, -2)}</strong>;
+          }
+          return part;
+        });
+      };
 
       // 2. Vertical Spec Cards (from Tables)
       if (line.includes('|') && (line.includes('---') || line.includes('---'))) return null;
@@ -197,7 +206,7 @@ export default function ChatBot() {
         );
       }
 
-      return <p key={idx} className="mb-2 last:mb-0 text-white/80 text-xs leading-relaxed">{clean}</p>;
+      return <p key={idx} className="mb-2 last:mb-0 text-white/80 text-xs leading-relaxed">{renderWithBold(clean)}</p>;
     });
   };
 

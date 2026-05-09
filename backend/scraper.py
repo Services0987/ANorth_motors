@@ -1,4 +1,5 @@
 import httpx
+from bson import ObjectId
 import json
 import logging
 import asyncio
@@ -112,7 +113,19 @@ class NeuralKnowledge:
 
         # 3. GLOBAL BRAIN (AI Providers)
         # Context-aware prompt for AI providers
-        v_context = json.dumps([{k: v for k, v in res.items() if k != '_id'} for res in results[:5]])
+        # Clean context for JSON serialization (remove/string-ify non-serializable objects)
+        clean_results = []
+        for res in results[:5]:
+            clean_res = {}
+            for k, v in res.items():
+                if k == '_id': continue
+                if isinstance(v, datetime):
+                    clean_res[k] = v.isoformat()
+                else:
+                    clean_res[k] = v
+            clean_results.append(clean_res)
+            
+        v_context = json.dumps(clean_results)
         system_prompt = f"""You are the AutoNorth Motors AI Specialist, an elite automotive concierge in Edmonton, Alberta.
         
         Current Intent: {intent}
