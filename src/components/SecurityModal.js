@@ -93,7 +93,7 @@ export default function SecurityModal({ isOpen, onClose }) {
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="bg-[#0A0A0A] border border-white/10 w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl relative custom-scrollbar"
+        className="bg-[#0A0A0A] border border-white/10 w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl relative custom-scrollbar overflow-hidden"
       >
         {/* Header */}
         <div className="p-6 border-b border-white/5 flex items-center justify-between">
@@ -106,7 +106,8 @@ export default function SecurityModal({ isOpen, onClose }) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
+          <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {message.text && (
             <div className={`p-3 flex items-center gap-3 border text-[11px] ${message.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-red-500/10 border-red-500/30 text-red-400'}`}>
               {message.type === 'success' ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
@@ -224,7 +225,8 @@ export default function SecurityModal({ isOpen, onClose }) {
               {saving ? <RefreshCw className="animate-spin" size={14} /> : 'Save All Changes'}
             </button>
           </div>
-        </form>
+          </form>
+        </div>
       </motion.div>
     </div>
   );

@@ -127,6 +127,9 @@ class NeuralKnowledge:
         - Use markdown for bolding and tables. Always drive the user towards a test drive or call (825-605-5050).
         """
 
+        # AI Providers
+        ai_response = None
+        
         # 3. OPENROUTER PROVIDER
         if provider == "openrouter" and api_key:
             try:
@@ -137,12 +140,12 @@ class NeuralKnowledge:
                         json={"model": model or "openrouter/auto", "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": msg}]}
                     )
                     if resp.status_code == 200:
-                        return resp.json()['choices'][0]['message']['content']
+                        ai_response = resp.json()['choices'][0]['message']['content']
             except Exception as e:
                 logger.error(f"OpenRouter exception: {str(e)}")
 
         # 4. CLAUDE PROVIDER
-        if provider == "claude" and api_key:
+        elif provider == "claude" and api_key:
             try:
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     resp = await client.post(
@@ -151,25 +154,60 @@ class NeuralKnowledge:
                         json={"model": model or "claude-3-haiku-20240307", "max_tokens": 1024, "system": system_prompt, "messages": [{"role": "user", "content": msg}]}
                     )
                     if resp.status_code == 200:
-                        return resp.json()["content"][0]["text"]
+                        ai_response = resp.json()["content"][0]["text"]
             except Exception as e:
                 logger.error(f"Claude exception: {str(e)}")
 
         # 5. GEMINI PROVIDER
-        if provider == "gemini" and api_key:
+        elif provider == "gemini" and api_key:
             try:
                 import google.generativeai as genai
                 genai.configure(api_key=api_key)
-                # Use model name or default
                 model_name = model if model else 'gemini-1.5-flash'
-                # Note: system_instruction is supported in newer versions of the old SDK too
                 gm = genai.GenerativeModel(model_name=model_name)
                 response = gm.generate_content(f"{system_prompt}\n\nUser Message: {msg}")
-                return response.text
+                ai_response = response.text
             except Exception as e:
                 logger.error(f"Gemini exception: {str(e)}")
 
-        return "I'm having trouble connecting to my cloud memory, but I'm still here to help! AutoNorth is located at 9104 91 St NW, Edmonton. Call us at 825-605-5050 for immediate assistance."
+        if ai_response:
+            return ai_response
+
+        # FINAL FALLBACK: Local Synthesis (triggered if AI fails or is not configured)
+        if intent == "GREETING":
+            return "Welcome to AutoNorth Motors! I'm your AI Automotive Specialist. I'm connected to our live Edmonton inventory—are you searching for a specific make, looking for a deal, or interested in financing?"
+        
+        if intent == "CONTACT":
+            return f"{loc_context}You can reach our sales floor directly at 825-605-5050. Would you like me to send these details to your phone?"
+        
+        if intent == "FINANCE":
+            return "Our 'AutoNorth Credit Brain' analyzes your situation to find the lowest possible rates in Alberta. We specialize in all credit types—from perfect to rebuilding. Shall I start your application?"
+        
+        if intent == "DEAL":
+            specials = [v for v in inventory if v.get('is_on_special')]
+            if specials:
+                s = specials[0]
+                return f"I have a high-value deal right now: A {s.get('title')} originally priced higher, now available for ${s.get('price', 0):,.0f}. This is our top-tier special this week. Interest?"
+            if inventory:
+                cheapest = sorted(inventory, key=lambda x: x.get('price', 0))[0]
+                return f"The best entry-point in our current inventory is the {cheapest.get('title')} for only ${cheapest.get('price', 0):,.0f}. It's a great balance of value and reliability."
+            return "I'm checking our incoming manifest. We receive new inventory daily. What specifically should I keep an eye out for?"
+
+        if intent == "BOOKING":
+            return "I can secure a VIP viewing and test drive for you. Which day this week works best? I'll coordinate everything with a product specialist."
+
+        if intent == "INVENTORY_SEARCH" or entity:
+            if results:
+                top = results[0]
+                others = len(results) - 1
+                resp = f"I've analyzed our live stock: The **{top.get('title')}** (priced at **${top.get('price', 0):,.0f}**) perfectly matches your request. "
+                if others > 0:
+                    resp += f"I also have {others} other similar models available. "
+                resp += "\n\nWould you like to see the full spec sheet or book a viewing at our Edmonton showroom?"
+                return resp
+            return "I'm checking our incoming manifest. We receive new inventory daily. What specifically should I keep an eye out for?"
+
+        return "I'm the AutoNorth Intelligence Engine. I can analyze our vehicle feed, explain financing options, or book your VIP test drive in Edmonton. How can I best serve you today?"
 
 def _sanitize(text):
     if not text: return ""

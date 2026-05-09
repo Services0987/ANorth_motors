@@ -653,7 +653,8 @@ async def chatbot_message(data: Dict[str, Any], request: Request):
     api_key = s.get("ai_api_key") or os.environ.get("AI_API_KEY")
     model = s.get("ai_model") or os.environ.get("AI_MODEL")
     
-    logger.info(f"Chatbot utilizing provider: {provider} (Key present: {bool(api_key)})")
+    masked_key = (api_key[:8] + "..." + api_key[-4:]) if api_key and len(api_key) > 12 else "NONE"
+    logger.info(f"Chatbot Engine: Provider={provider}, Key={masked_key}, Model={model}")
 
     # Better inventory context for AI (case-insensitive status check)
     inventory = await db.vehicles.find({
@@ -725,6 +726,33 @@ async def log_search(data: Dict[str, Any], request: Request):
         "user_agent": request.headers.get("user-agent", "unknown")
     })
     return {"status": "logged"}
+
+@app.post("/api/analytics/track")
+async def track_event(data: Dict[str, Any], request: Request):
+    try:
+        event_type = data.get("event_type")
+        vehicle_id = data.get("vehicle_id")
+        
+        if event_type == "view" and vehicle_id:
+            # Increment view count on vehicle
+            try:
+                await db.vehicles.update_one(
+                    {"_id": to_id(vehicle_id)},
+                    {"$inc": {"views": 1}}
+                )
+            except: pass
+            
+        # Log to events collection for deeper analysis
+        await db.events.insert_one({
+            **data,
+            "timestamp": datetime.now(timezone.utc),
+            "ip": request.client.host if request.client else "unknown",
+            "user_agent": request.headers.get("user-agent", "unknown")
+        })
+        return {"status": "tracked"}
+    except Exception as e:
+        logger.error(f"Tracking error: {e}")
+        return {"status": "error"}
 
 @app.get("/api/auth/blacklist")
 async def get_blacklist(user_email: str = Depends(get_current_user)):
