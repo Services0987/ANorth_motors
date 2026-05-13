@@ -3,6 +3,7 @@ import json
 import logging
 import uuid
 import io
+import time
 from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
 
@@ -33,11 +34,25 @@ async def lifespan(app: FastAPI):
     # Shutdown logic if needed
     logger.info("Lifespan shutdown.")
 
-app = FastAPI(title="AutoNorth Motors API", lifespan=lifespan)
+app = FastAPI(
+    title="AutoNorth Motors API",
+    description="API for AutoNorth Motors - Vehicle inventory management, lead tracking, and AI chatbot",
+    version="1.0.0",
+    lifespan=lifespan
+)
 
 # Database
-MONGODB_URI = os.environ.get("MONGODB_URI") or os.environ.get("MONGO_URL") or "mongodb://localhost:27017"
 DB_NAME = os.environ.get("DB_NAME", "autonorth")
+MONGODB_URI = os.environ.get("MONGODB_URI")
+if not MONGODB_URI:
+    user = os.environ.get("MONGODB_USER")
+    password = os.environ.get("MONGODB_PASSWORD")
+    host = os.environ.get("MONGO_HOST", "localhost")
+    port = os.environ.get("MONGO_PORT", "27017")
+    if user and password:
+        MONGODB_URI = f"mongodb://{user}:{password}@{host}:{port}/{DB_NAME}"
+    else:
+        MONGODB_URI = f"mongodb://{host}:{port}/{DB_NAME}"
 client = AsyncIOMotorClient(MONGODB_URI)
 db = client[DB_NAME]
 
@@ -50,8 +65,76 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Request ID and logging middleware
+@app.middleware("http")
+async def request_tracking_middleware(request: Request, call_next):
+    start_time = time.time()
+    request_id = str(uuid.uuid4())[:8]
+    
+    # Add request ID to request state
+    request.state.request_id = request_id
+    
+    # Log request details with request ID
+    logger.info(f"[{request_id}] Request: {request.method} {request.url.path}")
+    if request.client:
+        logger.info(f"[{request_id}] Client: {request.client.host}:{request.client.port}")
+    
+    # Process request
+    try:
+        response = await call_next(request)
+    except Exception as e:
+        logger.error(f"[{request_id}] Request failed: {str(e)}", exc_info=True)
+        raise
+    
+    # Calculate processing time
+    process_time = time.time() - start_time
+    
+    # Add request ID to response headers
+    response.headers["X-Request-ID"] = request_id
+    
+    # Log response details with request ID
+    logger.info(f"[{request_id}] Response: {response.status_code} - Process Time: {process_time:.4f}s")
+    
+    return response
+
+# Simple in-memory rate limiter
+class RateLimiter:
+    def __init__(self, max_requests: int = 10, window_seconds: int = 60):
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self.requests = {}
+    
+    def is_allowed(self, client_ip: str) -> bool:
+        current_time = time.time()
+        
+        # Clean old requests
+        if client_ip in self.requests:
+            self.requests[client_ip] = [
+                req_time for req_time in self.requests[client_ip]
+                if current_time - req_time < self.window_seconds
+            ]
+        
+        # Check if allowed
+        if client_ip not in self.requests:
+            self.requests[client_ip] = []
+        
+        if len(self.requests[client_ip]) < self.max_requests:
+            self.requests[client_ip].append(current_time)
+            return True
+        
+        return False
+
+# Initialize rate limiter for chatbot (10 requests per minute per IP)
+chatbot_rate_limiter = RateLimiter(max_requests=10, window_seconds=60)
+
 # Security
-SECRET_KEY = os.environ.get("JWT_SECRET", "autonorth-super-secret-2024-elite")
+SECRET_KEY = os.environ.get("JWT_SECRET")
+if not SECRET_KEY:
+    # In production, require JWT_SECRET environment variable
+    if os.environ.get("VERCEL_ENV") == "production":
+        raise ValueError("JWT_SECRET environment variable is required in production")
+    SECRET_KEY = "autonorth-super-secret-2024-elite-dev"
+    logger.warning("Using default JWT secret for development. Set JWT_SECRET environment variable for production.")
 ALGORITHM = "HS256"
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -78,8 +161,18 @@ async def health_check():
 
 async def ensure_default_admin():
     try:
-        admin_email = "admin@autonorth.ca"
-        admin_pass = "AdminPassword123!"
+        admin_email = os.environ.get("ADMIN_EMAIL", "admin@autonorth.ca")
+        admin_pass = os.environ.get("ADMIN_PASSWORD")
+        if not admin_pass:
+            # In production, require ADMIN_PASSWORD environment variable
+            if os.environ.get("VERCEL_ENV") == "production":
+                logger.warning("ADMIN_PASSWORD environment variable not set. Admin account may not be created.")
+                return
+            admin_pass = "AdminPassword123!"
+            logger.warning("Using default admin password for development. Set ADMIN_PASSWORD environment variable for production.")
+        
+        # Handle potential authentication issues by trying to create admin anyway
+        # The insert will fail if auth is required, but we'll catch and log appropriately
         exists = await db.users.find_one({"email": admin_email})
         if not exists:
             # Check for both password and password_hash to support legacy and new schemas
@@ -90,8 +183,11 @@ async def ensure_default_admin():
                 "created_at": datetime.now(timezone.utc)
             })
             logger.info("Created default admin.")
+        else:
+            logger.info("Default admin already exists.")
     except Exception as e:
-        logger.error(f"Default admin error: {e}")
+        # Log but don't crash - the database might not be ready or auth might be required
+        logger.warning(f"Default admin check/creation warning (may be expected during setup): {e}")
 
 # Models
 class LoginRequest(BaseModel):
@@ -138,6 +234,10 @@ class Lead(BaseModel):
 
 class ScraperSettings(BaseModel):
     auto_sync: bool
+
+class ChatbotRequest(BaseModel):
+    message: str
+    vehicle_id: Optional[str] = None
 
 # Auth Utilities
 def create_token(data: dict):
@@ -622,7 +722,7 @@ async def run_sync_task():
         
         for p in range(1, info["total_pages"] + 1):
             SYNC_PROGRESS["current_page"] = p
-            res = await sync_teamford_batch(p)
+            res = await sync_teamford_batch(p, db)
             SYNC_PROGRESS["processed"] += res.get("count", 0)
             SYNC_PROGRESS["imported"] += res.get("imported", 0)
             SYNC_PROGRESS["updated"] += res.get("updated", 0)
@@ -642,10 +742,35 @@ async def start_sync(background_tasks: BackgroundTasks, user: str = Depends(get_
     background_tasks.add_task(run_sync_task)
     return {"message": "Sync started in background"}
 
+@app.post("/api/scraper/sync/teamford")
+async def sync_teamford_scraper(user: str = Depends(get_current_user)):
+    """Simple sync endpoint that calls sync_teamford_listings with db parameter"""
+    from scraper import sync_teamford_listings
+    try:
+        sync_result = await sync_teamford_listings(db)
+        return {
+            "message": "Team Ford sync complete", 
+            "imported": sync_result.get("imported", 0), 
+            "updated": sync_result.get("updated", 0),
+            "success": sync_result.get("success", False)
+        }
+    except Exception as e:
+        logger.error(f"Team Ford sync error: {e}")
+        raise HTTPException(500, "Failed to sync with Team Ford")
+
 @app.post("/api/chatbot/message")
 @app.post("/api/chat")
-async def chatbot_message(data: Dict[str, Any], request: Request):
-    msg = data.get("message", "")
+async def chatbot_message(data: ChatbotRequest, request: Request):
+    # Apply rate limiting
+    client_ip = request.client.host if request.client else "unknown"
+    if not chatbot_rate_limiter.is_allowed(client_ip):
+        logger.warning(f"Rate limit exceeded for IP: {client_ip}")
+        raise HTTPException(
+            status_code=429,
+            detail="Too many requests. Please try again later."
+        )
+    
+    msg = data.message
     # Load AI Settings from DB with environment fallbacks
     s = await db.settings.find_one({"type": "general"}) or {}
     provider_raw = s.get("ai_provider") or os.environ.get("AI_PROVIDER") or "local"
@@ -684,6 +809,17 @@ async def chatbot_message(data: Dict[str, Any], request: Request):
                 "status": "new",
                 "created_at": datetime.now(timezone.utc)
             }
+            # Include vehicle_id if provided
+            if data.vehicle_id:
+                lead_info["vehicle_id"] = data.vehicle_id
+                # Try to get vehicle title for better lead tracking
+                try:
+                    vehicle = await db.vehicles.find_one({"_id": to_id(data.vehicle_id)})
+                    if vehicle:
+                        lead_info["vehicle_title"] = vehicle.get("title")
+                except:
+                    pass
+            
             await db.leads.insert_one(lead_info)
             logger.info(f"Lead captured from chat: {lead_info['phone']} / {lead_info['email']}")
 
@@ -756,6 +892,75 @@ async def track_event(data: Dict[str, Any], request: Request):
     except Exception as e:
         logger.error(f"Tracking error: {e}")
         return {"status": "error"}
+
+@app.get("/api/metrics")
+async def get_metrics(user: str = Depends(get_current_user)):
+    """Get comprehensive application metrics"""
+    try:
+        # Vehicle metrics
+        total_vehicles = await db.vehicles.count_documents({})
+        available_vehicles = await db.vehicles.count_documents({
+            "status": {"$in": [None, "available", "Available", "AVAILABLE"]}
+        })
+        featured_vehicles = await db.vehicles.count_documents({"show_on_home": True})
+        
+        # Lead metrics
+        total_leads = await db.leads.count_documents({})
+        new_leads = await db.leads.count_documents({"status": "new"})
+        chat_leads = await db.leads.count_documents({"lead_type": "chat"})
+        
+        # Search metrics
+        total_searches = await db.searches.count_documents({})
+        recent_searches = await db.searches.find().sort("timestamp", -1).limit(10).to_list(10)
+        
+        # Analytics metrics
+        total_events = await db.analytics.count_documents({})
+        
+        # AI health
+        settings = await db.settings.find_one({"type": "general"}) or {}
+        ai_health = settings.get("ai_health", "unknown")
+        last_active = settings.get("last_active")
+        
+        # Sync status
+        sync_settings = await db.settings.find_one({"type": "scraper"}) or {}
+        last_sync = sync_settings.get("last_sync")
+        auto_sync = sync_settings.get("auto_sync", False)
+        
+        return {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "vehicles": {
+                "total": total_vehicles,
+                "available": available_vehicles,
+                "featured": featured_vehicles,
+                "percentage_available": round((available_vehicles / total_vehicles * 100) if total_vehicles > 0 else 0, 2)
+            },
+            "leads": {
+                "total": total_leads,
+                "new": new_leads,
+                "chat_leads": chat_leads,
+                "conversion_rate": round((chat_leads / total_leads * 100) if total_leads > 0 else 0, 2)
+            },
+            "searches": {
+                "total": total_searches,
+                "recent": [s["query"] for s in recent_searches]
+            },
+            "analytics": {
+                "total_events": total_events
+            },
+            "ai": {
+                "health": ai_health,
+                "last_active": last_active.isoformat() if isinstance(last_active, datetime) else last_active,
+                "provider": settings.get("ai_provider", "local")
+            },
+            "sync": {
+                "last_sync": last_sync.isoformat() if isinstance(last_sync, datetime) else last_sync,
+                "auto_sync": auto_sync,
+                "status": SYNC_PROGRESS["status"]
+            }
+        }
+    except Exception as e:
+        logger.error(f"Metrics collection failed: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to collect metrics: {str(e)}")
 
 @app.get("/api/auth/blacklist")
 async def get_blacklist(user_email: str = Depends(get_current_user)):

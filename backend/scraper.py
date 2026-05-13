@@ -5,14 +5,15 @@ import logging
 import asyncio
 import re
 import math
+import os
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
-# DEFINITIVE ALGOLIA CREDENTIALS
-ALGOLIA_APP_ID = "VBAFQME90B"
-ALGOLIA_API_KEY = "650a66d4bf074b5de276a2ecb945bf80"
+# DEFINITIVE ALGOLIA CREDENTIALS - Use environment variables for security
+ALGOLIA_APP_ID = os.environ.get("ALGOLIA_APP_ID", "VBAFQME90B")
+ALGOLIA_API_KEY = os.environ.get("ALGOLIA_API_KEY", "650a66d4bf074b5de276a2ecb945bf80")
 ALGOLIA_URL = f"https://{ALGOLIA_APP_ID}-dsn.algolia.net/1/indexes/*/queries"
 
 class NeuralKnowledge:
@@ -366,7 +367,7 @@ async def get_sync_info() -> Dict[str, Any]:
         logger.error(f"Failed to get sync info: {e}")
         return {"total_vehicles": 0, "hits_per_page": 100, "total_pages": 0}
 
-async def sync_teamford_batch(page: int) -> Dict[str, int]:
+async def sync_teamford_batch(page: int, db=None) -> Dict[str, int]:
     """Syncs a single page (batch) of vehicles from Team Ford."""
     logger.info(f"Processing batch page {page}...")
     try:
@@ -387,7 +388,7 @@ async def sync_teamford_batch(page: int) -> Dict[str, int]:
             if not hits: return {"imported": 0, "updated": 0, "count": 0}
             
             imported, updated = 0, 0
-            from server import db
+            # db is now passed as a parameter
             
             for h in hits:
                 v = _parse_teamford_vehicle(h)
@@ -449,7 +450,7 @@ async def scrape_teamford_inventory(limit: int = 2000) -> List[Dict[str, Any]]:
             
     return all_vehicles
 
-async def sync_teamford_listings() -> Dict[str, int]:
+async def sync_teamford_listings(db=None) -> Dict[str, int]:
     """Sync all Team Ford listings to local database."""
     logger.info("Initiating database sync...")
     try:
@@ -461,7 +462,7 @@ async def sync_teamford_listings() -> Dict[str, int]:
         imported = 0
         updated = 0
         
-        from server import db
+        # db is now passed as a parameter
         
         for v in vehicles:
             vin = v.get("vin")
