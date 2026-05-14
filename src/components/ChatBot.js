@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   MessageSquare, X, Phone, Send, Bot, User, RefreshCw, 
-  BrainCircuit, ChevronDown, PhoneCall, CheckCircle, ExternalLink
+  BrainCircuit, ChevronDown, CheckCircle, ExternalLink
 } from 'lucide-react';
 import axios from 'axios';
 import { useLocation } from 'react-router-dom';

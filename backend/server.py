@@ -773,10 +773,22 @@ async def chatbot_message(data: ChatbotRequest, request: Request):
     msg = data.message
     # Load AI Settings from DB with environment fallbacks
     s = await db.settings.find_one({"type": "general"}) or {}
-    provider_raw = s.get("ai_provider") or os.environ.get("AI_PROVIDER") or "local"
+    # Use DB value if present (even if empty string), otherwise fall back to environment variable
+    if "ai_provider" in s:
+        provider_raw = s["ai_provider"]
+    else:
+        provider_raw = os.environ.get("AI_PROVIDER") or "local"
     provider = str(provider_raw).lower()
-    api_key = s.get("ai_api_key") or os.environ.get("AI_API_KEY")
-    model = s.get("ai_model") or os.environ.get("AI_MODEL")
+    
+    if "ai_api_key" in s:
+        api_key = s["ai_api_key"]
+    else:
+        api_key = os.environ.get("AI_API_KEY")
+        
+    if "ai_model" in s:
+        model = s["ai_model"]
+    else:
+        model = os.environ.get("AI_MODEL")
     
     masked_key = (api_key[:8] + "..." + api_key[-4:]) if api_key and len(api_key) > 12 else "NONE"
     logger.info(f"Chatbot Engine: Provider={provider}, Key={masked_key}, Model={model}")
