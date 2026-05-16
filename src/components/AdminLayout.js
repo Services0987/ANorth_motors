@@ -27,6 +27,36 @@ const SafeLink = ({ to, children, ...props }) => {
   return <a href={to} {...props}>{children}</a>;
 };
 
+// Internal components for the Security Modal
+const Field = ({ label, children }) => (
+  <div className="space-y-1.5">
+    <label className="text-[10px] uppercase tracking-[0.15em] text-white/40 font-heading font-medium">{label}</label>
+    {children}
+  </div>
+);
+
+const Input = (props) => (
+  <input 
+    {...props} 
+    className="w-full bg-white/[0.03] border border-white/[0.08] rounded-sm px-4 py-3 text-sm text-white font-body focus:outline-none focus:border-[#D4AF37]/50 focus:bg-white/[0.05] transition-all placeholder:text-white/10" 
+  />
+);
+
+const Sel = ({ options, value, onChange }) => (
+  <div className="relative">
+    <select 
+      value={value} 
+      onChange={onChange}
+      className="w-full bg-white/[0.03] border border-white/[0.08] rounded-sm px-4 py-3 text-sm text-white font-body appearance-none cursor-pointer focus:outline-none focus:border-[#D4AF37]/50 transition-all"
+    >
+      {options.map(opt => <option key={opt} value={opt} className="bg-[#111]">{opt.toUpperCase()}</option>)}
+    </select>
+    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-white/20">
+      <ChevronRight size={14} className="rotate-90" />
+    </div>
+  </div>
+);
+
 export default function AdminLayout({ children, title }) {
   const { user, logout } = useAuth();
   const location = useLocation();

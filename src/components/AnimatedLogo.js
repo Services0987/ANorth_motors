@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 // The spinning alloy-wheel asset that replaces the letter "O"
 // High-definition alloy wheel asset for the letter "O"
-const TYRE_SRC = '/hd_wheel.png';
+const TYRE_SRC = '/tyre.png';
 
 const letterVariants = {
   hidden: { opacity: 0, y: 20 },

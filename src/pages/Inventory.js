@@ -181,7 +181,7 @@ export default function Inventory() {
         <motion.div style={{ opacity: heroOpacity }} className="relative h-screen flex flex-col items-center justify-center text-center px-6 overflow-hidden bg-black">
             <div className="absolute inset-0 z-0">
               <motion.img 
-                src="https://images.pexels.com/photos/3729464/pexels-photo-3729464.jpeg?auto=compress&cs=tinysrgb&w=1920&q=80" 
+                src="/clean_luxury_showroom_no_text_1777282813141.png" 
                 className="w-full h-full object-cover opacity-70"
                 initial={{ scale: 1.1 }}
                 animate={{ scale: 1 }}

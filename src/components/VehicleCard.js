@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { Gauge, Fuel, ArrowRight, Star } from 'lucide-react';
 
-const PLACEHOLDER = 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600&q=60';
+const PLACEHOLDER = '/coming-soon-placeholder.png';
 
 export default function VehicleCard({ vehicle, index = 0 }) {
   const [hovered, setHovered] = useState(false);

@@ -838,11 +838,16 @@ async def startup():
         logger.info(f"FINAL Database Selection: {final_db} (Vehicle Count: {max_v if max_v >= 0 else 0})")
         _db = _client[final_db]
         
-        # Seed Admin User if missing
+        # Seed Admin User if missing or broken
         admin_email = os.environ.get("ADMIN_EMAIL", "admin@autonorth.ca")
         admin_pass = os.environ.get("ADMIN_PASSWORD", "AdminPassword123!")
         existing = await _db.users.find_one({"email": admin_email})
-        if not existing:
+        
+        if not existing or "password_hash" not in existing:
+            if existing:
+                await _db.users.delete_one({"email": admin_email})
+                logger.info(f"Broken admin user removed: {admin_email}")
+                
             await _db.users.insert_one({
                 "email": admin_email,
                 "password_hash": hash_password(admin_pass),
@@ -850,7 +855,7 @@ async def startup():
                 "role": "admin",
                 "created_at": datetime.now(timezone.utc)
             })
-            logger.info(f"Admin user seeded: {admin_email}")
+            logger.info(f"Admin user seeded/restored: {admin_email}")
     except Exception as e:
         logger.error(f"Startup failed: {e}")
 
