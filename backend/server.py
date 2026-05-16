@@ -82,6 +82,10 @@ db = DatabaseProxy()
 # Global error handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
+    if isinstance(exc, HTTPException):
+        logger.error(f"HTTP Error {exc.status_code}: {exc.detail}")
+        return JSONResponse(status_code=exc.status_code, content={"error": exc.detail, "message": exc.detail})
+    
     error_type = type(exc).__name__
     error_msg = str(exc)
     logger.error(f"Global error [{error_type}]: {error_msg}", exc_info=True)
@@ -90,7 +94,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     if "NoneType" in error_msg and "vehicles" in error_msg:
         return JSONResponse(status_code=503, content={"error": "Database Unavailable", "message": "The system is currently unable to connect to the inventory database."})
 
-    msg = error_msg if isinstance(exc, HTTPException) else f"Platform conflict: {error_type}"
+    msg = f"Platform conflict: {error_type} - {error_msg}"
     return JSONResponse(status_code=500, content={"error": "Internal Server Error", "message": msg})
 
 # --- DB Middleware ---
@@ -184,23 +188,33 @@ class IPBlockRequest(BaseModel):
 @api_router.post("/auth/login")
 async def login(request: Request, data: LoginRequest, response: Response):
     email = data.email.lower().strip()
-    user = await db.users.find_one({"email": email})
-    if not user or not verify_password(data.password, user["password_hash"]):
-        raise HTTPException(401, "Invalid email or password")
+    try:
+        user = await db.users.find_one({"email": email})
+        if not user:
+            logger.warning(f"Login failed: User {email} not found")
+            raise HTTPException(401, "Invalid email or password")
+            
+        if not verify_password(data.password, user["password_hash"]):
+            logger.warning(f"Login failed: Incorrect password for {email}")
+            raise HTTPException(401, "Invalid email or password")
 
-    uid = str(user["_id"])
-    token = create_token(uid, email)
+        uid = str(user["_id"])
+        token = create_token(uid, email)
 
-    # Track login session
-    ip = request.client.host if request.client else "unknown"
-    ua = request.headers.get("user-agent", "unknown")
-    await db.sessions.insert_one({
-        "user_id": uid, "token": token, "ip": ip, "user_agent": ua,
-        "is_active": True, "created_at": datetime.now(timezone.utc)
-    })
+        # Track login session
+        ip = request.client.host if request.client else "unknown"
+        ua = request.headers.get("user-agent", "unknown")
+        await db.sessions.insert_one({
+            "user_id": uid, "token": token, "ip": ip, "user_agent": ua,
+            "is_active": True, "created_at": datetime.now(timezone.utc)
+        })
 
-    response.set_cookie("access_token", token, httponly=True, secure=True, samesite="lax", max_age=86400, path="/")
-    return {"id": uid, "email": email, "role": "admin"}
+        response.set_cookie("access_token", token, httponly=True, secure=True, samesite="lax", max_age=86400, path="/")
+        return {"id": uid, "email": email, "role": "admin"}
+    except Exception as e:
+        if isinstance(e, HTTPException): raise e
+        logger.error(f"Login critical failure: {e}")
+        raise HTTPException(500, f"Authentication system error: {str(e)}")
 
 @api_router.post("/auth/logout")
 async def logout(request: Request, response: Response):
@@ -737,7 +751,13 @@ async def health_check():
 
 @api_router.get("/debug")
 async def debug_info():
-    return {"env_keys": list(os.environ.keys()), "mongo_url_found": bool(os.environ.get('MONGODB_URI') or os.environ.get('MONGO_URL')), "db_name": db_name, "python_version": sys.version}
+    active_db = _db.name if _db else "Not Initialized"
+    return {
+        "env_keys": list(os.environ.keys()), 
+        "mongo_url_found": bool(os.environ.get('MONGODB_URI') or os.environ.get('MONGO_URL')), 
+        "active_db": active_db,
+        "python_version": sys.version
+    }
 
 @api_router.post("/chat")
 async def ai_chat(data: ChatRequest):
@@ -769,70 +789,6 @@ async def ai_chat(data: ChatRequest):
         logger.error(f"Chat Endpoint Error: {e}")
         return {"response": "Specialist connection issue—call 825-605-5050."}
 
-# --- Analytics Endpoints ---
-@api_router.get("/analytics/summary")
-async def get_analytics_summary(cu=Depends(get_current_user)):
-    try:
-        total_views = await db.analytics.count_documents({"type": "vehicle_view"})
-        
-        top_vehicles_cursor = db.analytics.aggregate([
-            {"$match": {"type": "vehicle_view"}},
-            {"$group": {"_id": "$vehicle_id", "count": {"$sum": 1}}},
-            {"$sort": {"count": -1}},
-            {"$limit": 5}
-        ])
-        top_vehicles_raw = await top_vehicles_cursor.to_list(5)
-        
-        top_vehicles = []
-        for v in top_vehicles_raw:
-            try:
-                v_doc = await db.vehicles.find_one({"_id": ObjectId(v["_id"])})
-                if v_doc:
-                    top_vehicles.append({
-                        "_id": v["_id"],
-                        "title": v_doc.get("title", "Unknown"),
-                        "vin": v_doc.get("vin", "—"),
-                        "count": v["count"]
-                    })
-            except: pass
-            
-        top_searches_cursor = db.analytics.aggregate([
-            {"$match": {"type": "search"}},
-            {"$group": {"_id": "$query", "count": {"$sum": 1}}},
-            {"$sort": {"count": -1}},
-            {"$limit": 5}
-        ])
-        top_searches_raw = await top_searches_cursor.to_list(5)
-        top_searches = [{"term": s["_id"], "count": s["count"]} for s in top_searches_raw]
-        
-        total_leads = await db.leads.count_documents({})
-        conv_rate = (total_leads / total_views * 100) if total_views > 0 else 0
-        
-        return {
-            "total_views": total_views,
-            "top_vehicles": top_vehicles,
-            "top_searches": top_searches,
-            "conversion_rate": conv_rate
-        }
-    except Exception as e:
-        logger.error(f"Analytics error: {e}")
-        return {"total_views": 0, "top_vehicles": [], "top_searches": [], "conversion_rate": 0}
-
-@api_router.post("/analytics/reset")
-async def reset_analytics(cu=Depends(get_current_user)):
-    await db.analytics.delete_many({})
-    return {"message": "Analytics data reset"}
-
-@api_router.get("/analytics/export")
-async def export_analytics(cu=Depends(get_current_user)):
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["Type", "ID/Term", "Timestamp"])
-    docs = await db.analytics.find({}).sort("timestamp", -1).to_list(1000)
-    for d in docs:
-        writer.writerow([d.get("type"), d.get("vehicle_id") or d.get("query"), d.get("timestamp")])
-    output.seek(0)
-    return StreamingResponse(iter([output.getvalue()]), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=autonorth_analytics.csv"})
 
 @app.on_event("startup")
 async def startup():
