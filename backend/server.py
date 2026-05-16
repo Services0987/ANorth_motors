@@ -724,7 +724,7 @@ async def ai_chat(data: ChatRequest):
             }
             await db.leads.insert_one(lead_doc)
             lead_captured = True
-        return {"response": response_text, "lead_captured": lead_captured}
+        return {"response": response_text, "lead_captured": lead_captured, "session_id": data.session_id}
     except Exception as e:
         logger.error(f"Chat Endpoint Error: {e}")
         return {"response": "Specialist connection issue—call 825-605-5050."}
