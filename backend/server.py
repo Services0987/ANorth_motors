@@ -166,8 +166,9 @@ class VehicleUpdate(BaseModel):
     images: Optional[List[str]] = None
 
 class LeadCreate(BaseModel):
-    name: str; email: str; phone: str; lead_type: str; message: Optional[str] = ""
-    vehicle_id: Optional[str] = None; vehicle_name: Optional[str] = None
+    name: str; email: str; phone: Optional[str] = None; lead_type: str; message: Optional[str] = ""
+    vehicle_id: Optional[str] = None; vehicle_name: Optional[str] = None; vehicle_title: Optional[str] = None
+    down_payment: Optional[float] = None; preferred_date: Optional[str] = None; preferred_time: Optional[str] = None; preferred_contact: Optional[str] = None
 
 class ChatRequest(BaseModel):
     message: str; session_id: Optional[str] = None
@@ -344,13 +345,23 @@ async def get_stats(cu=Depends(get_current_user)):
     avail = await db.vehicles.count_documents({"status": "available"})
     sold = await db.vehicles.count_documents({"status": "sold"})
     featured = await db.vehicles.count_documents({"featured": True})
-    t_leads = await db.leads.count_documents({}) if "leads" in (await db.list_collection_names()) else 0
+    collections = await db.list_collection_names()
+    t_leads = await db.leads.count_documents({}) if "leads" in collections else 0
+    new_leads_count = await db.leads.count_documents({"status": "new"}) if "leads" in collections else 0
     thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
-    recent_leads = await db.leads.count_documents({"created_at": {"$gte": thirty_days_ago}}) if "leads" in (await db.list_collection_names()) else 0
+
+    # Recent leads for dashboard table
+    recent_leads_docs = []
+    if "leads" in collections:
+        raw = await db.leads.find({}).sort("created_at", -1).limit(5).to_list(5)
+        for d in raw:
+            d["_id"] = str(d["_id"])
+            d["id"] = d["_id"]
+            recent_leads_docs.append(d)
 
     # Analytics
-    total_clicks = await db.analytics.count_documents({"event_type": "click"})
-    total_views = await db.analytics.count_documents({"event_type": "view"})
+    total_clicks = await db.analytics.count_documents({"event_type": "click"}) if "analytics" in collections else 0
+    total_views = await db.analytics.count_documents({"event_type": "view"}) if "analytics" in collections else 0
 
     return {
         "total_vehicles": total,
@@ -358,7 +369,8 @@ async def get_stats(cu=Depends(get_current_user)):
         "sold": sold,
         "featured": featured,
         "total_leads": t_leads,
-        "recent_leads": recent_leads,
+        "new_leads": new_leads_count,
+        "recent_leads": recent_leads_docs,
         "total_clicks": total_clicks,
         "total_views": total_views
     }

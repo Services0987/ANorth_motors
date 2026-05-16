@@ -26,8 +26,17 @@ export default function AdminLogin() {
       await login(email, password);
       navigate('/admin/dashboard', { replace: true });
     } catch (err) {
+      const status = err?.response?.status;
       const detail = err?.response?.data?.detail;
-      setError(typeof detail === 'string' ? detail : 'Invalid credentials. Please try again.');
+      if (status === 500) {
+        setError('Server error — the backend database may be unavailable. Check Vercel environment variables (MONGODB_URI).');
+      } else if (status === 401) {
+        setError('Invalid email or password. Please try again.');
+      } else if (typeof detail === 'string') {
+        setError(detail);
+      } else {
+        setError('Login failed. Ensure the backend server is running and connected to the database.');
+      }
     } finally {
       setLoading(false);
     }
