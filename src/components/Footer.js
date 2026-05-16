@@ -2,11 +2,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Phone, Mail, MapPin, Facebook, Instagram, Twitter } from 'lucide-react';
 
-const SAFE_ICON = (Icon, props = {}) => {
-  if (!Icon || (typeof Icon !== 'function' && typeof Icon !== 'object')) return null;
-  return <Icon {...props} />;
-};
-
 export default function Footer() {
   return (
     <footer className="bg-[#020202] border-t border-white/5 pt-20 pb-8">
@@ -28,7 +23,7 @@ export default function Footer() {
             <div className="flex gap-4">
               {[Facebook, Instagram, Twitter].map((Icon, i) => (
                 <a key={i} href="#" className="w-9 h-9 border border-white/10 flex items-center justify-center text-white/40 hover:text-[#D4AF37] hover:border-[#D4AF37]/40 transition-all duration-200">
-                  {SAFE_ICON(Icon, { size: 15 })}
+                  <Icon size={15} />
                 </a>
               ))}
             </div>
@@ -70,15 +65,15 @@ export default function Footer() {
             <h4 className="font-heading text-xs tracking-[0.2em] uppercase text-white/50 mb-6">Contact</h4>
             <ul className="space-y-4">
               <li className="flex items-start gap-3">
-                {SAFE_ICON(MapPin, { size: 15, className: "text-[#D4AF37] mt-0.5 flex-shrink-0" })}
+                <MapPin size={15} className="text-[#D4AF37] mt-0.5 flex-shrink-0" />
                 <span className="text-white/40 text-sm font-body">9104 91 St NW<br />Edmonton, AB T6C 3P6</span>
               </li>
               <li className="flex items-center gap-3">
-                {SAFE_ICON(Phone, { size: 15, className: "text-[#D4AF37] flex-shrink-0" })}
+                <Phone size={15} className="text-[#D4AF37] flex-shrink-0" />
                 <a href="tel:+18256055050" className="text-white/40 hover:text-white text-sm font-body transition-colors">825-605-5050</a>
               </li>
               <li className="flex items-center gap-3">
-                {SAFE_ICON(Mail, { size: 15, className: "text-[#D4AF37] flex-shrink-0" })}
+                <Mail size={15} className="text-[#D4AF37] flex-shrink-0" />
                 <a href="mailto:autonorthab@gmail.com" className="text-white/40 hover:text-white text-sm font-body transition-colors">autonorthab@gmail.com</a>
               </li>
             </ul>
@@ -87,43 +82,6 @@ export default function Footer() {
               <p className="text-white/40 text-sm font-body">Mon-Fri: 9am - 8pm</p>
               <p className="text-white/40 text-sm font-body">Sat-Sun: 10am - 6pm</p>
             </div>
-          </div>
-        </div>
-
-        {/* Local SEO Dominance Section (Algorithmic Authority) */}
-        <div className="border-t border-white/5 py-12">
-          <h4 className="font-heading text-[10px] tracking-[0.3em] uppercase text-white/20 mb-8 text-center">Local Authority · Premium Services Alberta</h4>
-          <div className="flex flex-wrap justify-center gap-x-6 gap-y-4 max-w-5xl mx-auto">
-            {[
-              { name: 'Downtown Edmonton', q: 'Edmonton' },
-              { name: 'Sherwood Park', q: 'Sherwood+Park' },
-              { name: 'St. Albert', q: 'St.+Albert' },
-              { name: 'Leduc', q: 'Leduc' },
-              { name: 'Spruce Grove', q: 'Spruce+Grove' },
-              { name: 'Fort Saskatchewan', q: 'Fort+Saskatchewan' },
-              { name: 'Beaumont', q: 'Beaumont' },
-              { name: 'Stony Plain', q: 'Stony+Plain' },
-              { name: 'South Terwillegar', q: 'South+Terwillegar' },
-              { name: 'Windermere', q: 'Windermere' },
-              { name: 'Summerside', q: 'Summerside' },
-              { name: 'Griesbach', q: 'Griesbach' },
-              { name: 'Oliver', q: 'Oliver' },
-              { name: 'Glenora', q: 'Glenora' },
-              { name: 'Old Strathcona', q: 'Old+Strathcona' },
-              { name: 'West Edmonton', q: 'West+Edmonton' },
-              { name: 'North Glenora', q: 'North+Glenora' },
-              { name: 'Mill Woods', q: 'Mill+Woods' },
-              { name: 'Ambleside', q: 'Ambleside' },
-              { name: 'Rutherford', q: 'Rutherford' }
-            ].map((area) => (
-              <Link 
-                key={area.name} 
-                to={`/inventory?search=${area.q}`}
-                className="text-[9px] font-body text-white/10 hover:text-[#D4AF37] transition-all hover:scale-110 duration-300 uppercase tracking-[0.2em]"
-              >
-                {area.name}
-              </Link>
-            ))}
           </div>
         </div>
 

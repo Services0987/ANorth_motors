@@ -1,18 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
+import { motion, useScroll, useTransform } from 'framer-motion';
 import { ArrowRight, ChevronDown, Shield, Award, Clock, Headphones, Car, Truck, Navigation, Zap, Bus, PackageOpen } from 'lucide-react';
 import axios from 'axios';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import VehicleCard from '../components/VehicleCard';
 import ExitIntentPopup from '../components/ExitIntentPopup';
-import { Helmet } from 'react-helmet-async';
-import { usePersonalization } from '../contexts/PersonalizationProvider';
+import { HelmetProvider, Helmet } from 'react-helmet-async';
 
-const API = (process.env.REACT_APP_BACKEND_URL || '') + '/api';
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const HERO_IMAGE = 'https://images.pexels.com/photos/3729464/pexels-photo-3729464.jpeg?auto=compress&cs=tinysrgb&w=1920&q=80';
-const PLACEHOLDER = 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?auto=format&fit=crop&q=80&w=800';
 
 const CATEGORIES = [
   { label: 'Trucks', query: 'Truck', icon: Truck, desc: 'Power & Towing' },
@@ -73,15 +71,8 @@ function SelfDrawingLines() {
   );
 }
 
-const SAFE_ICON = (Icon, props = {}) => {
-  if (!Icon || (typeof Icon !== 'function' && typeof Icon !== 'object')) return null;
-  return <Icon {...props} />;
-};
-
 export default function Home() {
-  const { history, topCategory } = usePersonalization();
   const [featured, setFeatured] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [leadForm, setLeadForm] = useState({ name: '', email: '', phone: '' });
   const [leadSent, setLeadSent] = useState(false);
   const navigate = useNavigate();
@@ -90,19 +81,7 @@ export default function Home() {
   const heroOpacity = useTransform(scrollY, [0, 400], [1, 0.3]);
 
   useEffect(() => {
-    setLoading(true);
-    const fetchVehicles = async () => {
-      try {
-        const res = await axios.get(`${API}/vehicles?show_on_home=true&limit=8`);
-        setFeatured(res.data?.vehicles || []);
-      } catch (err) {
-        console.error("Home: Failed to fetch vehicles", err);
-        setFeatured([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchVehicles();
+    axios.get(`${API}/vehicles?featured=true&limit=4`).then(({ data }) => setFeatured(data.vehicles || []));
   }, []);
 
   const handleLeadSubmit = async (e) => {
@@ -112,102 +91,26 @@ export default function Home() {
   };
 
   return (
-    <>
+    <HelmetProvider>
       <Helmet>
-        <title>AutoNorth Motors | Best Car Deals in Edmonton, Alberta & Canada</title>
-        <meta name="description" content="Discover Edmonton's finest selection of premium trucks, SUVs, and luxury vehicles at AutoNorth Motors. Serving Alberta and Canada with certified pre-owned deals and zero dealer fees." />
-        <script type="application/ld+json">
-          {`
-            [
-              {
-                "@context": "https://schema.org",
-                "@type": "AutoDealer",
-                "name": "AutoNorth Motors",
-                "url": "https://autonorth.ca",
-                "logo": "https://autonorth.ca/favicon.ico",
-                "image": "https://autonorth.ca/autonorth_cinematic_logo_1777279777559.png",
-                "description": "Edmonton's premier destination for premium trucks, SUVs, and cars. Elite certified pre-owned selection with zero dealer fees.",
-                "address": {
-                  "@type": "PostalAddress",
-                  "streetAddress": "9104 91 St NW",
-                  "addressLocality": "Edmonton",
-                  "addressRegion": "AB",
-                  "postalCode": "T6C 3P6",
-                  "addressCountry": "CA"
-                },
-                "geo": {
-                  "@type": "GeoCoordinates",
-                  "latitude": 53.5262,
-                  "longitude": -113.4682
-                },
-                "telephone": "+18256055050",
-                "priceRange": "$$$",
-                "areaServed": [
-                  { "@type": "City", "name": "Edmonton" },
-                  { "@type": "AdministrativeArea", "name": "Alberta" },
-                  { "@type": "Country", "name": "Canada" }
-                ],
-                "openingHoursSpecification": [
-                  {
-                    "@type": "OpeningHoursSpecification",
-                    "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-                    "opens": "09:00",
-                    "closes": "20:00"
-                  },
-                  {
-                    "@type": "OpeningHoursSpecification",
-                    "dayOfWeek": ["Saturday", "Sunday"],
-                    "opens": "10:00",
-                    "closes": "18:00"
-                  }
-                ]
-              },
-              {
-                "@context": "https://schema.org",
-                "@type": "WebSite",
-                "url": "https://autonorth.ca",
-                "potentialAction": {
-                  "@type": "SearchAction",
-                  "target": "https://autonorth.ca/inventory?search={search_term_string}",
-                  "query-input": "required name=search_term_string"
-                }
-              },
-              {
-                "@context": "https://schema.org",
-                "@type": "FAQPage",
-                "mainEntity": [
-                  {
-                    "@type": "Question",
-                    "name": "Does AutoNorth Motors charge dealer fees?",
-                    "acceptedAnswer": {
-                      "@type": "Answer",
-                      "text": "No, AutoNorth Motors pride ourselves on having zero dealer fees. The price you see is the price you pay, plus applicable taxes."
-                    }
-                  },
-                  {
-                    "@type": "Question",
-                    "name": "Do you offer financing for all credit types in Edmonton?",
-                    "acceptedAnswer": {
-                      "@type": "Answer",
-                      "text": "Yes! We work with all major lenders in Alberta to provide financing options for good credit, bad credit, and no credit history."
-                    }
-                  },
-                  {
-                    "@type": "Question",
-                    "name": "Are your pre-owned vehicles inspected?",
-                    "acceptedAnswer": {
-                      "@type": "Answer",
-                      "text": "Every vehicle in our inventory undergoes a rigorous 150-point inspection and comes with a full CarFax report for total transparency."
-                    }
-                  }
-                ]
-              }
-            ]
-          `}
-        </script>
+        <title>AutoNorth Motors | Premium New & Used Vehicles Edmonton, Alberta</title>
+        <meta name="description" content="AutoNorth Motors — Edmonton's most trusted dealership for new and used Ford vehicles. Best prices, expert financing, instant AI assistance. Visit us at 9104 91 St NW." />
+        <meta name="keywords" content="Ford dealer Edmonton, used cars Edmonton, new cars Edmonton, AutoNorth Motors, car dealership Alberta, buy car Edmonton, F-150 Edmonton, SUV dealer Edmonton" />
+        <link rel="canonical" href="https://www.autonorth.ca" />
+        <script type="application/ld+json">{JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "AutoDealer",
+          "name": "AutoNorth Motors",
+          "url": "https://www.autonorth.ca",
+          "telephone": "+18256055050",
+          "address": { "@type": "PostalAddress", "streetAddress": "9104 91 St NW", "addressLocality": "Edmonton", "addressRegion": "AB", "postalCode": "T6C 3P6", "addressCountry": "CA" },
+          "openingHours": ["Mo-Fr 09:00-20:00", "Sa-Su 10:00-18:00"],
+          "priceRange": "$$",
+          "aggregateRating": { "@type": "AggregateRating", "ratingValue": "4.9", "reviewCount": "312" }
+        })}</script>
       </Helmet>
 
-      <div className="bg-[#050505] min-h-screen font-body selection:bg-[#D4AF37]/30" data-testid="home-page">
+      <div className="bg-[#050505] min-h-screen overflow-x-hidden" data-testid="home-page">
         <Navbar />
         <ExitIntentPopup />
 
@@ -215,7 +118,7 @@ export default function Home() {
         <section className="relative min-h-screen flex items-center overflow-hidden" data-testid="hero-section">
           {/* BG image with parallax */}
           <motion.div className="absolute inset-0" style={{ y: heroY }}>
-            <img src={HERO_IMAGE} alt="AutoNorth Motors Luxury Dealership Edmonton Alberta - Premium Trucks and SUVs" className="w-full h-full object-cover scale-110" />
+            <img src={HERO_IMAGE} alt="AutoNorth Motors Premium Vehicles" className="w-full h-full object-cover scale-110" />
           </motion.div>
 
           {/* Layered overlays */}
@@ -252,35 +155,23 @@ export default function Home() {
 
           <motion.div style={{ opacity: heroOpacity }} className="relative z-10 max-w-7xl mx-auto px-6 md:px-12 pt-24 pb-32">
             <motion.div variants={stagger} initial="hidden" animate="show">
-              <motion.p variants={fadeUp} className="text-xs tracking-[0.4em] uppercase text-[#D4AF37] font-heading mb-6 flex items-center gap-3 font-bold">
+              <motion.p variants={fadeUp} className="text-xs tracking-[0.4em] uppercase text-[#D4AF37] font-heading mb-6 flex items-center gap-3">
                 <span className="w-8 h-px bg-[#D4AF37]" />
-                {topCategory ? `Hand-Picked ${topCategory}s for You` : 'Edmonton, Alberta · Est. 2012'}
+                Edmonton, Alberta · Est. 2012
               </motion.p>
 
-              <h1 className="font-heading text-5xl md:text-7xl lg:text-[5.5rem] font-light text-white leading-[0.95] tracking-tighter mb-6 uppercase">
-                {topCategory ? (
-                  <>
-                    The Best <span className="gradient-text font-bold">{topCategory}s</span><br />
-                    <span className="text-white/40">in Edmonton</span>
-                  </>
-                ) : (
-                  <>
-                    Drive Your<br />
-                    <span className="gradient-text font-semibold">Ambition.</span>
-                  </>
-                )}
-              </h1>
+              <motion.h1 variants={fadeUp} className="font-heading text-5xl md:text-7xl lg:text-[5.5rem] font-light text-white leading-[0.95] tracking-tighter mb-6">
+                Drive Your<br />
+                <span className="gradient-text font-semibold">Ambition.</span>
+              </motion.h1>
 
-              <motion.p variants={fadeUp} className="text-white/60 font-body text-xl md:text-2xl max-w-xl leading-relaxed mb-10">
-                {topCategory 
-                  ? `Discover Edmonton's finest ${topCategory.toLowerCase()}s. Engineered for Alberta's roads, priced for your budget with zero dealer fees.`
-                  : "Edmonton's most trusted destination for premium new and pre-owned vehicles. Zero dealer fees. Best price guaranteed in Alberta."
-                }
+              <motion.p variants={fadeUp} className="text-white/60 font-body text-xl md:text-2xl max-w-lg leading-relaxed mb-10">
+                Edmonton's most trusted destination for premium new and pre-owned vehicles. Zero dealer fees. Best price guaranteed.
               </motion.p>
 
               <motion.div variants={fadeUp} className="flex flex-wrap gap-4 mb-16">
                 <Link to="/inventory" className="btn-gold px-8 py-4 text-xs tracking-[0.15em] flex items-center gap-3" data-testid="hero-browse-btn">
-                  Browse Inventory {SAFE_ICON(ArrowRight, { size: 15 })}
+                  Browse Inventory <ArrowRight size={15} />
                 </Link>
                 <Link to="/financing" className="btn-outline px-8 py-4 text-xs tracking-[0.15em]" data-testid="hero-financing-btn">
                   Get Pre-Approved
@@ -302,7 +193,7 @@ export default function Home() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2 }}
             className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
             <span className="text-white/20 text-[10px] font-body tracking-[0.3em] uppercase">Scroll</span>
-            {SAFE_ICON(ChevronDown, { size: 16, className: "text-white/20 animate-bounce" })}
+            <ChevronDown size={16} className="text-white/20 animate-bounce" />
           </motion.div>
         </section>
 
@@ -321,58 +212,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ── Welcome Back / Recently Viewed (Personalization) ── */}
-        <AnimatePresence>
-          {history.length > 0 && (
-            <motion.section 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="py-12 bg-[#0A0A0A] border-b border-white/[0.05]"
-            >
-              <div className="max-w-7xl mx-auto px-6 md:px-12">
-                <div className="flex flex-col md:flex-row justify-between items-end gap-6 mb-8">
-                  <div>
-                    <motion.p 
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="text-xs tracking-[0.3em] uppercase text-[#D4AF37] font-heading mb-2"
-                    >
-                      Welcome Back
-                    </motion.p>
-                    <h2 className="font-heading text-2xl md:text-3xl font-light text-white">
-                      Picked for you {topCategory && <span className="text-white/30 text-lg ml-2">(Interest: {topCategory}s)</span>}
-                    </h2>
-                  </div>
-                  <button onClick={() => navigate('/inventory')} className="text-[#D4AF37] text-[10px] font-heading uppercase tracking-widest hover:text-white transition-colors">
-                    Explore all matches
-                  </button>
-                </div>
-                
-                <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide no-scrollbar" style={{ msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
-                  {history.map((v, i) => (
-                    <motion.div 
-                      key={v.id}
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: i * 0.1 }}
-                      className="flex-shrink-0 w-64 group"
-                    >
-                      <Link to={`/vehicle/${v.id}`} className="block">
-                        <div className="aspect-[4/3] bg-white/5 border border-white/10 overflow-hidden mb-3 relative">
-                          <img src={v.image || PLACEHOLDER} alt={v.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 opacity-80 group-hover:opacity-100" />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                          <p className="absolute bottom-3 left-3 text-white font-heading text-sm font-bold">${v.price?.toLocaleString()}</p>
-                        </div>
-                        <p className="text-white/60 text-xs font-medium truncate group-hover:text-[#D4AF37] transition-colors">{v.title}</p>
-                      </Link>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-            </motion.section>
-          )}
-        </AnimatePresence>
-
         {/* ── Featured Vehicles ── */}
         <section className="py-24 md:py-32" data-testid="featured-section">
           <div className="max-w-7xl mx-auto px-6 md:px-12">
@@ -384,23 +223,13 @@ export default function Home() {
                 </motion.h2>
                 <motion.div variants={fadeUp}>
                   <Link to="/inventory" className="text-white/30 hover:text-[#D4AF37] text-sm font-body tracking-widest uppercase flex items-center gap-2 transition-colors">
-                    All Inventory {SAFE_ICON(ArrowRight, { size: 14 })}
+                    All Inventory <ArrowRight size={14} />
                   </Link>
                 </motion.div>
               </div>
             </motion.div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" data-testid="featured-grid">
-              {loading ? (
-                [...Array(4)].map((_, i) => (
-                  <div key={i} className="glass-card aspect-[4/5] animate-pulse rounded-none border-white/5 bg-white/5" />
-                ))
-              ) : featured?.length === 0 ? (
-                <div className="col-span-full py-20 text-center border border-dashed border-white/10 rounded-none">
-                  <p className="text-white/30 font-body">No featured vehicles found.</p>
-                </div>
-              ) : (
-                featured?.map((v, i) => <VehicleCard key={v._id || v.id || i} vehicle={v} index={i} />)
-              )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {featured.map((v, i) => <VehicleCard key={v.id} vehicle={v} index={i} />)}
             </div>
           </div>
         </section>
@@ -442,7 +271,7 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8" style={{ perspective: '900px' }}>
               {featured.slice(0, 3).map((v, i) => (
                 <motion.div
-                  key={v._id || v.id || `showroom-${i}`}
+                  key={v.id}
                   initial={{ opacity: 0, z: -200, y: 60 }}
                   whileInView={{ opacity: 1, z: 0, y: 0 }}
                   viewport={{ once: true }}
@@ -457,7 +286,7 @@ export default function Home() {
             <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.6 }}
               className="text-center mt-12">
               <Link to="/inventory" className="btn-gold px-10 py-4 text-sm tracking-[0.15em] inline-flex items-center gap-3">
-                View Full Collection {SAFE_ICON(ArrowRight, { size: 16 })}
+                View Full Collection <ArrowRight size={16} />
               </Link>
             </motion.div>
           </div>
@@ -481,7 +310,7 @@ export default function Home() {
                   data-testid={`category-${cat.label.toLowerCase().replace(/\s+/g, '-')}`}
                 >
                   <div className="w-12 h-12 border border-[#D4AF37]/20 flex items-center justify-center mb-4 group-hover:border-[#D4AF37]/50 group-hover:bg-[#D4AF37]/5 transition-all">
-                    {SAFE_ICON(cat.icon, { size: 22, className: "text-[#D4AF37]", strokeWidth: 1.5 })}
+                    <cat.icon size={22} className="text-[#D4AF37]" strokeWidth={1.5} />
                   </div>
                   <p className="font-heading text-white text-sm font-medium mb-1 group-hover:text-[#D4AF37] transition-colors">{cat.label}</p>
                   <p className="text-white/30 text-xs font-body">{cat.desc}</p>
@@ -504,7 +333,7 @@ export default function Home() {
                   We built AutoNorth on one principle: treat every customer the way we'd want to be treated. No games, no hidden fees, no pressure. Just expert guidance and the best prices in Edmonton.
                 </p>
                 <Link to="/inventory" className="btn-gold px-8 py-4 text-xs tracking-[0.15em] inline-flex items-center gap-3">
-                  Explore Our Inventory {SAFE_ICON(ArrowRight, { size: 15 })}
+                  Explore Our Inventory <ArrowRight size={15} />
                 </Link>
               </motion.div>
 
@@ -515,7 +344,7 @@ export default function Home() {
                     className="glass-card p-6 hover:border-[#D4AF37]/25 transition-all duration-300 group"
                     whileHover={{ y: -4 }}>
                     <div className="w-10 h-10 bg-[#D4AF37]/8 border border-[#D4AF37]/20 flex items-center justify-center mb-4 group-hover:bg-[#D4AF37]/15 transition-colors">
-                      {SAFE_ICON(item.icon, { size: 18, className: "text-[#D4AF37]", strokeWidth: 1.5 })}
+                      <item.icon size={18} className="text-[#D4AF37]" strokeWidth={1.5} />
                     </div>
                     <h3 className="font-heading text-white text-base font-semibold mb-2">{item.title}</h3>
                     <p className="text-white/40 text-sm font-body leading-relaxed">{item.desc}</p>
@@ -596,7 +425,7 @@ export default function Home() {
                   </div>
                   <p className="text-white/55 font-body text-sm leading-relaxed mb-6 italic">"{t.text}"</p>
                   <div className="flex items-center gap-3 pt-5 border-t border-white/[0.05]">
-                    <img src={t.img} alt={`${t.name} - AutoNorth Motors Client Review`} className="w-10 h-10 object-cover grayscale" onError={(e) => { e.target.style.display = 'none'; }} />
+                    <img src={t.img} alt={t.name} className="w-10 h-10 object-cover grayscale" onError={(e) => { e.target.style.display = 'none'; }} />
                     <div>
                       <p className="font-heading text-white text-sm font-medium">{t.name}</p>
                       <p className="text-white/30 text-xs font-body">{t.role} · {t.vehicle}</p>
@@ -623,7 +452,7 @@ export default function Home() {
                   <input className="input-dark px-4 py-3.5 text-sm font-body" placeholder="Your Name" value={leadForm.name} onChange={(e) => setLeadForm({ ...leadForm, name: e.target.value })} required data-testid="lead-form-name" />
                   <input type="email" className="input-dark px-4 py-3.5 text-sm font-body" placeholder="Email Address" value={leadForm.email} onChange={(e) => setLeadForm({ ...leadForm, email: e.target.value })} required data-testid="lead-form-email" />
                   <button type="submit" className="btn-gold py-3.5 text-xs tracking-[0.15em] flex items-center justify-center gap-2" data-testid="lead-form-submit">
-                    Get Matched {SAFE_ICON(ArrowRight, { size: 15 })}
+                    Get Matched <ArrowRight size={15} />
                   </button>
                 </form>
               ) : (
@@ -636,50 +465,8 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ── LIVE ACTIVITY PULSE (Trust & SEO Signal) ── */}
-        <div className="fixed bottom-6 left-6 z-[100] hidden md:block">
-          <LiveActivityPulse />
-        </div>
-
         <Footer />
       </div>
-    </>
-  );
-}
-
-function LiveActivityPulse() {
-  const [activity, setActivity] = useState(null);
-  const locations = ['Sherwood Park', 'St. Albert', 'Downtown Edmonton', 'Leduc', 'Spruce Grove', 'Windermere', 'Mill Woods'];
-  const actions = ['viewed a Ford F-150', 'checked financing rates', 'booked a test drive', 'viewed a luxury SUV', 'inquired about a RAM 1500'];
-
-  useEffect(() => {
-    const showNew = () => {
-      const loc = locations[Math.floor(Math.random() * locations.length)];
-      const act = actions[Math.floor(Math.random() * actions.length)];
-      setActivity({ loc, act });
-      setTimeout(() => setActivity(null), 5000);
-    };
-
-    const timer = setInterval(showNew, 12000);
-    setTimeout(showNew, 3000);
-    return () => clearInterval(timer);
-  }, []);
-
-  return (
-    <AnimatePresence>
-      {activity && (
-        <motion.div
-          initial={{ opacity: 0, x: -20, scale: 0.9 }}
-          animate={{ opacity: 1, x: 0, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.9 }}
-          className="glass-card px-4 py-3 flex items-center gap-3 border-l-2 border-[#D4AF37] shadow-2xl"
-        >
-          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-          <div className="text-[10px] font-body text-white/70">
-            <span className="text-white font-bold">{activity.loc}</span> recently <span className="text-[#D4AF37]">{activity.act}</span>
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+    </HelmetProvider>
   );
 }

@@ -4,11 +4,6 @@ import { motion } from 'framer-motion';
 import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
-const SAFE_ICON = (Icon, props = {}) => {
-  if (!Icon || (typeof Icon !== 'function' && typeof Icon !== 'object')) return null;
-  return <Icon {...props} />;
-};
-
 export default function AdminLogin() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,13 +13,10 @@ export default function AdminLogin() {
   const { login, user } = useAuth();
   const navigate = useNavigate();
 
-  React.useEffect(() => {
-    if (user) {
-      navigate('/admin/dashboard', { replace: true });
-    }
-  }, [user, navigate]);
-
-  if (user) return null;
+  if (user) {
+    navigate('/admin/dashboard', { replace: true });
+    return null;
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -89,7 +81,7 @@ export default function AdminLogin() {
                   data-testid="admin-password-input"
                 />
                 <button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors">
-                  {SAFE_ICON(showPwd ? EyeOff : Eye, { size: 16 })}
+                  {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
             </div>

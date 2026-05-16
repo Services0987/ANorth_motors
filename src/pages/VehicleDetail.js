@@ -1,22 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Helmet } from 'react-helmet-async';
+import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { ArrowLeft, ChevronLeft, ChevronRight, Check, Phone, MessageSquare, Calendar, Zap } from 'lucide-react';
 import axios from 'axios';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import { Analytics } from '../utils/analytics';
-import { usePersonalization } from '../contexts/PersonalizationProvider';
 
-const SAFE_ICON = (Icon, props = {}) => {
-  if (!Icon || (typeof Icon !== 'function' && typeof Icon !== 'object')) return null;
-  return <Icon {...props} />;
-};
-
-const API = (process.env.REACT_APP_BACKEND_URL || '') + '/api';
-
-const PLACEHOLDER = '/coming-soon-placeholder.png';
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const PLACEHOLDER = 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=800&q=60';
 const TABS = ['contact', 'test_drive', 'financing'];
 const TAB_LABELS = { contact: 'Enquire', test_drive: 'Test Drive', financing: 'Financing' };
 const TAB_ICONS = { contact: MessageSquare, test_drive: Calendar, financing: Zap };
@@ -24,7 +16,6 @@ const TAB_ICONS = { contact: MessageSquare, test_drive: Calendar, financing: Zap
 export default function VehicleDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { trackInterest } = usePersonalization();
   const [vehicle, setVehicle] = useState(null);
   const [loading, setLoading] = useState(true);
   const [imgIdx, setImgIdx] = useState(0);
@@ -32,21 +23,16 @@ export default function VehicleDetail() {
   const [form, setForm] = useState({ name: '', email: '', phone: '', message: '', preferred_date: '', preferred_time: '', down_payment: '' });
   const [submitted, setSubmitted] = useState(false);
   const [sending, setSending] = useState(false);
-  const [phoneError, setPhoneError] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [galleryHovered, setGalleryHovered] = useState(false);
   const galleryRef = useRef(null);
 
   useEffect(() => {
     axios.get(`${API}/vehicles/${id}`)
-      .then(({ data }) => {
-        setVehicle(data);
-        Analytics.viewVehicle(data._id || data.id, data.title);
-        trackInterest(data);
-      })
+      .then(({ data }) => setVehicle(data))
       .catch(() => navigate('/inventory'))
       .finally(() => setLoading(false));
-  }, [id, navigate, trackInterest]);
+  }, [id, navigate]);
 
   const images = vehicle?.images?.length > 0 ? vehicle.images : [PLACEHOLDER];
 
@@ -64,15 +50,9 @@ export default function VehicleDetail() {
     setSending(true);
     try {
       await axios.post(`${API}/leads`, {
-        lead_type: activeTab,
-        name: form.name,
-        email: form.email,
-        phone: form.phone,
-        message: form.message,
-        vehicle_id: vehicle?.id || vehicle?._id,
-        vehicle_title: vehicle?.title,
-        preferred_date: form.preferred_date || undefined,
-        preferred_time: form.preferred_time || undefined,
+        lead_type: activeTab, name: form.name, email: form.email, phone: form.phone,
+        message: form.message, vehicle_id: vehicle?.id, vehicle_title: vehicle?.title,
+        preferred_date: form.preferred_date || undefined, preferred_time: form.preferred_time || undefined,
         down_payment: form.down_payment ? parseFloat(form.down_payment) : undefined,
       });
       setSubmitted(true);
@@ -88,53 +68,30 @@ export default function VehicleDetail() {
   if (!vehicle) return null;
 
   const specs = [
-    ['Year', vehicle.year],
-    ['Make', vehicle.make],
-    ['Model', vehicle.model],
+    ['Year', vehicle.year], ['Make', vehicle.make], ['Model', vehicle.model],
     ['Condition', vehicle.condition === 'new' ? 'Brand New' : 'Pre-Owned'],
-    ['Mileage', vehicle.mileage == null ? 'N/A' : vehicle.mileage === 0 ? '0 km' : `${vehicle.mileage.toLocaleString()} km`],
-    ['Transmission', vehicle.transmission || 'Automatic'],
-    ['Fuel Type', vehicle.fuel_type || vehicle.fuel || 'Gas'],
-    ['Drivetrain', vehicle.drivetrain],
-    ['Engine', vehicle.engine],
+    ['Mileage', vehicle.mileage === 0 ? '0 km' : `${vehicle.mileage?.toLocaleString()} km`],
+    ['Transmission', vehicle.transmission], ['Fuel Type', vehicle.fuel_type],
+    ['Drivetrain', vehicle.drivetrain], ['Engine', vehicle.engine],
     ['Exterior', vehicle.exterior_color], ['Interior', vehicle.interior_color],
     ['Doors', vehicle.doors], ['Seats', vehicle.seats],
     ['Stock #', vehicle.stock_number], ['VIN', vehicle.vin || 'Available on request'],
-  ].filter(([, v]) => v != null);
+  ].filter(([, v]) => v);
 
   const schemaData = {
-    "@context": "https://schema.org",
-    "@type": "Vehicle",
-    "name": vehicle.title,
-    "description": vehicle.description || `Certified pre-owned ${vehicle.title} available at AutoNorth Motors Edmonton. Features ${vehicle.engine} engine, ${vehicle.transmission} transmission.`,
-    "image": images,
-    "brand": { "@type": "Brand", "name": vehicle.make },
-    "manufacturer": { "@type": "Organization", "name": vehicle.make },
-    "vehicleModelDate": String(vehicle.year),
-    "fuelType": vehicle.fuel_type || vehicle.fuel || 'Gas',
-    "vehicleIdentificationNumber": vehicle.vin,
+    "@context": "https://schema.org", "@type": "Vehicle",
+    "name": vehicle.title, "description": vehicle.description,
+    "vehicleModelDate": String(vehicle.year), "fuelType": vehicle.fuel_type,
     "mileageFromOdometer": { "@type": "QuantitativeValue", "value": vehicle.mileage, "unitCode": "KMT" },
-    "vehicleTransmission": vehicle.transmission || 'Automatic',
-    "bodyType": vehicle.body_type,
-    "itemCondition": vehicle.condition === 'new' ? "https://schema.org/NewCondition" : "https://schema.org/UsedCondition",
-    "offers": {
-      "@type": "Offer",
-      "price": vehicle.price,
-      "priceCurrency": "CAD",
-      "itemCondition": vehicle.condition === 'new' ? "https://schema.org/NewCondition" : "https://schema.org/UsedCondition",
-      "availability": vehicle.status === 'available' ? "https://schema.org/InStock" : "https://schema.org/SoldOut",
-      "url": `https://autonorth.ca/vehicle/${id}`,
-      "seller": { "@type": "AutoDealer", "name": "AutoNorth Motors" },
-      "priceValidUntil": new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0]
-    }
+    "vehicleTransmission": vehicle.transmission,
+    "offers": { "@type": "Offer", "price": vehicle.price, "priceCurrency": "CAD", "availability": vehicle.status === 'available' ? "https://schema.org/InStock" : "https://schema.org/SoldOut", "seller": { "@type": "AutoDealer", "name": "AutoNorth Motors" } }
   };
 
   return (
-    <>
+    <HelmetProvider>
       <Helmet>
-        <title>{`${vehicle.title} | AutoNorth Motors Edmonton`}</title>
-        <meta name="description" content={`${vehicle.title} for sale at AutoNorth Motors Edmonton. $${vehicle.price?.toLocaleString()} CAD. ${vehicle.mileage === 0 ? 'Brand new.' : `${vehicle.mileage?.toLocaleString()} km.`} ${vehicle.fuel_type} · ${vehicle.transmission}. Best price in Alberta and Canada.`} />
-        <link rel="canonical" href={`https://www.autonorth.ca/vehicle/${id}`} />
+        <title>{`${vehicle.title} — AutoNorth Motors Edmonton`}</title>
+        <meta name="description" content={`${vehicle.title} for sale at AutoNorth Motors Edmonton. $${vehicle.price?.toLocaleString()} CAD. ${vehicle.mileage === 0 ? 'Brand new.' : `${vehicle.mileage?.toLocaleString()} km.`} ${vehicle.fuel_type} · ${vehicle.transmission}. Book a test drive today.`} />
         <script type="application/ld+json">{JSON.stringify(schemaData)}</script>
       </Helmet>
 
@@ -144,7 +101,7 @@ export default function VehicleDetail() {
         <div className="pt-24 max-w-7xl mx-auto px-6 md:px-12 pb-24">
           <motion.button onClick={() => navigate(-1)} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
             className="flex items-center gap-2 text-white/35 hover:text-white text-sm font-body transition-colors mb-8">
-            {SAFE_ICON(ArrowLeft, { size: 15 })} Back to Inventory
+            <ArrowLeft size={15} /> Back to Inventory
           </motion.button>
 
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-10">
@@ -183,7 +140,6 @@ export default function VehicleDetail() {
                   <AnimatePresence mode="wait">
                     <motion.img
                       key={imgIdx}
-                      layoutId={imgIdx === 0 ? `vehicle-image-${id}` : undefined}
                       src={images[imgIdx]}
                       alt={vehicle.title}
                       className="absolute inset-0 w-full h-full object-cover"
@@ -196,16 +152,13 @@ export default function VehicleDetail() {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
-                      transition={{
-                        opacity: { duration: 0.35 },
-                        layout: { duration: 0.6, ease: [0.16, 1, 0.3, 1] }
-                      }}
+                      transition={{ duration: 0.35 }}
                     />
                   </AnimatePresence>
                   {images.length > 1 && (
                     <>
-                      <button onClick={() => setImgIdx((i) => (i - 1 + images.length) % images.length)} className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/70 backdrop-blur flex items-center justify-center text-white hover:bg-[#D4AF37] hover:text-black transition-all z-10">{SAFE_ICON(ChevronLeft, { size: 18 })}</button>
-                      <button onClick={() => setImgIdx((i) => (i + 1) % images.length)} className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/70 backdrop-blur flex items-center justify-center text-white hover:bg-[#D4AF37] hover:text-black transition-all z-10">{SAFE_ICON(ChevronRight, { size: 18 })}</button>
+                      <button onClick={() => setImgIdx((i) => (i - 1 + images.length) % images.length)} className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/70 backdrop-blur flex items-center justify-center text-white hover:bg-[#D4AF37] hover:text-black transition-all z-10"><ChevronLeft size={18} /></button>
+                      <button onClick={() => setImgIdx((i) => (i + 1) % images.length)} className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/70 backdrop-blur flex items-center justify-center text-white hover:bg-[#D4AF37] hover:text-black transition-all z-10"><ChevronRight size={18} /></button>
                     </>
                   )}
                   <div className="absolute top-3 left-3 flex gap-1.5 z-20">
@@ -278,22 +231,15 @@ export default function VehicleDetail() {
                   <div className="flex flex-wrap gap-1.5 mb-3">
                     {vehicle.body_type && <span className="text-[10px] border border-white/10 text-white/35 px-2 py-0.5 font-body tracking-wide">{vehicle.body_type}</span>}
                     {vehicle.fuel_type && <span className="text-[10px] border border-white/10 text-white/35 px-2 py-0.5 font-body tracking-wide">{vehicle.fuel_type}</span>}
-                    <span className="text-[10px] border border-white/10 text-white/35 px-2 py-0.5 font-body tracking-wide">{vehicle.drivetrain || '—'}</span>
+                    {vehicle.drivetrain && <span className="text-[10px] border border-white/10 text-white/35 px-2 py-0.5 font-body tracking-wide">{vehicle.drivetrain}</span>}
                   </div>
                   <h1 className="font-heading text-2xl md:text-3xl font-semibold text-white leading-tight mb-4" data-testid="vehicle-title">{vehicle.title}</h1>
-                  <div className="mb-6">
-                    <p className="text-[#D4AF37] font-heading text-4xl font-bold tracking-tight" data-testid="vehicle-price">${vehicle.price?.toLocaleString()}</p>
-                    <div className="flex flex-col gap-1 mt-2">
-                       <p className="text-white font-heading text-xs tracking-[0.1em] uppercase bg-white/5 py-1 px-2 border-l border-[#D4AF37] w-fit">
-                         Available at AutoNorth, Edmonton
-                       </p>
-                       <p className="text-white/30 text-[10px] font-body uppercase tracking-wider ml-2">
-                         + exclusive 2024 Alberta rate apply
-                       </p>
-                    </div>
+                  <div className="mb-5">
+                    <p className="text-[#D4AF37] font-heading text-4xl font-bold" data-testid="vehicle-price">${vehicle.price?.toLocaleString()}</p>
+                    <p className="text-white/30 text-sm font-body mt-1">+ applicable taxes & registration</p>
                   </div>
                   <div className="grid grid-cols-2 gap-3 pb-5 border-b border-white/[0.05]">
-                    {[['Year', vehicle.year], ['Mileage', vehicle.mileage === 0 ? '0 km' : `${vehicle.mileage?.toLocaleString()} km`], ['Transmission', vehicle.transmission], ['Drivetrain', vehicle.drivetrain || '—']].map(([v, l]) => (
+                    {[[vehicle.year, 'Year'], [vehicle.mileage === 0 ? '0 km' : `${vehicle.mileage?.toLocaleString()} km`, 'Mileage'], [vehicle.transmission, 'Transmission'], [vehicle.drivetrain || '—', 'Drivetrain']].map(([v, l]) => (
                       <div key={l}>
                         <p className="text-white font-heading text-sm font-medium">{v}</p>
                         <p className="text-white/25 text-xs font-body">{l}</p>
@@ -301,7 +247,7 @@ export default function VehicleDetail() {
                     ))}
                   </div>
                   <a href="tel:+18256055050" className="btn-outline w-full py-3 text-xs flex items-center justify-center gap-2 mt-4" data-testid="vehicle-call-btn">
-                    {SAFE_ICON(Phone, { size: 14 })} Call 825-605-5050
+                    <Phone size={14} /> Call 825-605-5050
                   </a>
                 </div>
 
@@ -311,14 +257,10 @@ export default function VehicleDetail() {
                     {TABS.map((tab) => {
                       const Icon = TAB_ICONS[tab];
                       return (
-                        <button key={tab} onClick={() => { 
-                            setActiveTab(tab); 
-                            setSubmitted(false); 
-                            Analytics.startLead(vehicle._id || vehicle.id, tab);
-                          }}
+                        <button key={tab} onClick={() => { setActiveTab(tab); setSubmitted(false); }}
                           className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[10px] font-heading tracking-[0.12em] uppercase transition-all border-b-2 ${activeTab === tab ? 'text-[#D4AF37] border-[#D4AF37]' : 'text-white/25 border-transparent hover:text-white/50'}`}
                           data-testid={`lead-tab-${tab}`}>
-                          {SAFE_ICON(Icon, { size: 11 })} {TAB_LABELS[tab]}
+                          <Icon size={11} /> {TAB_LABELS[tab]}
                         </button>
                       );
                     })}
@@ -327,7 +269,7 @@ export default function VehicleDetail() {
                   {submitted ? (
                     <div className="text-center py-8">
                       <div className="w-12 h-12 bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center mx-auto mb-3">
-                        {SAFE_ICON(Check, { size: 18, className: "text-[#D4AF37]" })}
+                        <Check size={18} className="text-[#D4AF37]" />
                       </div>
                       <p className="font-heading text-white text-base mb-1">Request Sent!</p>
                       <p className="text-white/35 text-xs font-body">We'll be in touch within 2 hours.</p>
@@ -336,8 +278,8 @@ export default function VehicleDetail() {
                   ) : (
                     <form onSubmit={handleSubmit} className="space-y-3" data-testid="vehicle-lead-form">
                       <input className="input-dark w-full px-4 py-3 text-sm font-body" placeholder="Full Name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required data-testid="lead-name" />
-                      <input type="tel" className={`input-dark w-full px-4 py-3 text-sm font-body ${phoneError ? 'border-red-500' : ''}`} placeholder="Phone Number *" value={form.phone} onChange={(e) => { setForm({ ...form, phone: e.target.value }); setPhoneError(false); }} required data-testid="lead-phone" />
-                      <input type="email" className="input-dark w-full px-4 py-3 text-sm font-body" placeholder="Email Address (Optional)" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} data-testid="lead-email" />
+                      <input type="email" className="input-dark w-full px-4 py-3 text-sm font-body" placeholder="Email Address *" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required data-testid="lead-email" />
+                      <input type="tel" className="input-dark w-full px-4 py-3 text-sm font-body" placeholder="Phone Number" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} data-testid="lead-phone" />
                       {activeTab === 'test_drive' && (
                         <div className="grid grid-cols-2 gap-3">
                           <input type="date" className="input-dark px-3 py-3 text-sm font-body" value={form.preferred_date} onChange={(e) => setForm({ ...form, preferred_date: e.target.value })} data-testid="lead-date" />
@@ -365,6 +307,6 @@ export default function VehicleDetail() {
         </div>
         <Footer />
       </div>
-    </>
+    </HelmetProvider>
   );
 }
