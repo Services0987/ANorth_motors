@@ -194,7 +194,16 @@ async def login(request: Request, data: LoginRequest, response: Response):
             logger.warning(f"Login failed: User {email} not found")
             raise HTTPException(401, "Invalid email or password")
             
-        if not verify_password(data.password, user["password_hash"]):
+        password_hash = user.get("password_hash")
+        
+        # Auto-repair the default admin user if the hash is corrupted/missing
+        if not password_hash and email == os.environ.get("ADMIN_EMAIL", "admin@autonorth.ca"):
+            admin_pass = os.environ.get("ADMIN_PASSWORD", "AdminPassword123!")
+            password_hash = hash_password(admin_pass)
+            await db.users.update_one({"email": email}, {"$set": {"password_hash": password_hash}})
+            logger.info(f"Auto-repaired password_hash for admin user: {email}")
+            
+        if not password_hash or not verify_password(data.password, password_hash):
             logger.warning(f"Login failed: Incorrect password for {email}")
             raise HTTPException(401, "Invalid email or password")
 
