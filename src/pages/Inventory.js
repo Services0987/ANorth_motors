@@ -212,20 +212,19 @@ export default function Inventory() {
                     </motion.span>
                   ))}
                   
+                  {/* SPINNING O (WHEEL) */}
                   <motion.div
                     initial={{ opacity: 0, scale: 0.5, rotate: -180 }}
                     animate={{ opacity: 1, scale: 1, rotate: 0 }}
                     transition={{ duration: 1.5, delay: 0.8, ease: [0.34, 1.56, 0.64, 1] }}
-                    className="relative w-[clamp(3rem,12vw,9rem)] h-[clamp(3rem,12vw,9rem)] rounded-full border-2 border-[#D4AF37]/50 shadow-[0_0_30px_rgba(212,175,55,0.3)] bg-gradient-to-tr from-[#111] to-[#222]"
+                    className="relative"
                   >
-                    <motion.div 
-                      className="absolute inset-0 flex items-center justify-center"
+                    <motion.img 
+                      src="/full_luxury_wheel_with_tyre_1777282790829.png"
+                      className="w-[clamp(3rem,12vw,9rem)] h-auto drop-shadow-[0_0_40px_rgba(212,175,55,0.5)] rounded-full overflow-hidden"
                       animate={{ rotate: 360 }}
                       transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
-                    >
-                      <div className="w-full h-1 bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent" />
-                      <div className="w-full h-1 bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent rotate-90" />
-                    </motion.div>
+                    />
                   </motion.div>
                 </div>
 
@@ -249,20 +248,19 @@ export default function Inventory() {
                     </motion.span>
                   ))}
 
+                  {/* SPINNING O (WHEEL 2) */}
                   <motion.div
                     initial={{ opacity: 0, scale: 0.5, rotate: -180 }}
                     animate={{ opacity: 1, scale: 1, rotate: 0 }}
                     transition={{ duration: 1.5, delay: 1.4, ease: [0.34, 1.56, 0.64, 1] }}
-                    className="relative w-[clamp(3rem,12vw,9rem)] h-[clamp(3rem,12vw,9rem)] rounded-full border-2 border-[#D4AF37]/50 shadow-[0_0_30px_rgba(212,175,55,0.3)] bg-gradient-to-tr from-[#111] to-[#222]"
+                    className="relative"
                   >
-                    <motion.div 
-                      className="absolute inset-0 flex items-center justify-center"
+                    <motion.img 
+                      src="/full_luxury_wheel_with_tyre_1777282790829.png"
+                      className="w-[clamp(3rem,12vw,9rem)] h-auto drop-shadow-[0_0_40px_rgba(212,175,55,0.5)] rounded-full overflow-hidden"
                       animate={{ rotate: -360 }}
                       transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-                    >
-                      <div className="w-full h-1 bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent" />
-                      <div className="w-full h-1 bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent rotate-90" />
-                    </motion.div>
+                    />
                   </motion.div>
 
                   {['R', 'T', 'H'].map((l, i) => (
