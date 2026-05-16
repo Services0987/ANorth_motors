@@ -1,5 +1,6 @@
-import React, { useEffect, Suspense, lazy } from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import ChatBot from './components/ChatBot';
@@ -13,14 +14,13 @@ import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminInventory from './pages/AdminInventory';
 import AdminLeads from './pages/AdminLeads';
-
-// Lazy-load heavy 3D component to prevent crashes if WebGL/Three.js fails
-const Showroom = lazy(() => import('./components/Showroom').catch(() => ({ default: () => null })));
+import Showroom from './components/Showroom';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    window.history.scrollRestoration = 'manual';
+    window.scrollTo(0, 0);
   }, [pathname]);
   return null;
 }
@@ -38,11 +38,7 @@ function AppContent() {
         <Route path="/vehicle/:id" element={<VehicleDetail />} />
         <Route path="/financing" element={<Financing />} />
         <Route path="/contact" element={<Contact />} />
-        <Route path="/showroom" element={
-          <Suspense fallback={<div style={{background:'#050505',minHeight:'100vh'}} />}>
-            <Showroom />
-          </Suspense>
-        } />
+        <Route path="/showroom" element={<Showroom />} />
         <Route path="/admin" element={<AdminLogin />} />
         <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
         <Route path="/admin/inventory" element={<ProtectedRoute><AdminInventory /></ProtectedRoute>} />
@@ -55,11 +51,13 @@ function AppContent() {
 
 function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <AppContent />
-      </BrowserRouter>
-    </AuthProvider>
+    <HelmetProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <AppContent />
+        </BrowserRouter>
+      </AuthProvider>
+    </HelmetProvider>
   );
 }
 

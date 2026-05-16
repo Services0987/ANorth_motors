@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Car, Users, TrendingUp, DollarSign, ArrowRight, CircleCheck, Clock, CircleX } from 'lucide-react';
+import { Car, Users, TrendingUp, DollarSign, ArrowRight, CheckCircle, Clock, XCircle } from 'lucide-react';
 import axios from 'axios';
 import AdminLayout from '../components/AdminLayout';
 
-const SAFE_ICON = (Icon, props = {}) => Icon ? <Icon {...props} /> : null;
+const SAFE_ICON = (Icon, props = {}) => {
+  if (!Icon || (typeof Icon !== 'function' && typeof Icon !== 'object')) return null;
+  return <Icon {...props} />;
+};
 const API = '/api';
 
 const STATUS_STYLES = {
@@ -19,19 +21,25 @@ const TYPE_LABELS = { contact: 'Contact', test_drive: 'Test Drive', financing: '
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
+  const [recentLeads, setRecentLeads] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axios.get(`${API}/stats`, { withCredentials: true })
-      .then(({ data }) => setStats(data))
-      .catch(err => console.error("Stats fetch failed:", err))
-      .finally(() => setLoading(false));
+    Promise.all([
+      axios.get(`${API}/stats`, { withCredentials: true }),
+      axios.get(`${API}/leads`, { withCredentials: true })
+    ]).then(([statsRes, leadsRes]) => {
+      setStats(statsRes.data);
+      const leads = Array.isArray(leadsRes.data) ? leadsRes.data.slice(0, 5) : [];
+      setRecentLeads(leads);
+    }).catch(err => console.error("Dashboard fetch failed:", err))
+    .finally(() => setLoading(false));
   }, []);
 
   const statCards = stats ? [
     { label: 'Total Vehicles', value: stats.total_vehicles, icon: Car, color: 'text-[#D4AF37]', bg: 'bg-[#D4AF37]/10', link: '/admin/inventory' },
-    { label: 'Available', value: stats.available, icon: CircleCheck, color: 'text-emerald-400', bg: 'bg-emerald-500/10', link: '/admin/inventory' },
-    { label: 'Sold', value: stats.sold, icon: CircleX, color: 'text-white/40', bg: 'bg-white/5', link: '/admin/leads' },
+    { label: 'Available', value: stats.available, icon: CheckCircle, color: 'text-emerald-400', bg: 'bg-emerald-500/10', link: '/admin/inventory' },
+    { label: 'Sold', value: stats.sold, icon: XCircle, color: 'text-white/40', bg: 'bg-white/5', link: '/admin/leads' },
     { label: 'Total Leads', value: stats.total_leads, icon: Users, color: 'text-blue-400', bg: 'bg-blue-500/10', link: '/admin/leads' },
     { label: 'New Leads', value: stats.new_leads, icon: Clock, color: 'text-yellow-400', bg: 'bg-yellow-500/10', link: '/admin/leads' },
     { label: 'Featured', value: stats.featured, icon: DollarSign, color: 'text-pink-400', bg: 'bg-pink-500/10', link: '/admin/inventory' },
@@ -45,7 +53,7 @@ export default function AdminDashboard() {
             [...Array(6)].map((_, i) => <div key={i} className="h-28 bg-[#0A0A0A] border border-white/[0.05] animate-pulse" />)
           ) : (
             statCards.map((card, i) => (
-              <motion.div key={card.label} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="group">
+              <div key={card.label} className="group">
                 <Link to={card.link} className="block bg-[#0A0A0A] border border-white/[0.05] hover:border-[#D4AF37]/30 p-5 transition-all">
                   <div className={`w-9 h-9 ${card.bg} flex items-center justify-center mb-4`}>
                     {SAFE_ICON(card.icon, { size: 18, className: card.color })}
@@ -53,7 +61,7 @@ export default function AdminDashboard() {
                   <p className={`font-heading text-3xl font-bold ${card.color} mb-1 tracking-tight`}>{card.value}</p>
                   <p className="text-white/35 text-[10px] font-heading uppercase tracking-widest">{card.label}</p>
                 </Link>
-              </motion.div>
+              </div>
             ))
           )}
         </div>
@@ -88,10 +96,10 @@ export default function AdminDashboard() {
           <div className="px-6 py-4 border-b border-white/[0.05] flex items-center justify-between">
             <h2 className="font-heading text-sm font-medium text-white">Recent Leads</h2>
           </div>
-          {!stats?.recent_leads?.length ? <div className="p-8 text-center text-white/30">No leads.</div> : (
+          {!recentLeads.length ? <div className="p-8 text-center text-white/30">No leads yet.</div> : (
             <div className="divide-y divide-white/[0.03]">
-              {stats.recent_leads.map(lead => (
-                <div key={lead.id} className="px-6 py-4 flex items-center gap-4">
+              {recentLeads.map(lead => (
+                <div key={lead._id || lead.id} className="px-6 py-4 flex items-center gap-4">
                   <div className="flex-1 truncate"><p className="text-white text-sm font-medium">{lead.name}</p></div>
                   <div className="flex items-center gap-3">
                     <span className="text-white/30 text-xs">{TYPE_LABELS[lead.lead_type] || lead.lead_type}</span>
