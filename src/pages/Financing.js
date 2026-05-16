@@ -2,8 +2,14 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Calculator, Check, ChevronRight } from 'lucide-react';
 import axios from 'axios';
+import { Helmet } from 'react-helmet-async';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+
+const SAFE_ICON = (Icon, props = {}) => {
+  if (!Icon || (typeof Icon !== 'function' && typeof Icon !== 'object')) return null;
+  return <Icon {...props} />;
+};
 
 const API = (process.env.REACT_APP_BACKEND_URL || '') + '/api';
 
@@ -37,7 +43,14 @@ export default function Financing() {
   };
 
   return (
-    <div className="bg-[#050505] min-h-screen" data-testid="financing-page">
+    <>
+      <Helmet>
+        <title>Vehicle Financing & Auto Loans Edmonton | AutoNorth Motors</title>
+        <meta name="description" content="Get pre-approved for a car loan in Edmonton today. AutoNorth Motors offers competitive financing rates for all credit profiles in Alberta. Low APR, flexible terms, and instant decisions." />
+        <meta name="keywords" content="car loans Edmonton, auto financing Alberta, bad credit car loans Edmonton, vehicle finance rates Canada, AutoNorth Motors financing" />
+      </Helmet>
+
+      <div className="bg-[#050505] min-h-screen" data-testid="financing-page">
       <Navbar />
       <div className="pt-32 pb-24 max-w-7xl mx-auto px-6 md:px-12">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-16">
@@ -56,7 +69,7 @@ export default function Financing() {
             <div className="glass-card p-8 mb-6" data-testid="financing-calculator">
               <div className="flex items-center gap-3 mb-8">
                 <div className="w-10 h-10 bg-[#D4AF37]/10 border border-[#D4AF37]/20 flex items-center justify-center">
-                  <Calculator size={18} className="text-[#D4AF37]" />
+                  {SAFE_ICON(Calculator, { size: 18, className: "text-[#D4AF37]" })}
                 </div>
                 <h2 className="font-heading text-xl font-semibold text-white">Payment Calculator</h2>
               </div>
@@ -107,7 +120,7 @@ export default function Financing() {
               <ul className="space-y-3">
                 {['Competitive rates from 3.99% APR', 'Quick 10-minute pre-approval', 'All credit profiles welcome', 'Flexible terms 12-96 months', 'Trade-in accepted towards down payment'].map((item) => (
                   <li key={item} className="flex items-center gap-3 text-white/55 font-body text-base">
-                    <Check size={14} className="text-[#D4AF37] flex-shrink-0" />
+                    {SAFE_ICON(Check, { size: 14, className: "text-[#D4AF37] flex-shrink-0" })}
                     {item}
                   </li>
                 ))}
@@ -124,7 +137,7 @@ export default function Financing() {
               {submitted ? (
                 <div className="text-center py-12">
                   <div className="w-16 h-16 bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center mx-auto mb-4">
-                    <Check size={24} className="text-[#D4AF37]" />
+                    {SAFE_ICON(Check, { size: 24, className: "text-[#D4AF37]" })}
                   </div>
                   <h3 className="font-heading text-xl text-white mb-2">Application Received!</h3>
                   <p className="text-white/40 text-sm font-body">Our finance team will contact you within 2-4 hours with your approval decision.</p>
@@ -149,7 +162,7 @@ export default function Financing() {
                   <input type="number" className="input-dark w-full px-4 py-3 text-sm font-body" placeholder="Down Payment Amount ($)" value={form.down_payment} onChange={(e) => setForm({ ...form, down_payment: e.target.value })} data-testid="finance-down" />
 
                   <button type="submit" disabled={sending} className="btn-gold w-full py-4 text-sm flex items-center justify-center gap-2" data-testid="finance-submit">
-                    {sending ? 'Processing...' : 'Submit Pre-Approval Application'} {!sending && <ChevronRight size={16} />}
+                    {sending ? 'Processing...' : 'Submit Pre-Approval Application'} {!sending && SAFE_ICON(ChevronRight, { size: 16 })}
                   </button>
 
                   <p className="text-white/25 text-xs font-body text-center">By submitting, you agree to be contacted by our finance team. Your information is secure and never shared.</p>
@@ -161,5 +174,6 @@ export default function Financing() {
       </div>
       <Footer />
     </div>
+    </>
   );
 }

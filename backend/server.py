@@ -62,14 +62,10 @@ def get_db():
     global _client, _db
     if _db is None:
         url = get_mongo_url()
-        if not url: return None
         try:
-            logger.info("Initializing MongoDB connection...")
-            _client = AsyncIOMotorClient(url, serverSelectionTimeoutMS=5000)
+            _client = AsyncIOMotorClient(url, serverSelectionTimeoutMS=2000)
             _db = _client[db_name]
-        except Exception as e:
-            logger.error(f"MongoDB Initialization Failed: {str(e)}")
-            return None
+        except: return None
     return _db
 
 class DatabaseProxy:
@@ -433,6 +429,16 @@ async def get_vehicle(vehicle_id: str):
     if not ObjectId.is_valid(vehicle_id): raise HTTPException(400, "Invalid ID")
     doc = await db.vehicles.find_one({"_id": ObjectId(vehicle_id)})
     if not doc: raise HTTPException(404, "Vehicle not found")
+    
+    # Track View Intelligence
+    try:
+        await db.analytics.insert_one({
+            "type": "vehicle_view",
+            "vehicle_id": vehicle_id,
+            "timestamp": datetime.now(timezone.utc)
+        })
+    except: pass
+    
     doc["_id"] = str(doc["_id"])
     return doc
 
@@ -763,17 +769,125 @@ async def ai_chat(data: ChatRequest):
         logger.error(f"Chat Endpoint Error: {e}")
         return {"response": "Specialist connection issue—call 825-605-5050."}
 
+# --- Analytics Endpoints ---
+@api_router.get("/analytics/summary")
+async def get_analytics_summary(cu=Depends(get_current_user)):
+    try:
+        total_views = await db.analytics.count_documents({"type": "vehicle_view"})
+        
+        top_vehicles_cursor = db.analytics.aggregate([
+            {"$match": {"type": "vehicle_view"}},
+            {"$group": {"_id": "$vehicle_id", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 5}
+        ])
+        top_vehicles_raw = await top_vehicles_cursor.to_list(5)
+        
+        top_vehicles = []
+        for v in top_vehicles_raw:
+            try:
+                v_doc = await db.vehicles.find_one({"_id": ObjectId(v["_id"])})
+                if v_doc:
+                    top_vehicles.append({
+                        "_id": v["_id"],
+                        "title": v_doc.get("title", "Unknown"),
+                        "vin": v_doc.get("vin", "—"),
+                        "count": v["count"]
+                    })
+            except: pass
+            
+        top_searches_cursor = db.analytics.aggregate([
+            {"$match": {"type": "search"}},
+            {"$group": {"_id": "$query", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 5}
+        ])
+        top_searches_raw = await top_searches_cursor.to_list(5)
+        top_searches = [{"term": s["_id"], "count": s["count"]} for s in top_searches_raw]
+        
+        total_leads = await db.leads.count_documents({})
+        conv_rate = (total_leads / total_views * 100) if total_views > 0 else 0
+        
+        return {
+            "total_views": total_views,
+            "top_vehicles": top_vehicles,
+            "top_searches": top_searches,
+            "conversion_rate": conv_rate
+        }
+    except Exception as e:
+        logger.error(f"Analytics error: {e}")
+        return {"total_views": 0, "top_vehicles": [], "top_searches": [], "conversion_rate": 0}
+
+@api_router.post("/analytics/reset")
+async def reset_analytics(cu=Depends(get_current_user)):
+    await db.analytics.delete_many({})
+    return {"message": "Analytics data reset"}
+
+@api_router.get("/analytics/export")
+async def export_analytics(cu=Depends(get_current_user)):
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Type", "ID/Term", "Timestamp"])
+    docs = await db.analytics.find({}).sort("timestamp", -1).to_list(1000)
+    for d in docs:
+        writer.writerow([d.get("type"), d.get("vehicle_id") or d.get("query"), d.get("timestamp")])
+    output.seek(0)
+    return StreamingResponse(iter([output.getvalue()]), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=autonorth_analytics.csv"})
+
 @app.on_event("startup")
 async def startup():
     global _client, _db
-    get_db()
-    # Seed Admin User if missing
+    url = get_mongo_url()
     try:
+        logger.info("Initializing MongoDB connection with dynamic detection...")
+        _client = AsyncIOMotorClient(url, serverSelectionTimeoutMS=5000)
+        
+        # DYNAMIC DB DETECTION
+        db_names = await _client.list_database_names()
+        candidates = ["AutoNorth", "autonorth", "ANorth_motors", "ANorthMotors", "autonorth_motors"]
+        
+        # Also check the database name from the URI if present
+        import urllib.parse
+        parsed = urllib.parse.urlparse(url)
+        uri_db = parsed.path.lstrip('/')
+        if uri_db and uri_db not in candidates:
+            candidates.insert(0, uri_db)
+            
+        target_db = os.environ.get('DB_NAME')
+        if target_db and target_db not in candidates: candidates.append(target_db)
+        
+        final_db = candidates[0] if candidates else "autonorth"
+        max_v = -1
+        found_any = False
+        
+        for cand in candidates:
+            if cand in db_names:
+                found_any = True
+                count = await _client[cand].vehicles.count_documents({})
+                logger.info(f"Checking DB '{cand}': found {count} vehicles")
+                if count > max_v:
+                    max_v = count
+                    final_db = cand
+        
+        if not found_any and db_names:
+             logger.warning(f"None of the candidates found. Available databases: {db_names}")
+             # If no candidate matches, but we have databases, maybe pick the one with most vehicles anyway?
+             for dname in db_names:
+                 if dname in ['admin', 'local', 'config']: continue
+                 count = await _client[dname].vehicles.count_documents({})
+                 if count > max_v:
+                     max_v = count
+                     final_db = dname
+
+        logger.info(f"FINAL Database Selection: {final_db} (Vehicle Count: {max_v if max_v >= 0 else 0})")
+        _db = _client[final_db]
+        
+        # Seed Admin User if missing
         admin_email = os.environ.get("ADMIN_EMAIL", "admin@autonorth.ca")
         admin_pass = os.environ.get("ADMIN_PASSWORD", "AdminPassword123!")
-        existing = await db.users.find_one({"email": admin_email})
+        existing = await _db.users.find_one({"email": admin_email})
         if not existing:
-            await db.users.insert_one({
+            await _db.users.insert_one({
                 "email": admin_email,
                 "password_hash": hash_password(admin_pass),
                 "name": "Admin Specialist",
@@ -782,7 +896,7 @@ async def startup():
             })
             logger.info(f"Admin user seeded: {admin_email}")
     except Exception as e:
-        logger.error(f"Seeding failed: {e}")
+        logger.error(f"Startup failed: {e}")
 
 app.include_router(api_router)
 @app.on_event("shutdown")

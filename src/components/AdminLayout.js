@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, Car, Users, LogOut, Menu, X, ChevronRight, 
-  Settings, Pencil, CheckCircle, Bell, BellOff 
+  Settings, Pencil, CheckCircle, Bell, BellOff, TrendingUp, Shield, Activity
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -18,6 +18,8 @@ const navItems = [
   { to: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/admin/inventory', icon: Car, label: 'Inventory' },
   { to: '/admin/leads', icon: Users, label: 'Leads' },
+  { to: '/admin/analytics', icon: TrendingUp, label: 'Intelligence' },
+  { to: '/admin/security', icon: Shield, label: 'Security' },
 ];
 
 const SafeLink = ({ to, children, ...props }) => {

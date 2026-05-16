@@ -2,8 +2,14 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Phone, Mail, MapPin, Clock, Check } from 'lucide-react';
 import axios from 'axios';
+import { Helmet } from 'react-helmet-async';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+
+const SAFE_ICON = (Icon, props = {}) => {
+  if (!Icon || (typeof Icon !== 'function' && typeof Icon !== 'object')) return null;
+  return <Icon {...props} />;
+};
 
 const API = (process.env.REACT_APP_BACKEND_URL || '') + '/api';
 
@@ -25,7 +31,14 @@ export default function Contact() {
   };
 
   return (
-    <div className="bg-[#050505] min-h-screen" data-testid="contact-page">
+    <>
+      <Helmet>
+        <title>Contact Us | AutoNorth Motors Edmonton — Your Trusted AB Dealer</title>
+        <meta name="description" content="Contact AutoNorth Motors in Edmonton, Alberta. Visit our showroom at 3304 91 St or call 825-605-5050. Serving Edmonton, Red Deer, Calgary, and all of Canada." />
+        <meta name="keywords" content="contact AutoNorth Motors, car dealer Edmonton phone, Ford dealership Edmonton address, Alberta auto dealer contact" />
+      </Helmet>
+
+      <div className="bg-[#050505] min-h-screen" data-testid="contact-page">
       <Navbar />
       <div className="pt-32 pb-24 max-w-7xl mx-auto px-6 md:px-12">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-16">
@@ -55,7 +68,7 @@ export default function Contact() {
               ].map((item) => (
                 <div key={item.label} className="flex items-start gap-4">
                   <div className="w-10 h-10 bg-[#D4AF37]/10 border border-[#D4AF37]/20 flex items-center justify-center flex-shrink-0">
-                    <item.icon size={16} className="text-[#D4AF37]" />
+                    {SAFE_ICON(item.icon, { size: 16, className: "text-[#D4AF37]" })}
                   </div>
                   <div>
                     <p className="text-white/35 text-xs font-body tracking-wider uppercase mb-1">{item.label}</p>
@@ -70,7 +83,7 @@ export default function Contact() {
 
               <div className="flex items-start gap-4">
                 <div className="w-10 h-10 bg-[#D4AF37]/10 border border-[#D4AF37]/20 flex items-center justify-center flex-shrink-0">
-                  <Clock size={16} className="text-[#D4AF37]" />
+                  {SAFE_ICON(Clock, { size: 16, className: "text-[#D4AF37]" })}
                 </div>
                 <div>
                   <p className="text-white/35 text-xs font-body tracking-wider uppercase mb-2">Hours</p>
@@ -92,7 +105,7 @@ export default function Contact() {
               {submitted ? (
                 <div className="text-center py-12">
                   <div className="w-14 h-14 bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center mx-auto mb-4">
-                    <Check size={22} className="text-[#D4AF37]" />
+                    {SAFE_ICON(Check, { size: 22, className: "text-[#D4AF37]" })}
                   </div>
                   <h3 className="font-heading text-xl text-white mb-2">Message Sent!</h3>
                   <p className="text-white/40 text-sm font-body">Our team will get back to you within 2 hours.</p>
@@ -115,5 +128,6 @@ export default function Contact() {
       </div>
       <Footer />
     </div>
+    </>
   );
 }
