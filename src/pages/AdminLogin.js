@@ -27,13 +27,17 @@ export default function AdminLogin() {
       navigate('/admin/dashboard', { replace: true });
     } catch (err) {
       const status = err?.response?.status;
-      const detail = err?.response?.data?.detail;
-      if (status === 500) {
-        setError('Server error — the backend database may be unavailable. Check Vercel environment variables (MONGODB_URI).');
+      const data = err?.response?.data;
+      const message = data?.message || data?.error || (typeof data?.detail === 'string' ? data.detail : null);
+
+      if (status === 503) {
+        setError(message || 'Database currently unavailable. Please check backend status.');
+      } else if (status === 500) {
+        setError(message || 'Server error — check Vercel environment variables (MONGODB_URI).');
       } else if (status === 401) {
         setError('Invalid email or password. Please try again.');
-      } else if (typeof detail === 'string') {
-        setError(detail);
+      } else if (message) {
+        setError(message);
       } else {
         setError('Login failed. Ensure the backend server is running and connected to the database.');
       }
