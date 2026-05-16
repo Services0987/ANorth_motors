@@ -5,7 +5,7 @@ import axios from 'axios';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const API = (process.env.REACT_APP_BACKEND_URL || '') + '/api';
 
 export default function Financing() {
   const [calc, setCalc] = useState({ price: 35000, down: 5000, term: 60, rate: 6.99 });

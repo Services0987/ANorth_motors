@@ -9,7 +9,8 @@ import VehicleCard from '../components/VehicleCard';
 import ExitIntentPopup from '../components/ExitIntentPopup';
 import { HelmetProvider, Helmet } from 'react-helmet-async';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const SAFE_ICON = (Icon, props = {}) => Icon ? <Icon {...props} /> : null;
+const API = (process.env.REACT_APP_BACKEND_URL || '') + '/api';
 const HERO_IMAGE = 'https://images.pexels.com/photos/3729464/pexels-photo-3729464.jpeg?auto=compress&cs=tinysrgb&w=1920&q=80';
 
 const CATEGORIES = [
@@ -310,7 +311,7 @@ export default function Home() {
                   data-testid={`category-${cat.label.toLowerCase().replace(/\s+/g, '-')}`}
                 >
                   <div className="w-12 h-12 border border-[#D4AF37]/20 flex items-center justify-center mb-4 group-hover:border-[#D4AF37]/50 group-hover:bg-[#D4AF37]/5 transition-all">
-                    <cat.icon size={22} className="text-[#D4AF37]" strokeWidth={1.5} />
+                    {SAFE_ICON(cat.icon, { size: 22, className: "text-[#D4AF37]", strokeWidth: 1.5 })}
                   </div>
                   <p className="font-heading text-white text-sm font-medium mb-1 group-hover:text-[#D4AF37] transition-colors">{cat.label}</p>
                   <p className="text-white/30 text-xs font-body">{cat.desc}</p>
