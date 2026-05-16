@@ -239,8 +239,21 @@ export default function AdminLeads() {
 
                 {selectedLead.message && (
                   <div className="border-t border-white/[0.05] pt-4">
-                    <p className="text-[10px] tracking-[0.15em] uppercase text-white/20 font-heading mb-2">Message</p>
-                    <p className="text-white/50 text-sm font-body leading-relaxed">{selectedLead.message}</p>
+                    <p className="text-[10px] tracking-[0.15em] uppercase text-white/20 font-heading mb-2">Message / Transcript</p>
+                    <div className="bg-white/[0.02] border border-white/[0.05] p-3 rounded-sm max-h-[300px] overflow-y-auto custom-scrollbar">
+                      {selectedLead.message.includes('CONVERSATION TRANSCRIPT:') ? (
+                        <div className="space-y-3">
+                          {selectedLead.message.split('\n').map((line, idx) => {
+                            if (line.startsWith('User:')) return <div key={idx} className="text-[11px] font-body"><span className="text-[#D4AF37] font-bold mr-2 uppercase tracking-tighter">User:</span><span className="text-white/80">{line.replace('User:', '')}</span></div>;
+                            if (line.startsWith('AI:')) return <div key={idx} className="text-[11px] font-body"><span className="text-emerald-400 font-bold mr-2 uppercase tracking-tighter">AI Specialist:</span><span className="text-white/60 italic">{line.replace('AI:', '')}</span></div>;
+                            if (line.includes('(Context:')) return <div key={idx} className="text-[9px] text-white/20 font-body mt-2 border-t border-white/5 pt-2">{line}</div>;
+                            return <p key={idx} className="text-[11px] text-white/40 font-body">{line}</p>;
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-white/50 text-sm font-body leading-relaxed">{selectedLead.message}</p>
+                      )}
+                    </div>
                   </div>
                 )}
 

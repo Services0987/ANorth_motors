@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Car, Users, LogOut, Menu, X, ChevronRight, Settings, Pencil, CheckCircle } from 'lucide-react';
+import { 
+  LayoutDashboard, Car, Users, LogOut, Menu, X, ChevronRight, 
+  Settings, Pencil, CheckCircle, Bell, BellOff 
+} from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
@@ -37,10 +40,49 @@ export default function AdminLayout({ children, title }) {
   const [securitySuccess, setSecuritySuccess] = useState(false);
 
   const [aiHealth, setAiHealth] = useState({ status: 'online', error: '', last_active: null });
+  const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
+    return localStorage.getItem('autonorth_admin_notifications') === 'true';
+  });
+  const [newLeadAlert, setNewLeadAlert] = useState(false);
 
   const API = '/api';
 
-  const fetchSettings = React.useCallback(async () => {
+  useEffect(() => {
+    localStorage.setItem('autonorth_admin_notifications', notificationsEnabled);
+    if (notificationsEnabled && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, [notificationsEnabled]);
+
+  const checkNewLeads = useCallback(async () => {
+    if (!notificationsEnabled) return;
+    try {
+      const { data } = await axios.get(`${API}/leads?status=new`, { withCredentials: true });
+      if (data && data.length > 0) {
+        const lastChecked = localStorage.getItem('autonorth_last_lead_check') || 0;
+        const latest = Math.max(...data.map(l => new Date(l.created_at).getTime()));
+        
+        if (latest > lastChecked) {
+          setNewLeadAlert(true);
+          localStorage.setItem('autonorth_last_lead_check', latest);
+          
+          if (Notification.permission === 'granted') {
+            new Notification('AutoNorth Motors', {
+              body: `New ${data[0].lead_type.replace('_', ' ')} lead captured: ${data[0].name}`,
+              icon: '/favicon.ico'
+            });
+          }
+        }
+      }
+    } catch (err) { console.error("Notification check failed", err); }
+  }, [notificationsEnabled]);
+
+  useEffect(() => {
+    const interval = setInterval(checkNewLeads, 30000); // Check every 30s
+    return () => clearInterval(interval);
+  }, [checkNewLeads]);
+
+  const fetchSettings = useCallback(async () => {
     try {
       const { data } = await axios.get(`${API}/settings`, { withCredentials: true });
       if (data) {
@@ -58,7 +100,7 @@ export default function AdminLayout({ children, title }) {
     } catch (err) { console.error(err); }
   }, []);
 
-  React.useEffect(() => { if (showSecurityModal) fetchSettings(); }, [showSecurityModal, fetchSettings]);
+  useEffect(() => { if (showSecurityModal) fetchSettings(); }, [showSecurityModal, fetchSettings]);
 
   const handleProfileSave = async (e) => {
     e.preventDefault();
@@ -182,9 +224,37 @@ export default function AdminLayout({ children, title }) {
             </button>
             <h1 className="font-heading text-white font-medium text-lg tracking-tight">{title}</h1>
           </div>
-          <SafeLink to="/" className="text-white/30 hover:text-white/60 text-xs font-body tracking-wider uppercase transition-colors">
-            View Site
-          </SafeLink>
+          
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-3 border-r border-white/10 pr-6">
+              <div className="text-right hidden md:block">
+                <p className="text-[9px] text-white/40 uppercase tracking-tighter mb-0.5">Ghost Agent</p>
+                <span className={`text-[10px] font-heading font-bold uppercase tracking-widest ${notificationsEnabled ? 'text-emerald-400' : 'text-white/20'}`}>
+                  {notificationsEnabled ? 'Active' : 'Muted'}
+                </span>
+              </div>
+              <button 
+                onClick={() => {
+                  setNotificationsEnabled(!notificationsEnabled);
+                  setNewLeadAlert(false);
+                }}
+                className={`p-2.5 rounded-full transition-all duration-300 relative ${notificationsEnabled ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-white/5 text-white/20 border border-transparent hover:border-white/10'}`}
+              >
+                {SAFE_ICON(notificationsEnabled ? Bell : BellOff, { size: 18 })}
+                {newLeadAlert && (
+                  <motion.span 
+                    animate={{ scale: [1, 1.4, 1] }} 
+                    transition={{ repeat: Infinity, duration: 2 }}
+                    className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-black" 
+                  />
+                )}
+              </button>
+            </div>
+
+            <SafeLink to="/" className="text-white/30 hover:text-white/60 text-xs font-body tracking-wider uppercase transition-colors">
+              View Site
+            </SafeLink>
+          </div>
         </header>
 
         <main className="flex-1 p-6 md:p-8">

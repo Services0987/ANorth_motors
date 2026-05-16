@@ -250,6 +250,7 @@ def _parse_teamford_vehicle(h: Dict) -> Dict[str, Any]:
         "status": "available",
         "source": "teamford",
         "featured": h.get("is_featured", False),
+        "show_on_home": h.get("is_featured", False),
         "is_on_special": h.get("is_on_special", False),
         "source_url": f"https://www.teamford.ca/vehicles/{h.get('slug')}" if h.get('slug') else ""
     }

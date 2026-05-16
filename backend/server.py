@@ -386,13 +386,18 @@ async def list_vehicles(
 ):
     try:
         q = {}
-        if show_on_home is not None: q["show_on_home"] = show_on_home
+        # Convert string bools from frontend
+        if show_on_home is not None:
+            q["show_on_home"] = show_on_home if isinstance(show_on_home, bool) else (str(show_on_home).lower() == 'true')
+        if featured is not None:
+            q["featured"] = featured if isinstance(featured, bool) else (str(featured).lower() == 'true')
+
         if make: q["make"] = {"$regex": make, "$options": "i"}
         if body_type: q["body_type"] = body_type
         if condition: q["condition"] = condition
         if fuel_type: q["fuel_type"] = fuel_type
         if status and status != "all": q["status"] = status
-        if featured is not None: q["featured"] = featured
+        
         if min_price is not None or max_price is not None:
             q["price"] = {k: v for k, v in [("$gte", min_price), ("$lte", max_price)] if v is not None}
         if search:
@@ -403,8 +408,17 @@ async def list_vehicles(
                 {"vin": {"$regex": search, "$options": "i"}},
                 {"stock_number": {"$regex": search, "$options": "i"}}
             ]
+        
         total = await db.vehicles.count_documents(q)
-        docs = await db.vehicles.find(q).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+        # Fallback if show_on_home returns nothing
+        if total == 0 and q.get("show_on_home") is True:
+            temp_q = {k:v for k,v in q.items() if k != "show_on_home"}
+            temp_q["status"] = "available"
+            total = await db.vehicles.count_documents(temp_q)
+            docs = await db.vehicles.find(temp_q).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+        else:
+            docs = await db.vehicles.find(q).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+            
         vehicles = []
         for d in docs:
             d["_id"] = str(d["_id"])
@@ -668,14 +682,23 @@ async def get_ai_response(message: str, inventory_docs: list):
         return await local_fallback(message, inventory_docs)
 
     try:
-        inventory_summary = "\n".join([f"• {v.get('year')} {v.get('make')} {v.get('model')} - ${safe_price(v):,.0f} (Link: [View Detail](/vehicle/{str(v.get('_id', ''))}))" for v in inventory_docs[:15]])
+        # ── 1. Create a Clean, Human-Readable Inventory Summary ──
+        inventory_summary = "\n".join([
+            f"• {v.get('year')} {v.get('make')} {v.get('model')} - ${safe_price(v):,.0f} (Link: [View Detail](/vehicle/{str(v.get('_id', ''))}))" 
+            for v in inventory_docs[:15]
+        ])
+        
         system_prompt = (
             "You are the AutoNorth AI Specialist. Professional, luxury-focused, and highly sales-oriented. "
             "Your goal is to help visitors find their perfect vehicle and capture their contact info. "
+            "IMPORTANT: When listing vehicles, NEVER show the raw 'Vehicle ID' string (e.g., 69ecb9...). "
+            "ALWAYS use the 'Year Make Model' as the title. "
             "When mentioning a vehicle, ALWAYS use this exact link format: [Year Make Model](/vehicle/ID). "
-            "Use markdown tables for comparisons. Always end with a strong call to action. "
+            "Use markdown tables for comparisons, but keep the first column as the vehicle name, NOT the ID. "
+            "Always end with a strong, helpful call to action to book a test drive. "
             f"Current Fleet Context:\n{inventory_summary}\nTotal vehicles available: {len(inventory_docs)}."
         )
+
         if provider == "gemini":
             if not HAS_GENAI: return "AI Specialist is offline (SDK missing). Call 825-605-5050."
             ai_client = genai.Client(api_key=api_key)
@@ -687,6 +710,17 @@ async def get_ai_response(message: str, inventory_docs: list):
                 resp = await client.post("https://api.anthropic.com/v1/messages", headers={"x-api-key": api_key, "anthropic-version": "2023-06-01", "content-type": "application/json"}, json={"model": custom_model or 'claude-3-haiku-20240307', "max_tokens": 512, "system": system_prompt, "messages": [{"role": "user", "content": message}]}, timeout=15.0)
                 await db.settings.update_one({"type": "general"}, {"$set": {"ai_health": "online", "last_active": datetime.now(timezone.utc)}})
                 return resp.json()["content"][0]["text"]
+        elif provider == "openrouter":
+            async with httpx.AsyncClient() as client:
+                resp = await client.post("https://openrouter.ai/api/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {api_key}", "HTTP-Referer": "https://autonorth.ca", "X-Title": "AutoNorth"},
+                    json={"model": custom_model or 'openrouter/auto', "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}]}, timeout=15.0)
+                r_json = resp.json()
+                if "choices" in r_json:
+                    await db.settings.update_one({"type": "general"}, {"$set": {"ai_health": "online", "last_active": datetime.now(timezone.utc)}})
+                    return r_json["choices"][0]["message"]["content"]
+                raise Exception(r_json.get("error", {}).get("message", "API Error"))
+
     except Exception as e:
         logger.error(f"Global AI Fail ({provider}): {e}")
         return await local_fallback(message, inventory_docs)
@@ -705,7 +739,7 @@ async def ai_chat(data: ChatRequest):
         docs = await db.vehicles.find({"status": "available"}).sort("created_at", -1).to_list(100)
         response_text = await get_ai_response(data.message, docs)
 
-        # AUTOMATIC LEAD EXTRACTION
+        # AUTOMATIC LEAD EXTRACTION (Ghost Agent)
         phone_match = re.search(r'(\d{10}|\d{3}[-\.\s]??\d{3}[-\.\s]??\d{4}|\(\d{3}\)\s*\d{3}[-\.\s]??\d{4})', data.message)
         email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', data.message)
         lead_captured = False
@@ -720,7 +754,7 @@ async def ai_chat(data: ChatRequest):
                 except: pass
             lead_doc = {
                 "name": "AI Chat Visitor", "email": email, "phone": phone, "lead_type": "chat_capture", "vehicle_id": data.vehicle_id, "vehicle_title": v_title, "vehicle_vin": v_vin,
-                "message": f"CONVERSATION TRANSCRIPT:\nUser: {data.message}\nAI: {response_text}", "status": "new", "created_at": datetime.now(timezone.utc)
+                "message": f"CONVERSATION TRANSCRIPT:\nUser: {data.message}\nAI: {response_text}\n\n(Context: Captured via Ghost Agent)", "status": "new", "created_at": datetime.now(timezone.utc)
             }
             await db.leads.insert_one(lead_doc)
             lead_captured = True
